@@ -843,6 +843,12 @@ export const commands: Record<string, Command> = {
     description: "Open shop interface",
     usage: "shop",
     execute: (args: string[], gameState: GameState): CommandResult => {
+      // Direct trigger without complex state updates
+      setTimeout(() => {
+        const event = new CustomEvent('openShop');
+        window.dispatchEvent(event);
+      }, 100);
+
       return {
         output: [
           '▶ Accessing shop interface...',
@@ -851,15 +857,11 @@ export const commands: Record<string, Command> = {
           '✓ Shop interface opened',
           '',
           `Credits: ${gameState.credits}₵`,
-          `Skill Points: ${gameState.skillTree.skillPoints}`,
+          `Skill Points: ${gameState.skillTree?.skillPoints || 0}`,
           '',
           'Use the interface to browse and purchase items'
         ],
-        success: true,
-        updateGameState: {
-          // Trigger shop interface
-          narrativeChoices: [...gameState.narrativeChoices, 'TRIGGER_SHOP_UI']
-        }
+        success: true
       };
     }
   },
