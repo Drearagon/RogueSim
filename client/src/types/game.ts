@@ -10,6 +10,19 @@ export interface GameState {
   isBootComplete: boolean;
   currentNetwork?: string;
   playerLevel: number;
+  hydraProtocol: HydraProtocolState;
+  narrativeChoices: string[];
+  suspicionLevel: number;
+}
+
+export interface HydraProtocolState {
+  discovered: boolean;
+  access_level: number;
+  current_branch: string;
+  completed_nodes: string[];
+  active_contacts: string[];
+  shadow_org_standing: 'UNKNOWN' | 'SUSPICIOUS' | 'TRUSTED' | 'COMPROMISED' | 'ELITE';
+  encrypted_messages: EncryptedMessage[];
 }
 
 export interface Mission {
@@ -58,4 +71,33 @@ export interface Device {
   mac: string;
   type: string;
   services?: string[];
+}
+
+export interface EncryptedMessage {
+  id: string;
+  from: string;
+  timestamp: number;
+  encrypted_content: string;
+  decryption_key?: string;
+  is_decrypted: boolean;
+  content?: string;
+}
+
+export interface NarrativeEvent {
+  id: string;
+  title: string;
+  description: string;
+  choices: NarrativeChoice[];
+  consequences: string[];
+  unlock_conditions: string[];
+}
+
+export interface NarrativeChoice {
+  id: string;
+  text: string;
+  consequences: string[];
+  reputation_change: number;
+  suspicion_change: number;
+  unlock_commands?: string[];
+  leads_to?: string;
 }

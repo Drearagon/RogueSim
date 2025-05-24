@@ -14,7 +14,18 @@ const defaultGameState: GameState = {
   networkStatus: 'CONNECTED',
   soundEnabled: true,
   isBootComplete: false,
-  playerLevel: 1
+  playerLevel: 1,
+  hydraProtocol: {
+    discovered: false,
+    access_level: 0,
+    current_branch: 'main',
+    completed_nodes: [],
+    active_contacts: [],
+    shadow_org_standing: 'UNKNOWN',
+    encrypted_messages: []
+  },
+  narrativeChoices: [],
+  suspicionLevel: 0
 };
 
 // Generate or get session ID
@@ -48,7 +59,10 @@ export async function loadGameState(): Promise<GameState> {
           soundEnabled: dbState.soundEnabled,
           isBootComplete: dbState.isBootComplete,
           currentNetwork: dbState.currentNetwork,
-          playerLevel: dbState.playerLevel
+          playerLevel: dbState.playerLevel,
+          hydraProtocol: dbState.hydraProtocol || defaultGameState.hydraProtocol,
+          narrativeChoices: dbState.narrativeChoices || [],
+          suspicionLevel: dbState.suspicionLevel || 0
         };
         return gameState;
       }

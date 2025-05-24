@@ -13,7 +13,18 @@ export function useGameState() {
     networkStatus: 'CONNECTED',
     soundEnabled: true,
     isBootComplete: false,
-    playerLevel: 1
+    playerLevel: 1,
+    hydraProtocol: {
+      discovered: false,
+      access_level: 0,
+      current_branch: 'main',
+      completed_nodes: [],
+      active_contacts: [],
+      shadow_org_standing: 'UNKNOWN',
+      encrypted_messages: []
+    },
+    narrativeChoices: [],
+    suspicionLevel: 0
   });
 
   const [isLoading, setIsLoading] = useState(true);
