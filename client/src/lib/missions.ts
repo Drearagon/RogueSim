@@ -8,9 +8,9 @@ export const storyMissions: Mission[] = [
     status: "ACTIVE",
     steps: [
       { command: "scan wifi", completed: false, description: "Discover available networks" },
-      { command: "nmap TARGET_NET", completed: false, description: "Scan for open ports" },
-      { command: "exploit TARGET_NET", completed: false, description: "Exploit vulnerabilities" },
-      { command: "inject payload", completed: false, description: "Deploy extraction tool" }
+      { command: "scan ble", completed: false, description: "Scan for bluetooth devices" },
+      { command: "inject payload", completed: false, description: "Deploy extraction tool" },
+      { command: "status", completed: false, description: "Check system status" }
     ],
     reward: 500,
     difficulty: "EASY",
