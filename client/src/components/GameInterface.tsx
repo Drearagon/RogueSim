@@ -30,7 +30,25 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
       
       {/* Mobile-first layout: Terminal on top, mission panel as collapsible bottom */}
       <div className="flex-1 min-h-0 md:ml-80">
-        <Terminal gameState={gameState} onGameStateUpdate={onGameStateUpdate} />
+        <Terminal 
+          gameState={gameState} 
+          onGameStateUpdate={(updates) => {
+            // Check for interface triggers
+            if (updates.narrativeChoices) {
+              if (updates.narrativeChoices.includes('open_shop_interface')) {
+                setShowShop(true);
+                // Remove the trigger to avoid reopening
+                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_shop_interface');
+              }
+              if (updates.narrativeChoices.includes('open_skills_interface')) {
+                setShowSkillTree(true);
+                // Remove the trigger to avoid reopening
+                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_skills_interface');
+              }
+            }
+            onGameStateUpdate(updates);
+          }}
+        />
       </div>
       
       {/* Mission panel - collapsible on mobile */}
