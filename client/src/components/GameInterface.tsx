@@ -35,14 +35,15 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
           onGameStateUpdate={(updates) => {
             // Check for interface triggers
             if (updates.narrativeChoices) {
-              if (updates.narrativeChoices.includes('TRIGGER_SHOP_UI')) {
+              const hasShopTrigger = updates.narrativeChoices.some(choice => choice === 'TRIGGER_SHOP_UI');
+              const hasSkillsTrigger = updates.narrativeChoices.some(choice => choice === 'open_skills_interface');
+              
+              if (hasShopTrigger) {
                 setShowShop(true);
-                // Remove the trigger to avoid reopening
                 updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'TRIGGER_SHOP_UI');
               }
-              if (updates.narrativeChoices.includes('open_skills_interface')) {
+              if (hasSkillsTrigger) {
                 setShowSkillTree(true);
-                // Remove the trigger to avoid reopening
                 updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_skills_interface');
               }
             }
