@@ -1035,5 +1035,86 @@ export const commands: Record<string, Command> = {
       };
     },
     unlockLevel: 999 // Only available through shop
+  },
+
+  // Mission system
+  mission: {
+    description: "View current mission",
+    usage: "mission [complete]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const { getCurrentMission } = require('./missions');
+      const currentMission = getCurrentMission(gameState);
+      
+      if (!currentMission) {
+        return {
+          output: [
+            'No active missions',
+            'Complete more operations to unlock missions'
+          ],
+          success: true
+        };
+      }
+
+      const subcommand = args[0];
+      
+      if (subcommand === 'complete') {
+        // Check if all steps are completed
+        const allCompleted = currentMission.steps.every(step => step.completed);
+        
+        if (allCompleted) {
+          return {
+            output: [
+              `✓ Mission "${currentMission.title}" completed!`,
+              '',
+              `Reward: +${currentMission.reward} credits`,
+              `Status: Mission accomplished`,
+              '',
+              'New missions unlocked!'
+            ],
+            success: true,
+            updateGameState: {
+              credits: gameState.credits + currentMission.reward,
+              completedMissions: gameState.completedMissions + 1,
+              currentMission: gameState.currentMission + 1
+            },
+            soundEffect: 'success'
+          };
+        } else {
+          const remaining = currentMission.steps.filter(step => !step.completed);
+          return {
+            output: [
+              'Mission not yet complete',
+              '',
+              'Remaining steps:',
+              ...remaining.map(step => `• ${step.description}`)
+            ],
+            success: false
+          };
+        }
+      }
+
+      return {
+        output: [
+          `┌─ ${currentMission.title} ─┐`,
+          `│ ${currentMission.objective.substring(0, 22).padEnd(22)} │`,
+          '├─────────────────────────┤',
+          '│ MISSION STEPS:          │',
+          ...currentMission.steps.map(step => 
+            `│ ${step.completed ? '✓' : '○'} ${step.description.substring(0, 20).padEnd(20)} │`
+          ),
+          '├─────────────────────────┤',
+          `│ Reward: ${currentMission.reward}₵         │`,
+          `│ Difficulty: ${currentMission.difficulty.padEnd(8)} │`,
+          '└─────────────────────────┘',
+          '',
+          'INTEL:',
+          ...currentMission.intel,
+          '',
+          'Use "mission complete" when done'
+        ],
+        success: true
+      };
+    },
+    unlockLevel: 1
   }
 };
