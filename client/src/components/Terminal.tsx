@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useSound } from '../hooks/useSound';
 import { commands } from '../lib/commands';
 import { GameState } from '../types/game';
+import { logCommand } from '../lib/gameStorage';
 
 interface TerminalProps {
   gameState: GameState;
