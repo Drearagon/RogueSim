@@ -838,190 +838,30 @@ export const commands: Record<string, Command> = {
     unlockLevel: 3
   },
 
-  // Black Market Shop
+  // Shop Interface
   shop: {
-    description: "Access black market shop",
-    usage: "shop [category|buy <item>]",
+    description: "Open shop interface",
+    usage: "shop",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const subcommand = args[0];
-      
-      if (!subcommand) {
-        return {
-          output: [
-            '┌─ BLACK MARKET ─┐',
-            '│ Categories:     │',
-            '│ • tools         │',
-            '│ • exploits      │',
-            '│ • hardware      │',
-            '│ • intel         │',
-            '└───────────────┘',
-            '',
-            `Credits: ${gameState.credits}`,
-            'Use: shop <category>'
-          ],
-          success: true
-        };
-      }
-
-      if (subcommand === 'tools') {
-        return {
-          output: [
-            '┌─ HACKING TOOLS ─┐',
-            '│ 1. Basic Payload  200₵ │',
-            '│ 2. WiFi Cracker   500₵ │',
-            '│ 3. Port Scanner   300₵ │',
-            '│ 4. Keylogger      800₵ │',
-            '│ 5. Packet Sniffer 600₵ │',
-            '└────────────────────┘',
-            '',
-            'Use: shop buy <number>'
-          ],
-          success: true
-        };
-      }
-
-      if (subcommand === 'exploits') {
-        return {
-          output: [
-            '┌─ ZERO-DAYS ─┐',
-            '│ 1. Buffer Overflow  1200₵ │',
-            '│ 2. RCE Exploit      1500₵ │',
-            '│ 3. Privilege Esc    1000₵ │',
-            '│ 4. IoT Backdoor     2000₵ │',
-            '└──────────────────────┘',
-            '',
-            'Use: shop buy <number>'
-          ],
-          success: true
-        };
-      }
-
-      if (subcommand === 'hardware') {
-        return {
-          output: [
-            '┌─ HARDWARE ─┐',
-            '│ 1. WiFi Pineapple   2500₵ │',
-            '│ 2. USB Rubber Ducky 1800₵ │',
-            '│ 3. RFID Cloner      1200₵ │',
-            '│ 4. Signal Jammer    3000₵ │',
-            '└──────────────────────┘',
-            '',
-            'Use: shop buy <number>'
-          ],
-          success: true
-        };
-      }
-
-      if (subcommand === 'intel') {
-        return {
-          output: [
-            '┌─ INTELLIGENCE ─┐',
-            '│ 1. Corporate DB     5000₵ │',
-            '│ 2. Gov Leaks        8000₵ │',
-            '│ 3. Social Profiles  2000₵ │',
-            '│ 4. Network Maps     3500₵ │',
-            '└──────────────────────┘',
-            '',
-            'Use: shop buy <number>'
-          ],
-          success: true
-        };
-      }
-
-      if (subcommand === 'buy') {
-        const itemNum = parseInt(args[1]);
-        if (!itemNum) {
-          return {
-            output: ['Usage: shop buy <number>'],
-            success: false
-          };
-        }
-
-        // Handle purchases based on current category context
-        // For simplicity, let's handle tool purchases
-        const items = [
-          { name: 'Basic Payload', cost: 200, command: null, payload: 'payload_basic' },
-          { name: 'WiFi Cracker', cost: 500, command: 'crack' },
-          { name: 'Port Scanner', cost: 300, command: 'portscan' },
-          { name: 'Keylogger', cost: 800, command: 'keylog' },
-          { name: 'Packet Sniffer', cost: 600, command: 'sniff' }
-        ];
-
-        const item = items[itemNum - 1];
-        if (!item) {
-          return {
-            output: ['Invalid item number'],
-            success: false
-          };
-        }
-
-        if (gameState.credits < item.cost) {
-          return {
-            output: [
-              '✗ Insufficient credits',
-              `Required: ${item.cost}₵`,
-              `Available: ${gameState.credits}₵`
-            ],
-            success: false,
-            soundEffect: 'error'
-          };
-        }
-
-        const updateState: any = {
-          credits: gameState.credits - item.cost
-        };
-
-        // Handle different item types
-        if (item.payload) {
-          // Payload purchase
-          updateState.narrativeChoices = [...gameState.narrativeChoices, item.payload];
-          return {
-            output: [
-              `▶ Purchasing ${item.name}...`,
-              '▶ Downloading from darknet...',
-              '▶ Installing payload...',
-              '',
-              `✓ ${item.name} acquired!`,
-              `✓ Use: inject basic_payload`,
-              '',
-              `-${item.cost} credits`
-            ],
-            success: true,
-            updateGameState: updateState,
-            soundEffect: 'success'
-          };
-        } else if (item.command) {
-          // Command unlock
-          updateState.unlockedCommands = [...gameState.unlockedCommands, item.command];
-          return {
-            output: [
-              `▶ Purchasing ${item.name}...`,
-              '▶ Downloading from darknet...',
-              '▶ Installing tools...',
-              '',
-              `✓ ${item.name} acquired!`,
-              `✓ New command unlocked: ${item.command}`,
-              '',
-              `-${item.cost} credits`
-            ],
-            success: true,
-            updateGameState: updateState,
-            soundEffect: 'success'
-          };
-        }
-
-        return {
-          output: ['Purchase failed'],
-          success: false
-        };
-      }
-
       return {
-        output: ['Unknown shop command'],
-        success: false
+        output: [
+          '▶ Accessing shop interface...',
+          '▶ Loading available items...',
+          '',
+          '✓ Shop interface opened',
+          '',
+          `Credits: ${gameState.credits}₵`,
+          `Skill Points: ${gameState.skillTree.skillPoints}`,
+          '',
+          'Use the interface to browse and purchase items'
+        ],
+        success: true,
+        updateGameState: {
+          // This will trigger the shop UI to open
+          narrativeChoices: [...gameState.narrativeChoices, 'open_shop_interface']
+        }
       };
-    },
-    unlockLevel: 1
+    }
   },
 
   // New tool commands from shop
@@ -1208,7 +1048,7 @@ export const commands: Record<string, Command> = {
         success: true,
         updateGameState: {
           // This will trigger the skill tree UI to open
-          missionProgress: gameState.missionProgress + 0.1
+          narrativeChoices: [...gameState.narrativeChoices, 'open_skills_interface']
         }
       };
     }

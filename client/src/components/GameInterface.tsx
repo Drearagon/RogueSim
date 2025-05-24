@@ -3,6 +3,7 @@ import { Terminal } from './Terminal';
 import { MissionPanel } from './MissionPanel';
 import { MatrixRain } from './MatrixRain';
 import { SkillTree } from './SkillTree';
+import { ShopInterface } from './ShopInterface';
 import { GameState } from '../types/game';
 import { getCurrentMission } from '../lib/missions';
 
@@ -14,6 +15,7 @@ interface GameInterfaceProps {
 export function GameInterface({ gameState, onGameStateUpdate }: GameInterfaceProps) {
   const currentMission = getCurrentMission(gameState);
   const [showSkillTree, setShowSkillTree] = useState(false);
+  const [showShop, setShowShop] = useState(false);
 
   return (
     <div className="min-h-screen w-full max-w-full flex flex-col bg-black text-green-500 relative overflow-x-hidden">
@@ -47,6 +49,15 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
           gameState={gameState}
           onUpdateGameState={onGameStateUpdate}
           onClose={() => setShowSkillTree(false)}
+        />
+      )}
+
+      {/* Shop Interface */}
+      {showShop && (
+        <ShopInterface
+          gameState={gameState}
+          onUpdateGameState={onGameStateUpdate}
+          onClose={() => setShowShop(false)}
         />
       )}
 
