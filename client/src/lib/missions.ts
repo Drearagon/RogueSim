@@ -8,17 +8,17 @@ export const storyMissions: Mission[] = [
     status: "ACTIVE",
     steps: [
       { command: "scan wifi", completed: false, description: "Discover available networks" },
-      { command: "scan ble", completed: false, description: "Scan for bluetooth devices" },
+      { command: "connect TARGET_NET", completed: false, description: "Connect to target network" },
       { command: "inject payload", completed: false, description: "Deploy extraction tool" },
       { command: "status", completed: false, description: "Check system status" }
     ],
     reward: 500,
     difficulty: "EASY",
     intel: [
-      "• Multiple networks available for practice",
-      "• Start with basic reconnaissance commands", 
-      "• Use nmap to find vulnerable services",
-      "• Complete all steps to earn credits"
+      "• Run 'scan wifi' to discover networks",
+      "• Use 'connect TARGET_NET' to join network", 
+      "• Execute 'inject payload' to deploy tools",
+      "• Use 'complete' command when finished"
     ]
   },
   {
