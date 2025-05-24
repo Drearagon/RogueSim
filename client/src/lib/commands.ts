@@ -667,5 +667,373 @@ export const commands: Record<string, Command> = {
       }
     },
     unlockLevel: 3
+  },
+
+  // Additional Hacker Commands
+  nmap: {
+    description: "Network port scanner",
+    usage: "nmap <target>",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!args[0]) {
+        return {
+          output: ['Usage: nmap <target>'],
+          success: false
+        };
+      }
+
+      const target = args[0];
+      const ports = [22, 80, 443, 8080, 3389, 21, 25, 110];
+      const openPorts = ports.filter(() => Math.random() > 0.6);
+
+      return {
+        output: [
+          `▶ Scanning ${target}...`,
+          '',
+          '┌─ OPEN PORTS ─┐',
+          ...openPorts.map(port => `│ ${port.toString().padStart(4)}/tcp open │`),
+          '└─────────────┘',
+          '',
+          `${openPorts.length} ports found`
+        ],
+        success: true,
+        updateGameState: {
+          credits: gameState.credits + 50
+        }
+      };
+    },
+    unlockLevel: 1
+  },
+
+  exploit: {
+    description: "Run exploit against target",
+    usage: "exploit <target> --payload <payload>",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!args[0]) {
+        return {
+          output: ['Usage: exploit <target> --payload <payload>'],
+          success: false
+        };
+      }
+
+      const target = args[0];
+      const success = Math.random() > 0.3;
+      const credits = success ? Math.floor(Math.random() * 500) + 200 : 0;
+
+      if (success) {
+        return {
+          output: [
+            `▶ Targeting ${target}...`,
+            '▶ Payload delivered',
+            '▶ Exploiting vulnerability...',
+            '',
+            '✓ Shell access gained!',
+            '✓ Privilege escalation complete',
+            '',
+            `+${credits} credits earned`
+          ],
+          success: true,
+          updateGameState: {
+            credits: gameState.credits + credits,
+            completedMissions: gameState.completedMissions + 1
+          },
+          soundEffect: 'success'
+        };
+      } else {
+        return {
+          output: [
+            `▶ Targeting ${target}...`,
+            '▶ Payload delivered',
+            '▶ Access denied',
+            '',
+            '✗ Exploit failed',
+            '⚠ Target may have detected intrusion'
+          ],
+          success: false,
+          updateGameState: {
+            suspicionLevel: gameState.suspicionLevel + 10
+          },
+          soundEffect: 'error'
+        };
+      }
+    },
+    unlockLevel: 2
+  },
+
+  backdoor: {
+    description: "Install persistent backdoor",
+    usage: "backdoor <target>",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!args[0]) {
+        return {
+          output: ['Usage: backdoor <target>'],
+          success: false
+        };
+      }
+
+      const target = args[0];
+      
+      return {
+        output: [
+          `▶ Installing backdoor on ${target}...`,
+          '▶ Creating persistence mechanism...',
+          '▶ Hiding from antivirus...',
+          '',
+          '✓ Backdoor installed',
+          '✓ Command & control established',
+          '⚠ Maintain operational security',
+          '',
+          '+300 credits earned'
+        ],
+        success: true,
+        updateGameState: {
+          credits: gameState.credits + 300,
+          completedMissions: gameState.completedMissions + 1
+        },
+        soundEffect: 'success'
+      };
+    },
+    unlockLevel: 3
+  },
+
+  // Black Market Shop
+  shop: {
+    description: "Access black market shop",
+    usage: "shop [category|buy <item>]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const subcommand = args[0];
+      
+      if (!subcommand) {
+        return {
+          output: [
+            '┌─ BLACK MARKET ─┐',
+            '│ Categories:     │',
+            '│ • tools         │',
+            '│ • exploits      │',
+            '│ • hardware      │',
+            '│ • intel         │',
+            '└───────────────┘',
+            '',
+            `Credits: ${gameState.credits}`,
+            'Use: shop <category>'
+          ],
+          success: true
+        };
+      }
+
+      if (subcommand === 'tools') {
+        return {
+          output: [
+            '┌─ HACKING TOOLS ─┐',
+            '│ 1. WiFi Cracker   500₵ │',
+            '│ 2. Port Scanner   300₵ │',
+            '│ 3. Keylogger      800₵ │',
+            '│ 4. Packet Sniffer 600₵ │',
+            '│ 5. SQL Injector   900₵ │',
+            '└────────────────────┘',
+            '',
+            'Use: shop buy <number>'
+          ],
+          success: true
+        };
+      }
+
+      if (subcommand === 'exploits') {
+        return {
+          output: [
+            '┌─ ZERO-DAYS ─┐',
+            '│ 1. Buffer Overflow  1200₵ │',
+            '│ 2. RCE Exploit      1500₵ │',
+            '│ 3. Privilege Esc    1000₵ │',
+            '│ 4. IoT Backdoor     2000₵ │',
+            '└──────────────────────┘',
+            '',
+            'Use: shop buy <number>'
+          ],
+          success: true
+        };
+      }
+
+      if (subcommand === 'hardware') {
+        return {
+          output: [
+            '┌─ HARDWARE ─┐',
+            '│ 1. WiFi Pineapple   2500₵ │',
+            '│ 2. USB Rubber Ducky 1800₵ │',
+            '│ 3. RFID Cloner      1200₵ │',
+            '│ 4. Signal Jammer    3000₵ │',
+            '└──────────────────────┘',
+            '',
+            'Use: shop buy <number>'
+          ],
+          success: true
+        };
+      }
+
+      if (subcommand === 'intel') {
+        return {
+          output: [
+            '┌─ INTELLIGENCE ─┐',
+            '│ 1. Corporate DB     5000₵ │',
+            '│ 2. Gov Leaks        8000₵ │',
+            '│ 3. Social Profiles  2000₵ │',
+            '│ 4. Network Maps     3500₵ │',
+            '└──────────────────────┘',
+            '',
+            'Use: shop buy <number>'
+          ],
+          success: true
+        };
+      }
+
+      if (subcommand === 'buy') {
+        const itemNum = parseInt(args[1]);
+        if (!itemNum) {
+          return {
+            output: ['Usage: shop buy <number>'],
+            success: false
+          };
+        }
+
+        // Handle purchases based on current category context
+        // For simplicity, let's handle tool purchases
+        const items = [
+          { name: 'WiFi Cracker', cost: 500, command: 'crack' },
+          { name: 'Port Scanner', cost: 300, command: 'portscan' },
+          { name: 'Keylogger', cost: 800, command: 'keylog' },
+          { name: 'Packet Sniffer', cost: 600, command: 'sniff' },
+          { name: 'SQL Injector', cost: 900, command: 'sqlmap' }
+        ];
+
+        const item = items[itemNum - 1];
+        if (!item) {
+          return {
+            output: ['Invalid item number'],
+            success: false
+          };
+        }
+
+        if (gameState.credits < item.cost) {
+          return {
+            output: [
+              '✗ Insufficient credits',
+              `Required: ${item.cost}₵`,
+              `Available: ${gameState.credits}₵`
+            ],
+            success: false,
+            soundEffect: 'error'
+          };
+        }
+
+        return {
+          output: [
+            `▶ Purchasing ${item.name}...`,
+            '▶ Downloading from darknet...',
+            '▶ Installing tools...',
+            '',
+            `✓ ${item.name} acquired!`,
+            `✓ New command unlocked: ${item.command}`,
+            '',
+            `-${item.cost} credits`
+          ],
+          success: true,
+          updateGameState: {
+            credits: gameState.credits - item.cost,
+            unlockedCommands: [...gameState.unlockedCommands, item.command]
+          },
+          soundEffect: 'success'
+        };
+      }
+
+      return {
+        output: ['Unknown shop command'],
+        success: false
+      };
+    },
+    unlockLevel: 1
+  },
+
+  // New tool commands from shop
+  crack: {
+    description: "Crack WiFi passwords",
+    usage: "crack <ssid>",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!args[0]) {
+        return {
+          output: ['Usage: crack <ssid>'],
+          success: false
+        };
+      }
+
+      const ssid = args[0];
+      const success = Math.random() > 0.4;
+      
+      if (success) {
+        const password = ['admin123', 'password', '12345678', 'qwerty123'][Math.floor(Math.random() * 4)];
+        return {
+          output: [
+            `▶ Cracking ${ssid}...`,
+            '▶ Dictionary attack in progress...',
+            '▶ Trying common passwords...',
+            '',
+            '✓ Password cracked!',
+            `✓ Password: ${password}`,
+            '',
+            '+200 credits earned'
+          ],
+          success: true,
+          updateGameState: {
+            credits: gameState.credits + 200
+          },
+          soundEffect: 'success'
+        };
+      } else {
+        return {
+          output: [
+            `▶ Cracking ${ssid}...`,
+            '▶ Dictionary attack failed',
+            '▶ Strong encryption detected',
+            '',
+            '✗ Unable to crack password'
+          ],
+          success: false
+        };
+      }
+    },
+    unlockLevel: 999 // Only available through shop
+  },
+
+  keylog: {
+    description: "Deploy keylogger",
+    usage: "keylog <target>",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!args[0]) {
+        return {
+          output: ['Usage: keylog <target>'],
+          success: false
+        };
+      }
+
+      const target = args[0];
+      
+      return {
+        output: [
+          `▶ Deploying keylogger to ${target}...`,
+          '▶ Injecting into system processes...',
+          '▶ Enabling stealth mode...',
+          '',
+          '✓ Keylogger active',
+          '✓ Capturing keystrokes...',
+          '⚠ Data will be sent every 24h',
+          '',
+          '+150 credits earned'
+        ],
+        success: true,
+        updateGameState: {
+          credits: gameState.credits + 150
+        },
+        soundEffect: 'success'
+      };
+    },
+    unlockLevel: 999 // Only available through shop
   }
 };
