@@ -203,18 +203,18 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
         onKeyDown={handleKeyDown}
         onClick={() => terminalRef.current?.focus()}
       >
-        <div className="min-h-full">
+        <div className="min-h-full w-full max-w-full">
           {output.map((line, index) => (
-            <div key={index} className="whitespace-pre-wrap">
+            <div key={index} className="whitespace-pre-wrap break-all w-full max-w-full overflow-hidden">
               {line}
             </div>
           ))}
           
           {/* Current input line */}
-          <div className="flex items-center">
-            <span className="text-green-400">shadow@roguesim:~$ </span>
-            <span>{currentInput}</span>
-            <span className={`ml-0 ${cursorVisible ? 'opacity-100' : 'opacity-0'} bg-green-500`}>█</span>
+          <div className="flex items-center w-full max-w-full overflow-hidden">
+            <span className="text-green-400 flex-shrink-0">shadow@roguesim:~$ </span>
+            <span className="break-all flex-1 min-w-0">{currentInput}</span>
+            <span className={`ml-0 flex-shrink-0 ${cursorVisible ? 'opacity-100' : 'opacity-0'} bg-green-500`}>█</span>
           </div>
         </div>
       </div>

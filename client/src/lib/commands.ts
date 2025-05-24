@@ -47,13 +47,11 @@ export const commands: Record<string, Command> = {
       
       return {
         output: [
-          '╔══════════════════════════════════════╗',
-          '║           AVAILABLE COMMANDS         ║',
-          '╠══════════════════════════════════════╣',
-          ...availableCommands.map(cmd => `║ ${cmd.padEnd(8)} - ${commands[cmd].description.substring(0, 24).padEnd(24)} ║`),
-          '╚══════════════════════════════════════╝',
+          '┌─ AVAILABLE COMMANDS ─┐',
+          ...availableCommands.map(cmd => `│ ${cmd.padEnd(10)} - ${commands[cmd].description.substring(0, 20)} │`),
+          '└─────────────────────┘',
           '',
-          'Type "man <command>" for detailed help',
+          'Type "man <cmd>" for help',
           ''
         ],
         success: true
@@ -71,19 +69,16 @@ export const commands: Record<string, Command> = {
         case 'wifi':
           return {
             output: [
-              '▶ Initializing WiFi scan...',
-              '▶ Scanning 2.4GHz and 5GHz bands...',
+              '▶ WiFi scan...',
               '',
-              '┌─────────────────────────────────────────┐',
-              '│ SSID              │ CH │ PWR │ SEC     │',
-              '├─────────────────────────────────────────┤',
+              '┌─ NETWORKS ─┐',
               ...networkDatabase.map(net => 
-                `│ ${net.ssid.padEnd(17)} │ ${net.channel.toString().padStart(2)} │ ${net.power.toString().padStart(3)} │ ${net.security.padEnd(7)} │`
+                `│ ${net.ssid.substring(0, 12).padEnd(12)} ${net.channel.toString().padStart(2)} ${net.power.toString().padStart(3)} │`
               ),
-              '└─────────────────────────────────────────┘',
+              '└────────────┘',
               '',
-              `✓ ${networkDatabase.length} networks discovered`,
-              '⚠ Vulnerable WEP network detected',
+              `✓ ${networkDatabase.length} networks found`,
+              '⚠ WEP detected',
               ''
             ],
             success: true,
@@ -185,17 +180,13 @@ export const commands: Record<string, Command> = {
     execute: (args: string[], gameState: GameState): CommandResult => {
       return {
         output: [
-          '╔══════════════════════════════════════╗',
-          '║            SYSTEM STATUS             ║',
-          '╠══════════════════════════════════════╣',
-          `║ ESP32 Core:    ONLINE                ║`,
-          `║ WiFi Module:   ${gameState.networkStatus.padEnd(20)}   ║`,
-          `║ BLE Module:    STANDBY               ║`,
-          `║ Credits:       ${gameState.credits.toString().padEnd(20)}   ║`,
-          `║ Reputation:    ${gameState.reputation.padEnd(20)}   ║`,
-          `║ Missions:      ${gameState.completedMissions}/∞                   ║`,
-          '║ Threat Level:  LOW                   ║',
-          '╚══════════════════════════════════════╝',
+          '┌─ SYSTEM STATUS ─┐',
+          `│ ESP32: ONLINE    │`,
+          `│ WiFi: ${gameState.networkStatus.substring(0, 10).padEnd(10)} │`,
+          `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
+          `│ Rep: ${gameState.reputation.substring(0, 10).padEnd(10)} │`,
+          `│ Missions: ${gameState.completedMissions}/∞    │`,
+          '└─────────────────┘',
           ''
         ],
         success: true
