@@ -1,4 +1,11 @@
 import { Command, CommandResult, GameState, Network, Device } from '../types/game';
+import { 
+  getNextNarrativeEvent, 
+  formatNarrativeEvent, 
+  processNarrativeChoice, 
+  generateEncryptedMessage,
+  narrativeEvents 
+} from './narrativeSystem';
 
 const networkDatabase: Network[] = [
   { ssid: "TARGET_NET", channel: 11, power: -42, security: "WPA2" },
