@@ -13,29 +13,27 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
   const currentMission = getCurrentMission(gameState);
 
   return (
-    <div className="h-screen flex bg-black text-green-500 overflow-hidden relative">
+    <div className="h-screen flex flex-col md:flex-row bg-black text-green-500 overflow-hidden relative">
       <MatrixRain />
       
       {/* Scanline effect */}
       <div className="absolute inset-0 pointer-events-none z-10">
         <div 
-          className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-500/20 to-transparent"
-          style={{
-            top: '50%',
-            animation: 'scanline 2s linear infinite'
-          }}
+          className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-500/20 to-transparent scanline-animation"
         />
       </div>
       
-      <MissionPanel gameState={gameState} currentMission={currentMission} />
-      <Terminal gameState={gameState} onGameStateUpdate={onGameStateUpdate} />
+      {/* Mobile: Mission panel on top, Desktop: Mission panel on left */}
+      <div className="md:order-1 order-2">
+        <MissionPanel gameState={gameState} currentMission={currentMission} />
+      </div>
       
-      <style jsx>{`
-        @keyframes scanline {
-          0% { transform: translateY(-100vh); }
-          100% { transform: translateY(100vh); }
-        }
-      `}</style>
+      {/* Terminal takes remaining space */}
+      <div className="flex-1 md:order-2 order-1">
+        <Terminal gameState={gameState} onGameStateUpdate={onGameStateUpdate} />
+      </div>
+      
+
     </div>
   );
 }

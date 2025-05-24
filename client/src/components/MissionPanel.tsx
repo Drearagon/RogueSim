@@ -18,11 +18,11 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
   }
 
   return (
-    <div className="w-80 bg-black/90 border border-green-500/50 p-4 overflow-y-auto backdrop-blur-lg">
+    <div className="w-full md:w-80 h-64 md:h-full bg-black/90 border border-green-500/50 p-4 overflow-y-auto backdrop-blur-lg">
       <div className="space-y-4">
         <div className="border-b border-green-400 pb-2">
-          <h2 className="text-xl font-bold text-cyan-400">MISSION BRIEFING</h2>
-          <div className="text-sm text-green-400">Operation: {currentMission.title}</div>
+          <h2 className="text-lg md:text-xl font-bold text-cyan-400">MISSION BRIEFING</h2>
+          <div className="text-xs md:text-sm text-green-400">Operation: {currentMission.title}</div>
         </div>
         
         <div className="space-y-3">
