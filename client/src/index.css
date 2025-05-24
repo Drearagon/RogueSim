@@ -175,3 +175,25 @@
     color: #00FFFF;
   }
 }
+
+/* Mobile shop interface optimizations */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.touch-manipulation {
+  touch-action: manipulation;
+}
+
+/* Improve touch targets on mobile */
+@media (max-width: 768px) {
+  .shop-button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}

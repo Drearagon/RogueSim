@@ -226,15 +226,15 @@ export function ModernShopInterface({ gameState, onUpdateGameState, onClose }: M
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex"
+      className="fixed inset-0 bg-black/90 backdrop-blur-sm z-50 flex flex-col md:flex-row"
       onClick={onClose}
     >
-      {/* Navigation Sidebar */}
+      {/* Navigation Sidebar - Mobile: Top, Desktop: Left */}
       <motion.div
         initial={{ x: -300, opacity: 0 }}
         animate={{ x: 0, opacity: 1 }}
         exit={{ x: -300, opacity: 0 }}
-        className="bg-black/95 border-r border-green-500/30 w-80 p-6 backdrop-blur-md overflow-y-auto"
+        className="bg-black/95 border-b md:border-r md:border-b-0 border-green-500/30 w-full md:w-80 p-4 md:p-6 backdrop-blur-md overflow-y-auto max-h-64 md:max-h-full"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex justify-between items-center mb-6">
@@ -259,35 +259,57 @@ export function ModernShopInterface({ gameState, onUpdateGameState, onClose }: M
           </div>
         </div>
 
-        {/* Tab Navigation */}
+        {/* Tab Navigation - Mobile: Horizontal scroll, Desktop: Vertical */}
         <div className="space-y-2">
-          <h3 className="text-green-400 text-sm font-semibold mb-3 uppercase tracking-wider">
+          <h3 className="text-green-400 text-sm font-semibold mb-3 uppercase tracking-wider hidden md:block">
             Categories
           </h3>
-          {TAB_CONFIG.map(({ id, label, icon: Icon, description }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all group ${
-                activeTab === id
-                  ? 'bg-green-900/40 border border-green-500/50 text-green-400'
-                  : 'bg-gray-900/30 border border-gray-600/30 text-green-300 hover:bg-green-900/20'
-              }`}
-            >
-              <div className={`p-2 rounded-lg ${
-                activeTab === id ? 'bg-green-600' : 'bg-gray-700 group-hover:bg-green-700'
-              }`}>
-                <Icon className="w-5 h-5 text-white" />
-              </div>
-              <div className="flex-1 text-left">
-                <div className="font-medium">{label}</div>
-                <div className="text-xs opacity-70">{description}</div>
-              </div>
-              <ChevronRight className={`w-4 h-4 transition-transform ${
-                activeTab === id ? 'rotate-90' : 'group-hover:translate-x-1'
-              }`} />
-            </button>
-          ))}
+          
+          {/* Mobile: Horizontal scrolling tabs */}
+          <div className="flex md:hidden gap-2 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
+            {TAB_CONFIG.map(({ id, label, icon: Icon }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`flex-shrink-0 flex items-center gap-2 px-4 py-3 rounded-lg transition-all ${
+                  activeTab === id
+                    ? 'bg-green-900/40 border border-green-500/50 text-green-400'
+                    : 'bg-gray-900/30 border border-gray-600/30 text-green-300'
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span className="text-sm font-medium whitespace-nowrap">{label}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Desktop: Vertical tabs */}
+          <div className="hidden md:block space-y-2">
+            {TAB_CONFIG.map(({ id, label, icon: Icon, description }) => (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                className={`w-full flex items-center gap-3 p-4 rounded-lg transition-all group ${
+                  activeTab === id
+                    ? 'bg-green-900/40 border border-green-500/50 text-green-400'
+                    : 'bg-gray-900/30 border border-gray-600/30 text-green-300 hover:bg-green-900/20'
+                }`}
+              >
+                <div className={`p-2 rounded-lg ${
+                  activeTab === id ? 'bg-green-600' : 'bg-gray-700 group-hover:bg-green-700'
+                }`}>
+                  <Icon className="w-5 h-5 text-white" />
+                </div>
+                <div className="flex-1 text-left">
+                  <div className="font-medium">{label}</div>
+                  <div className="text-xs opacity-70">{description}</div>
+                </div>
+                <ChevronRight className={`w-4 h-4 transition-transform ${
+                  activeTab === id ? 'rotate-90' : 'group-hover:translate-x-1'
+                }`} />
+              </button>
+            ))}
+          </div>
         </div>
       </motion.div>
 
@@ -319,7 +341,7 @@ export function ModernShopInterface({ gameState, onUpdateGameState, onClose }: M
                 </p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
                 {SHOP_DATA[activeTab]?.map((item) => {
                   const owned = isOwned(item);
                   const canAfford = gameState.credits >= item.price;
@@ -332,7 +354,7 @@ export function ModernShopInterface({ gameState, onUpdateGameState, onClose }: M
                       key={item.id}
                       whileHover={{ scale: 1.02 }}
                       whileTap={{ scale: 0.98 }}
-                      className={`p-4 rounded-lg border-2 cursor-pointer transition-all ${
+                      className={`p-3 md:p-4 rounded-lg border-2 cursor-pointer transition-all min-h-[160px] touch-manipulation ${
                         owned 
                           ? 'border-green-400/50 bg-green-900/20' 
                           : getRarityColor(item.rarity)
@@ -374,7 +396,7 @@ export function ModernShopInterface({ gameState, onUpdateGameState, onClose }: M
                               if (purchasable) handlePurchase(item);
                             }}
                             disabled={!purchasable}
-                            className={`px-3 py-1 rounded text-sm font-medium transition-colors ${
+                            className={`shop-button px-3 py-2 rounded text-sm font-medium transition-colors ${
                               purchasable
                                 ? 'bg-green-600 hover:bg-green-500 text-white'
                                 : 'bg-gray-600 text-gray-400 cursor-not-allowed'
