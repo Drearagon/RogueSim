@@ -198,8 +198,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       {/* Terminal content */}
       <div 
         ref={terminalRef}
-        className="h-full p-2 md:p-4 overflow-y-auto font-mono text-green-500 focus:outline-none text-xs md:text-sm"
-        style={{ height: 'calc(100vh - 60px)' }}
+        className="flex-1 p-2 md:p-4 overflow-y-auto font-mono text-green-500 focus:outline-none text-xs md:text-sm md:pl-80"
         tabIndex={0}
         onKeyDown={handleKeyDown}
         onClick={() => terminalRef.current?.focus()}
@@ -217,6 +216,53 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
             <span>{currentInput}</span>
             <span className={`ml-0 ${cursorVisible ? 'opacity-100' : 'opacity-0'} bg-green-500`}>█</span>
           </div>
+        </div>
+      </div>
+      
+      {/* Mobile input area */}
+      <div className="md:hidden bg-black/90 border-t border-green-500/50 p-3">
+        <div className="flex items-center space-x-2">
+          <span className="text-green-400 text-sm">$</span>
+          <input
+            type="text"
+            value={currentInput}
+            onChange={(e) => setCurrentInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                executeCommand(currentInput);
+                setCurrentInput('');
+                e.preventDefault();
+              }
+            }}
+            className="flex-1 bg-transparent border border-green-500/50 text-green-500 p-2 text-sm font-mono focus:outline-none focus:border-green-400"
+            placeholder="Type command here..."
+            autoComplete="off"
+            autoCapitalize="off"
+            autoCorrect="off"
+            spellCheck="false"
+          />
+          <button
+            onClick={() => {
+              executeCommand(currentInput);
+              setCurrentInput('');
+            }}
+            className="bg-green-500 text-black px-3 py-2 text-sm font-bold hover:bg-green-400 transition-colors"
+          >
+            EXEC
+          </button>
+        </div>
+        
+        {/* Quick command buttons for mobile */}
+        <div className="flex flex-wrap gap-1 mt-2">
+          {['help', 'scan wifi', 'status', 'clear'].map((cmd) => (
+            <button
+              key={cmd}
+              onClick={() => setCurrentInput(cmd)}
+              className="border border-green-500/50 bg-transparent text-green-500 px-2 py-1 text-xs hover:bg-green-500 hover:text-black transition-colors"
+            >
+              {cmd}
+            </button>
+          ))}
         </div>
       </div>
       
