@@ -857,8 +857,8 @@ export const commands: Record<string, Command> = {
         ],
         success: true,
         updateGameState: {
-          // This will trigger the shop UI to open
-          narrativeChoices: [...gameState.narrativeChoices, 'open_shop_interface']
+          // Trigger shop interface
+          narrativeChoices: [...gameState.narrativeChoices, 'TRIGGER_SHOP_UI']
         }
       };
     }

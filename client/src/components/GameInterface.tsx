@@ -3,7 +3,7 @@ import { Terminal } from './Terminal';
 import { MissionPanel } from './MissionPanel';
 import { MatrixRain } from './MatrixRain';
 import { SkillTree } from './SkillTree';
-import { ShopInterface } from './ShopInterface';
+import { ModernShopInterface } from './shop/ModernShopInterface';
 import { GameState } from '../types/game';
 import { getCurrentMission } from '../lib/missions';
 
@@ -35,10 +35,10 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
           onGameStateUpdate={(updates) => {
             // Check for interface triggers
             if (updates.narrativeChoices) {
-              if (updates.narrativeChoices.includes('open_shop_interface')) {
+              if (updates.narrativeChoices.includes('TRIGGER_SHOP_UI')) {
                 setShowShop(true);
                 // Remove the trigger to avoid reopening
-                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_shop_interface');
+                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'TRIGGER_SHOP_UI');
               }
               if (updates.narrativeChoices.includes('open_skills_interface')) {
                 setShowSkillTree(true);
@@ -72,7 +72,7 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
 
       {/* Shop Interface */}
       {showShop && (
-        <ShopInterface
+        <ModernShopInterface
           gameState={gameState}
           onUpdateGameState={onGameStateUpdate}
           onClose={() => setShowShop(false)}
