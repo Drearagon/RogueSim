@@ -1,5 +1,6 @@
 import { GameState } from '../types/game';
 import { apiRequest } from './queryClient';
+import { createDefaultSkillTree } from './skillTree';
 
 const STORAGE_KEY = 'roguesim_game_state';
 const SESSION_KEY = 'roguesim_session_id';
@@ -26,10 +27,7 @@ const defaultGameState: GameState = {
   },
   narrativeChoices: [],
   suspicionLevel: 0,
-  skillTree: {
-    nodes: [],
-    skillPoints: 5
-  }
+  skillTree: createDefaultSkillTree()
 };
 
 // Generate or get session ID
