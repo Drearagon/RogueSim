@@ -9,7 +9,7 @@ const defaultGameState: GameState = {
   credits: 2847,
   reputation: 'TRUSTED',
   completedMissions: 12,
-  unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'man', 'inject', 'nmap', 'exploit', 'shop', 'mission'],
+  unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'man', 'inject', 'nmap', 'exploit', 'shop', 'mission', 'skills'],
   missionProgress: 15,
   networkStatus: 'CONNECTED',
   soundEnabled: true,
@@ -25,7 +25,11 @@ const defaultGameState: GameState = {
     encrypted_messages: []
   },
   narrativeChoices: [],
-  suspicionLevel: 0
+  suspicionLevel: 0,
+  skillTree: {
+    nodes: [],
+    skillPoints: 5
+  }
 };
 
 // Generate or get session ID
@@ -62,7 +66,8 @@ export async function loadGameState(): Promise<GameState> {
           playerLevel: dbState.playerLevel,
           hydraProtocol: dbState.hydraProtocol || defaultGameState.hydraProtocol,
           narrativeChoices: dbState.narrativeChoices || [],
-          suspicionLevel: dbState.suspicionLevel || 0
+          suspicionLevel: dbState.suspicionLevel || 0,
+          skillTree: dbState.skillTree || defaultGameState.skillTree
         };
         return gameState;
       }

@@ -24,7 +24,11 @@ export function useGameState() {
       encrypted_messages: []
     },
     narrativeChoices: [],
-    suspicionLevel: 0
+    suspicionLevel: 0,
+    skillTree: {
+      nodes: [],
+      skillPoints: 5
+    }
   });
 
   const [isLoading, setIsLoading] = useState(true);
