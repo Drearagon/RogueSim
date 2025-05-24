@@ -1116,5 +1116,29 @@ export const commands: Record<string, Command> = {
       };
     },
     unlockLevel: 1
+  },
+
+  // Skill Tree Command
+  skills: {
+    description: "Open skill tree interface",
+    usage: "skills",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      return {
+        output: [
+          '▶ Accessing skill tree interface...',
+          '▶ Loading available upgrades...',
+          '',
+          '✓ Skill tree opened',
+          '',
+          `Available Skill Points: ${gameState.skillTree.skillPoints}`,
+          'Use the interface to purchase new abilities'
+        ],
+        success: true,
+        updateGameState: {
+          // This will trigger the skill tree UI to open
+          missionProgress: gameState.missionProgress + 0.1
+        }
+      };
+    }
   }
 };

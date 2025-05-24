@@ -13,6 +13,7 @@ export interface GameState {
   hydraProtocol: HydraProtocolState;
   narrativeChoices: string[];
   suspicionLevel: number;
+  skillTree: SkillTree;
 }
 
 export interface HydraProtocolState {
@@ -100,4 +101,22 @@ export interface NarrativeChoice {
   suspicion_change: number;
   unlock_commands?: string[];
   leads_to?: string;
+}
+
+export interface SkillNode {
+  id: string;
+  name: string;
+  description: string;
+  category: 'reconnaissance' | 'exploitation' | 'persistence' | 'evasion' | 'social';
+  cost: number;
+  prerequisites: string[];
+  unlocks: string[];
+  position: { x: number; y: number };
+  unlocked: boolean;
+  purchased: boolean;
+}
+
+export interface SkillTree {
+  nodes: SkillNode[];
+  skillPoints: number;
 }
