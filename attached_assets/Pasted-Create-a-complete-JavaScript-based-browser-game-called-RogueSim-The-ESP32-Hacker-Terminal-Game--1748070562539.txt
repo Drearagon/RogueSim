@@ -1,0 +1,88 @@
+Create a complete JavaScript-based browser game called “RogueSim: The ESP32 Hacker Terminal Game.”
+
+The game should simulate a hacking terminal like on an ESP32 firmware modding tool (inspired by Marauder, Bruce, etc.), where the player types commands into a fake CLI interface to complete missions.
+
+---
+
+🔷 OVERVIEW:
+The player is a rogue firmware developer who’s been hired by a shadowy organization to carry out cyber-ops using a fake ESP32 interface. The game begins with a short story-driven mission arc (3–5 missions), then shifts into infinite procedurally generated missions of increasing difficulty.
+
+---
+
+🔧 TECHNOLOGIES:
+- HTML/CSS/JS frontend
+- Use `xterm.js` for the terminal interface
+- Use JavaScript for all logic (no server needed)
+- Use `localStorage` to persist progress
+
+---
+
+📁 FILE STRUCTURE:
+- `index.html` – basic layout with embedded terminal
+- `style.css` – retro hacker terminal theme (black bg, green text, etc.)
+- `main.js` – core game logic, mission system, command parser, state manager
+- `missions.js` – story + procedural mission generator
+- `commands.js` – valid commands, fake outputs, logic per command
+- `save.js` – handles load/save from localStorage
+
+---
+
+🎮 GAME FLOW:
+1. Player starts terminal, sees mission briefing in text.
+2. They complete tasks using typed commands (`scan`, `connect`, `spoof`, `upload`, `reboot`, etc.)
+3. Once the initial arc is done, the game procedurally generates missions:
+   - Difficulty (easy to brutal)
+   - Time limits or command count restrictions
+   - Different "networks" or "targets"
+4. Player earns credits, unlocks upgrades (e.g. “Deauth++ Module”, “Hydra BLE Spoof”)
+5. There’s a hidden “Hydra Protocol” storyline woven into generated missions.
+
+---
+
+🔠 EXAMPLE COMMANDS:
+- `scan wifi`
+- `connect <ssid>`
+- `inject payload --target 0x04`
+- `spoof ble --mac FF:EE:22:33:44:55`
+- `reboot`
+- `decrypt --key 8347-XX22-9981`
+- `unlock hydra_protocol`
+- `help` — lists all usable commands
+
+Commands should trigger fake logic with humorous or edgy responses, styled like real terminal tools. Random errors, access denied, system corruption warnings should appear for flavor.
+
+---
+
+📚 ADDITIONAL FEATURES:
+- In-terminal typing sound and blinking cursor
+- Clear command history in terminal UI
+- `man <command>` system to get help on each
+- Side panel to show mission objective, credits, and progress
+- Upgrade system (pure JS): store modules to unlock command shortcuts or bonus info
+- Optional ASCII art at boot screen (e.g. "RogueSim v1.0 - CYD Core Online")
+
+---
+
+🧠 PROCEDURAL MISSION DETAILS:
+- Pulls random objective types:
+   - “Scan and decrypt rogue access point”
+   - “Spoof BLE device for 30 seconds”
+   - “Deploy Hydra worm on compromised node”
+- Difficulty adds:
+   - Obfuscated commands
+   - Limited retries
+   - Fake firewalls that must be bypassed (`bypass firewall` or `inject backdoor`)
+- Missions should feel randomized but coherent — maintain narrative fragments
+
+---
+
+💾 OPTIONAL:
+- Add a startup boot animation with delays (fake firmware loading)
+- Add fake logs, BIOS-style load messages on boot
+- Track number of failed ops and show “Shadow Org Status: watching…” if too many fail
+
+---
+
+Start by creating the full file structure with working example commands, one starter mission, and the base CLI input/output logic. Then build out the procedural mission generator.
+
+Make the tone cool, cocky, mysterious — like you’re breaking into the firmware of the universe itself.
