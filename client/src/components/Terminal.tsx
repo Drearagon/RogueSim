@@ -29,16 +29,16 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
   // Initial welcome message
   useEffect(() => {
     const welcomeMessage = [
-      '╔══════════════════════════════════════════════════════════════╗',
-      '║                    ROGUE-SIM v1.0                           ║',
-      '║                ESP32 HACKER TERMINAL                        ║',
-      '╠══════════════════════════════════════════════════════════════╣',
-      '║  Welcome to the Shadow Network, operative.                  ║',
-      '║  Your mission briefing is available in the side panel.      ║',
-      '║  Type "help" for available commands.                        ║',
-      '║                                                              ║',
-      '║  Remember: We never existed. You never saw this.            ║',
-      '╚══════════════════════════════════════════════════════════════╝',
+      '╔═══════════════════════════════════════╗',
+      '║           ROGUE-SIM v1.0              ║',
+      '║       ESP32 HACKER TERMINAL           ║',
+      '╠═══════════════════════════════════════╣',
+      '║ Welcome to the Shadow Network.        ║',
+      '║ Type "help" for available commands.   ║',
+      '║ Type "shop" to access marketplace.    ║',
+      '║                                       ║',
+      '║ Remember: We never existed.           ║',
+      '╚═══════════════════════════════════════╝',
       ''
     ];
     setOutput(welcomeMessage);
