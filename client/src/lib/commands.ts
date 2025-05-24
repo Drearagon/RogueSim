@@ -863,7 +863,8 @@ export const commands: Record<string, Command> = {
         ],
         success: true
       };
-    }
+    },
+    unlockLevel: 0  // Always unlocked
   },
 
   // New tool commands from shop
