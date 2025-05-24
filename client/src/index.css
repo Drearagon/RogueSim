@@ -60,6 +60,11 @@
     100% { transform: translateY(100vh); }
   }
 
+  .scanline-animation {
+    top: 50%;
+    animation: scanline 2s linear infinite;
+  }
+
   /* Glow effect for progress bars and borders */
   .glow-green {
     box-shadow: 0 0 10px #00FF00, 0 0 20px #00FF00, 0 0 30px #00FF00;

@@ -167,15 +167,16 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       </div>
       
       {/* Status bar */}
-      <div className="bg-green-900/20 border-b border-green-500/50 px-4 py-2 flex items-center justify-between text-sm backdrop-blur-sm">
-        <div className="flex items-center space-x-4">
-          <span className="text-cyan-400">RogueSim v1.0</span>
+      <div className="bg-green-900/20 border-b border-green-500/50 px-2 md:px-4 py-2 flex items-center justify-between text-xs md:text-sm backdrop-blur-sm">
+        <div className="flex items-center space-x-2 md:space-x-4">
+          <span className="text-cyan-400 hidden md:inline">RogueSim v1.0</span>
+          <span className="text-cyan-400 md:hidden">RS</span>
           <span className="animate-pulse text-green-500">●</span>
-          <span className="text-green-400">{gameState.networkStatus}</span>
+          <span className="text-green-400 truncate">{gameState.networkStatus}</span>
         </div>
-        <div className="flex items-center space-x-4">
-          <span className="text-yellow-400">{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
-          <span className="text-green-400">UNDISCLOSED</span>
+        <div className="flex items-center space-x-2 md:space-x-4">
+          <span className="text-yellow-400 hidden md:inline">{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+          <span className="text-green-400 hidden md:inline">UNDISCLOSED</span>
           <button 
             className="border border-green-500 bg-transparent text-green-500 px-2 py-1 text-xs hover:bg-green-500 hover:text-black transition-colors"
             onClick={() => {
@@ -191,7 +192,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       {/* Terminal content */}
       <div 
         ref={terminalRef}
-        className="h-full p-4 overflow-y-auto font-mono text-green-500 focus:outline-none"
+        className="h-full p-2 md:p-4 overflow-y-auto font-mono text-green-500 focus:outline-none text-xs md:text-sm"
         style={{ height: 'calc(100vh - 60px)' }}
         tabIndex={0}
         onKeyDown={handleKeyDown}
@@ -213,8 +214,8 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
         </div>
       </div>
       
-      {/* Command hints */}
-      <div className="absolute bottom-4 left-4 bg-black/80 border border-green-500/50 p-2 rounded backdrop-blur-sm opacity-75 hover:opacity-100 transition-opacity">
+      {/* Command hints - Hidden on mobile to save space */}
+      <div className="absolute bottom-4 left-4 bg-black/80 border border-green-500/50 p-2 rounded backdrop-blur-sm opacity-75 hover:opacity-100 transition-opacity hidden md:block">
         <div className="text-xs space-y-1">
           <div className="text-cyan-400">Quick Commands:</div>
           <div className="grid grid-cols-3 gap-2 text-green-400">
