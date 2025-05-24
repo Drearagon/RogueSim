@@ -1140,5 +1140,69 @@ export const commands: Record<string, Command> = {
         }
       };
     }
+  },
+
+  // Mission completion tracker
+  complete: {
+    description: "Complete current mission",
+    usage: "complete",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const { getCurrentMission } = require('./missions');
+      const currentMission = getCurrentMission(gameState);
+      
+      if (!currentMission) {
+        return {
+          output: ['No active mission to complete'],
+          success: false
+        };
+      }
+
+      // Simple completion check - if you've run the basic commands, mark mission complete
+      const hasScanned = gameState.unlockedCommands.includes('scan');
+      const hasConnected = gameState.networkStatus === 'CONNECTED';
+      const hasInjected = gameState.unlockedCommands.includes('inject');
+      
+      if (hasScanned && hasConnected && hasInjected) {
+        return {
+          output: [
+            `✓ Mission "${currentMission.title}" completed!`,
+            '',
+            `▶ Extracting data...`,
+            `▶ Cleaning traces...`,
+            `▶ Mission accomplished!`,
+            '',
+            `Reward: +${currentMission.reward} credits`,
+            `Bonus: +1 skill point`,
+            '',
+            'New missions available!'
+          ],
+          success: true,
+          updateGameState: {
+            credits: gameState.credits + currentMission.reward,
+            completedMissions: gameState.completedMissions + 1,
+            currentMission: gameState.currentMission + 1,
+            skillTree: {
+              ...gameState.skillTree,
+              skillPoints: gameState.skillTree.skillPoints + 1
+            }
+          },
+          soundEffect: 'success'
+        };
+      } else {
+        return {
+          output: [
+            'Mission not yet complete',
+            '',
+            'Required steps:',
+            `${hasScanned ? '✓' : '○'} Run scan command`,
+            `${hasConnected ? '✓' : '○'} Connect to network`,
+            `${hasInjected ? '✓' : '○'} Execute injection`,
+            '',
+            'Complete all steps then try again'
+          ],
+          success: false
+        };
+      }
+    }
   }
 };

@@ -10,7 +10,7 @@ const defaultGameState: GameState = {
   credits: 2847,
   reputation: 'TRUSTED',
   completedMissions: 12,
-  unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'man', 'inject', 'nmap', 'exploit', 'shop', 'mission', 'skills'],
+  unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'man', 'inject', 'nmap', 'exploit', 'shop', 'mission', 'skills', 'complete'],
   missionProgress: 15,
   networkStatus: 'CONNECTED',
   soundEnabled: true,
