@@ -185,17 +185,42 @@ export const commands: Record<string, Command> = {
     description: "Display system status",
     usage: "status",
     execute: (args: string[], gameState: GameState): CommandResult => {
+      const output = [
+        '┌─ SYSTEM STATUS ─┐',
+        `│ ESP32: ONLINE    │`,
+        `│ WiFi: ${gameState.networkStatus.substring(0, 10).padEnd(10)} │`,
+        `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
+        `│ Rep: ${gameState.reputation.substring(0, 10).padEnd(10)} │`,
+        `│ Missions: ${gameState.completedMissions}/∞    │`,
+        '└─────────────────┘'
+      ];
+
+      // Add Hydra Protocol status if discovered
+      if (gameState.hydraProtocol.discovered) {
+        output.push(
+          '',
+          '┌─ HYDRA PROTOCOL ─┐',
+          `│ Status: ${gameState.hydraProtocol.shadow_org_standing.substring(0, 8).padEnd(8)}  │`,
+          `│ Level: ${gameState.hydraProtocol.access_level}         │`,
+          `│ Suspicion: ${gameState.suspicionLevel}%   │`,
+          '└─────────────────┘'
+        );
+      }
+
+      // Check for active narrative events
+      const activeEvent = getNextNarrativeEvent(gameState);
+      if (activeEvent) {
+        output.push(
+          '',
+          '⚠ INCOMING TRANSMISSION',
+          'Use "frequency 433.92" to decode'
+        );
+      }
+
+      output.push('');
+
       return {
-        output: [
-          '┌─ SYSTEM STATUS ─┐',
-          `│ ESP32: ONLINE    │`,
-          `│ WiFi: ${gameState.networkStatus.substring(0, 10).padEnd(10)} │`,
-          `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
-          `│ Rep: ${gameState.reputation.substring(0, 10).padEnd(10)} │`,
-          `│ Missions: ${gameState.completedMissions}/∞    │`,
-          '└─────────────────┘',
-          ''
-        ],
+        output,
         success: true
       };
     }
@@ -390,5 +415,257 @@ export const commands: Record<string, Command> = {
         success: true
       };
     }
+  },
+
+  // Hydra Protocol Commands
+  frequency: {
+    description: "Scan radio frequencies",
+    usage: "frequency [freq]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const freq = args[0];
+      
+      if (!freq) {
+        return {
+          output: [
+            '┌─ FREQUENCY SCAN ─┐',
+            '│ 433.92 MHz: ████ │',
+            '│ 868.00 MHz: ▓▓▓▓ │',
+            '│ 915.00 MHz: ▓▓▓▓ │',
+            '│ 2400.0 MHz: ████ │',
+            '└─────────────────┘',
+            '',
+            '⚠ Strong signal on 433.92MHz',
+            'Use: frequency 433.92'
+          ],
+          success: true
+        };
+      }
+
+      if (freq === '433.92') {
+        // Check if this triggers Hydra discovery
+        if (gameState.completedMissions >= 3 && !gameState.hydraProtocol.discovered) {
+          const event = getNextNarrativeEvent(gameState);
+          if (event) {
+            return {
+              output: [
+                '▶ Tuning to 433.92MHz...',
+                '▶ Signal locked!',
+                '',
+                ...formatNarrativeEvent(event)
+              ],
+              success: true,
+              updateGameState: {
+                hydraProtocol: {
+                  ...gameState.hydraProtocol,
+                  discovered: true
+                }
+              },
+              soundEffect: 'alert'
+            };
+          }
+        }
+        
+        return {
+          output: [
+            '▶ Tuning to 433.92MHz...',
+            '▶ Encrypted transmission detected',
+            '▶ Signal strength: -23dBm',
+            '',
+            'Use "decrypt" command to decode'
+          ],
+          success: true
+        };
+      }
+
+      return {
+        output: [
+          `▶ Tuning to ${freq}MHz...`,
+          '▶ No significant signals detected',
+          '▶ Background noise only'
+        ],
+        success: true
+      };
+    },
+    unlockLevel: 3
+  },
+
+  decrypt: {
+    description: "Decrypt messages",
+    usage: "decrypt [key]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!gameState.hydraProtocol.discovered) {
+        return {
+          output: ['No encrypted data available'],
+          success: false
+        };
+      }
+
+      const key = args[0];
+      if (!key) {
+        return {
+          output: [
+            '┌─ ENCRYPTED DATA ─┐',
+            '│ MSG_001: ████████ │',
+            '│ MSG_002: ████████ │',
+            '│ MSG_003: ████████ │',
+            '└─────────────────┘',
+            '',
+            'Use: decrypt <key>'
+          ],
+          success: true
+        };
+      }
+
+      // Simulate decryption attempts
+      if (key === 'SHADOW07') {
+        return {
+          output: [
+            '▶ Decryption successful!',
+            '',
+            '┌─ DECRYPTED MESSAGE ─┐',
+            '│ FROM: UNKNOWN_NODE  │',
+            '│ MSG: FIRST CONTACT  │',
+            '│ HYDRA PROTOCOL      │',
+            '│ ACTIVE              │',
+            '└────────────────────┘',
+            '',
+            'New contact established'
+          ],
+          success: true,
+          updateGameState: {
+            hydraProtocol: {
+              ...gameState.hydraProtocol,
+              active_contacts: ['SHADOW_NODE_07']
+            }
+          },
+          soundEffect: 'success'
+        };
+      }
+
+      return {
+        output: [
+          '▶ Decryption failed',
+          '▶ Invalid key or corrupted data',
+          '⚠ Attempt logged'
+        ],
+        success: false,
+        updateGameState: {
+          suspicionLevel: gameState.suspicionLevel + 5
+        }
+      };
+    },
+    unlockLevel: 3
+  },
+
+  choose: {
+    description: "Make narrative choice",
+    usage: "choose <number>",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const choiceNum = parseInt(args[0]);
+      if (!choiceNum) {
+        return {
+          output: ['Usage: choose <number>'],
+          success: false
+        };
+      }
+
+      const currentEvent = getNextNarrativeEvent(gameState);
+      if (!currentEvent) {
+        return {
+          output: ['No active choices available'],
+          success: false
+        };
+      }
+
+      const choice = currentEvent.choices[choiceNum - 1];
+      if (!choice) {
+        return {
+          output: ['Invalid choice number'],
+          success: false
+        };
+      }
+
+      const updates = processNarrativeChoice(gameState, currentEvent.id, choice.id);
+      
+      return {
+        output: [
+          `▶ Choice selected: ${choice.text}`,
+          '',
+          '┌─ CONSEQUENCES ─┐',
+          ...choice.consequences.map(c => `│ ${c.substring(0, 15).padEnd(15)} │`),
+          '└───────────────┘',
+          '',
+          `Reputation: ${updates.reputation || gameState.reputation}`,
+          `Suspicion: ${updates.suspicionLevel}%`
+        ],
+        success: true,
+        updateGameState: updates,
+        soundEffect: 'success'
+      };
+    },
+    unlockLevel: 3
+  },
+
+  hydra: {
+    description: "Access Hydra Protocol",
+    usage: "hydra [status|contacts|messages]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!gameState.hydraProtocol.discovered) {
+        return {
+          output: ['Access denied: Unknown protocol'],
+          success: false
+        };
+      }
+
+      const subcommand = args[0] || 'status';
+
+      switch (subcommand) {
+        case 'status':
+          return {
+            output: [
+              '┌─ HYDRA PROTOCOL ─┐',
+              `│ Level: ${gameState.hydraProtocol.access_level}        │`,
+              `│ Branch: ${gameState.hydraProtocol.current_branch.substring(0, 8).padEnd(8)}   │`,
+              `│ Nodes: ${gameState.hydraProtocol.completed_nodes.length}/∞        │`,
+              `│ Status: ${gameState.hydraProtocol.shadow_org_standing.substring(0, 7).padEnd(7)}  │`,
+              '└─────────────────┘',
+              '',
+              'Subcommands: contacts, messages'
+            ],
+            success: true
+          };
+
+        case 'contacts':
+          return {
+            output: [
+              '┌─ ACTIVE CONTACTS ─┐',
+              ...gameState.hydraProtocol.active_contacts.map(contact => 
+                `│ ${contact.substring(0, 16).padEnd(16)} │`
+              ),
+              '└──────────────────┘'
+            ],
+            success: true
+          };
+
+        case 'messages':
+          return {
+            output: [
+              '┌─ ENCRYPTED MSGS ─┐',
+              ...gameState.hydraProtocol.encrypted_messages.map(msg => 
+                `│ ${msg.from.substring(0, 8)} ${msg.is_decrypted ? '✓' : '✗'} │`
+              ),
+              '└─────────────────┘'
+            ],
+            success: true
+          };
+
+        default:
+          return {
+            output: ['Unknown subcommand'],
+            success: false
+          };
+      }
+    },
+    unlockLevel: 3
   }
 };
