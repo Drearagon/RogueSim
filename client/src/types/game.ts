@@ -14,7 +14,24 @@ export interface GameState {
   narrativeChoices: string[];
   suspicionLevel: number;
   skillTree: SkillTree;
+  inventory: PlayerInventory;
+  ui: UIState;
 }
+
+export interface UIState {
+  activeInterface: 'none' | 'shop' | 'skills' | 'inventory' | 'missions';
+  shopTab: ShopCategory;
+  selectedItem: string | null;
+}
+
+export interface PlayerInventory {
+  hardware: string[];
+  software: string[];
+  payloads: string[];
+  intel: string[];
+}
+
+export type ShopCategory = 'hardware' | 'software' | 'skills' | 'blackmarket';
 
 export interface HydraProtocolState {
   discovered: boolean;

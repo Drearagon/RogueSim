@@ -27,7 +27,18 @@ const defaultGameState: GameState = {
   },
   narrativeChoices: [],
   suspicionLevel: 0,
-  skillTree: createDefaultSkillTree()
+  skillTree: createDefaultSkillTree(),
+  inventory: {
+    hardware: [],
+    software: [],
+    payloads: [],
+    intel: []
+  },
+  ui: {
+    activeInterface: 'none',
+    shopTab: 'software',
+    selectedItem: null
+  }
 };
 
 // Generate or get session ID
