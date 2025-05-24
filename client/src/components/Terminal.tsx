@@ -1,0 +1,229 @@
+import { useEffect, useRef, useState } from 'react';
+import { useSound } from '../hooks/useSound';
+import { commands } from '../lib/commands';
+import { GameState } from '../types/game';
+
+interface TerminalProps {
+  gameState: GameState;
+  onGameStateUpdate: (updates: Partial<GameState>) => void;
+}
+
+export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
+  const terminalRef = useRef<HTMLDivElement>(null);
+  const [output, setOutput] = useState<string[]>([]);
+  const [currentInput, setCurrentInput] = useState('');
+  const [commandHistory, setCommandHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  const [cursorVisible, setCursorVisible] = useState(true);
+  const { playKeypress, playError, playSuccess } = useSound();
+
+  // Cursor blink effect
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCursorVisible(prev => !prev);
+    }, 500);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Initial welcome message
+  useEffect(() => {
+    const welcomeMessage = [
+      '╔══════════════════════════════════════════════════════════════╗',
+      '║                    ROGUE-SIM v1.0                           ║',
+      '║                ESP32 HACKER TERMINAL                        ║',
+      '╠══════════════════════════════════════════════════════════════╣',
+      '║  Welcome to the Shadow Network, operative.                  ║',
+      '║  Your mission briefing is available in the side panel.      ║',
+      '║  Type "help" for available commands.                        ║',
+      '║                                                              ║',
+      '║  Remember: We never existed. You never saw this.            ║',
+      '╚══════════════════════════════════════════════════════════════╝',
+      ''
+    ];
+    setOutput(welcomeMessage);
+  }, []);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    if (terminalRef.current) {
+      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+    }
+  }, [output]);
+
+  const executeCommand = (input: string) => {
+    if (!input.trim()) return;
+
+    // Add command to history
+    setCommandHistory(prev => [...prev, input]);
+    setHistoryIndex(-1);
+
+    // Parse command
+    const parts = input.trim().split(' ');
+    const commandName = parts[0].toLowerCase();
+    const args = parts.slice(1);
+
+    // Add command to output
+    setOutput(prev => [...prev, `shadow@roguesim:~$ ${input}`]);
+
+    // Check if command exists and is unlocked
+    if (!commands[commandName]) {
+      setOutput(prev => [...prev, `Command not found: ${commandName}`, 'Type "help" for available commands.', '']);
+      playError();
+      return;
+    }
+
+    if (!gameState.unlockedCommands.includes(commandName)) {
+      setOutput(prev => [...prev, 'ERROR: Command locked. Complete missions to unlock.', '']);
+      playError();
+      return;
+    }
+
+    // Execute command
+    const result = commands[commandName].execute(args, gameState);
+    
+    // Handle special commands
+    if (result.output.includes('CLEAR_SCREEN')) {
+      setOutput([]);
+      return;
+    }
+
+    // Add output
+    setOutput(prev => [...prev, ...result.output]);
+
+    // Update game state if needed
+    if (result.updateGameState) {
+      onGameStateUpdate(result.updateGameState);
+    }
+
+    // Play sound effect
+    if (result.soundEffect) {
+      switch (result.soundEffect) {
+        case 'success':
+          playSuccess();
+          break;
+        case 'error':
+          playError();
+          break;
+        case 'keypress':
+        default:
+          playKeypress();
+          break;
+      }
+    } else if (result.success) {
+      playKeypress();
+    } else {
+      playError();
+    }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    switch (e.key) {
+      case 'Enter':
+        executeCommand(currentInput);
+        setCurrentInput('');
+        break;
+      
+      case 'Backspace':
+        setCurrentInput(prev => prev.slice(0, -1));
+        break;
+      
+      case 'ArrowUp':
+        e.preventDefault();
+        if (historyIndex < commandHistory.length - 1) {
+          const newIndex = historyIndex + 1;
+          setHistoryIndex(newIndex);
+          setCurrentInput(commandHistory[commandHistory.length - 1 - newIndex]);
+        }
+        break;
+      
+      case 'ArrowDown':
+        e.preventDefault();
+        if (historyIndex > 0) {
+          const newIndex = historyIndex - 1;
+          setHistoryIndex(newIndex);
+          setCurrentInput(commandHistory[commandHistory.length - 1 - newIndex]);
+        } else if (historyIndex === 0) {
+          setHistoryIndex(-1);
+          setCurrentInput('');
+        }
+        break;
+      
+      default:
+        if (e.key.length === 1 && !e.ctrlKey && !e.altKey && !e.metaKey) {
+          setCurrentInput(prev => prev + e.key);
+          playKeypress();
+        }
+        break;
+    }
+  };
+
+  return (
+    <div className="flex-1 bg-gradient-to-br from-black via-green-900/5 to-black relative">
+      {/* Scanline effect */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-500/30 to-transparent animate-pulse" 
+             style={{ top: '50%', animation: 'scanline 2s linear infinite' }}>
+        </div>
+      </div>
+      
+      {/* Status bar */}
+      <div className="bg-green-900/20 border-b border-green-500/50 px-4 py-2 flex items-center justify-between text-sm backdrop-blur-sm">
+        <div className="flex items-center space-x-4">
+          <span className="text-cyan-400">RogueSim v1.0</span>
+          <span className="animate-pulse text-green-500">●</span>
+          <span className="text-green-400">{gameState.networkStatus}</span>
+        </div>
+        <div className="flex items-center space-x-4">
+          <span className="text-yellow-400">{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+          <span className="text-green-400">UNDISCLOSED</span>
+          <button 
+            className="border border-green-500 bg-transparent text-green-500 px-2 py-1 text-xs hover:bg-green-500 hover:text-black transition-colors"
+            onClick={() => {
+              const newEnabled = !gameState.soundEnabled;
+              onGameStateUpdate({ soundEnabled: newEnabled });
+            }}
+          >
+            {gameState.soundEnabled ? '🔊' : '🔇'}
+          </button>
+        </div>
+      </div>
+      
+      {/* Terminal content */}
+      <div 
+        ref={terminalRef}
+        className="h-full p-4 overflow-y-auto font-mono text-green-500 focus:outline-none"
+        style={{ height: 'calc(100vh - 60px)' }}
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        onClick={() => terminalRef.current?.focus()}
+      >
+        <div className="min-h-full">
+          {output.map((line, index) => (
+            <div key={index} className="whitespace-pre-wrap">
+              {line}
+            </div>
+          ))}
+          
+          {/* Current input line */}
+          <div className="flex items-center">
+            <span className="text-green-400">shadow@roguesim:~$ </span>
+            <span>{currentInput}</span>
+            <span className={`ml-0 ${cursorVisible ? 'opacity-100' : 'opacity-0'} bg-green-500`}>█</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Command hints */}
+      <div className="absolute bottom-4 left-4 bg-black/80 border border-green-500/50 p-2 rounded backdrop-blur-sm opacity-75 hover:opacity-100 transition-opacity">
+        <div className="text-xs space-y-1">
+          <div className="text-cyan-400">Quick Commands:</div>
+          <div className="grid grid-cols-3 gap-2 text-green-400">
+            <span className="cursor-pointer hover:text-green-300" onClick={() => setCurrentInput('help')}>help</span>
+            <span className="cursor-pointer hover:text-green-300" onClick={() => setCurrentInput('scan wifi')}>scan wifi</span>
+            <span className="cursor-pointer hover:text-green-300" onClick={() => setCurrentInput('status')}>status</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

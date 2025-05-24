@@ -1,0 +1,169 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 0%; /* #000000 */
+  --foreground: 120 100% 50%; /* #00FF00 */
+  --muted: 120 100% 25%; /* #008000 */
+  --muted-foreground: 120 100% 75%; /* #80FF80 */
+  --popover: 0 0% 5%; /* #0D0D0D */
+  --popover-foreground: 120 100% 50%; /* #00FF00 */
+  --card: 0 0% 5%; /* #0D0D0D */
+  --card-foreground: 120 100% 50%; /* #00FF00 */
+  --border: 120 100% 25%; /* #008000 */
+  --input: 120 100% 10%; /* #003300 */
+  --primary: 120 100% 50%; /* #00FF00 */
+  --primary-foreground: 0 0% 0%; /* #000000 */
+  --secondary: 180 100% 50%; /* #00FFFF */
+  --secondary-foreground: 0 0% 0%; /* #000000 */
+  --accent: 60 100% 50%; /* #FFFF00 */
+  --accent-foreground: 0 0% 0%; /* #000000 */
+  --destructive: 0 100% 50%; /* #FF0000 */
+  --destructive-foreground: 0 0% 100%; /* #FFFFFF */
+  --ring: 120 100% 50%; /* #00FF00 */
+  --radius: 0.5rem;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-mono antialiased bg-background text-foreground;
+    overflow: hidden;
+  }
+
+  /* Terminal glow effects */
+  .terminal-glow {
+    box-shadow: 
+      inset 0 0 50px rgba(0, 255, 0, 0.1),
+      0 0 50px rgba(0, 255, 0, 0.1);
+  }
+
+  /* Matrix rain animation */
+  @keyframes matrix-fall {
+    0% { 
+      transform: translateY(-100vh); 
+      opacity: 1; 
+    }
+    100% { 
+      transform: translateY(100vh); 
+      opacity: 0; 
+    }
+  }
+
+  /* Scanline animation */
+  @keyframes scanline {
+    0% { transform: translateY(-100vh); }
+    100% { transform: translateY(100vh); }
+  }
+
+  /* Glow effect for progress bars and borders */
+  .glow-green {
+    box-shadow: 0 0 10px #00FF00, 0 0 20px #00FF00, 0 0 30px #00FF00;
+  }
+
+  /* Custom scrollbar for terminal */
+  .terminal-scroll::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  .terminal-scroll::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.3);
+  }
+
+  .terminal-scroll::-webkit-scrollbar-thumb {
+    background: rgba(0, 255, 0, 0.3);
+    border-radius: 4px;
+  }
+
+  .terminal-scroll::-webkit-scrollbar-thumb:hover {
+    background: rgba(0, 255, 0, 0.5);
+  }
+
+  /* Text selection styling */
+  ::selection {
+    background: rgba(0, 255, 0, 0.3);
+    color: #00FF00;
+  }
+
+  /* Focus styles for terminal */
+  .terminal-focus:focus {
+    outline: none;
+    box-shadow: inset 0 0 0 1px rgba(0, 255, 0, 0.5);
+  }
+
+  /* Retro button styles */
+  .retro-button {
+    background: transparent;
+    border: 2px solid #00FF00;
+    color: #00FF00;
+    font-family: 'Courier New', monospace;
+    transition: all 0.3s ease;
+    text-shadow: 0 0 5px #00FF00;
+  }
+
+  .retro-button:hover {
+    background: #00FF00;
+    color: #000000;
+    box-shadow: 0 0 20px #00FF00;
+    text-shadow: none;
+  }
+
+  /* Typing indicator */
+  .typing-indicator::after {
+    content: '';
+    display: inline-block;
+    width: 10px;
+    height: 15px;
+    background: #00FF00;
+    margin-left: 2px;
+    animation: blink 1s infinite;
+  }
+
+  @keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+  }
+
+  /* ASCII art glow */
+  .ascii-glow {
+    text-shadow: 
+      0 0 5px #00FF00,
+      0 0 10px #00FF00,
+      0 0 15px #00FF00;
+  }
+
+  /* Matrix background pattern */
+  .matrix-bg {
+    background-image: 
+      radial-gradient(circle at 25% 25%, rgba(0, 255, 0, 0.02) 0%, transparent 50%),
+      radial-gradient(circle at 75% 75%, rgba(0, 255, 0, 0.02) 0%, transparent 50%);
+    background-size: 100px 100px;
+  }
+
+  /* Terminal prompt styling */
+  .terminal-prompt {
+    color: #00AA00;
+    font-weight: bold;
+  }
+
+  /* Command output styling */
+  .command-success {
+    color: #00FF00;
+  }
+
+  .command-error {
+    color: #FF0000;
+  }
+
+  .command-warning {
+    color: #FFFF00;
+  }
+
+  .command-info {
+    color: #00FFFF;
+  }
+}
