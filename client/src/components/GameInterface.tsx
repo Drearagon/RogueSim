@@ -1,6 +1,8 @@
+import { useState } from 'react';
 import { Terminal } from './Terminal';
 import { MissionPanel } from './MissionPanel';
 import { MatrixRain } from './MatrixRain';
+import { SkillTree } from './SkillTree';
 import { GameState } from '../types/game';
 import { getCurrentMission } from '../lib/missions';
 
@@ -11,6 +13,7 @@ interface GameInterfaceProps {
 
 export function GameInterface({ gameState, onGameStateUpdate }: GameInterfaceProps) {
   const currentMission = getCurrentMission(gameState);
+  const [showSkillTree, setShowSkillTree] = useState(false);
 
   return (
     <div className="min-h-screen w-full max-w-full flex flex-col bg-black text-green-500 relative overflow-x-hidden">
@@ -37,6 +40,15 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
       <div className="hidden md:block md:fixed md:left-0 md:top-0 md:h-full md:z-20">
         <MissionPanel gameState={gameState} currentMission={currentMission} />
       </div>
+      
+      {/* Skill Tree Interface */}
+      {showSkillTree && (
+        <SkillTree
+          gameState={gameState}
+          onUpdateGameState={onGameStateUpdate}
+          onClose={() => setShowSkillTree(false)}
+        />
+      )}
 
     </div>
   );
