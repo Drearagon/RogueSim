@@ -4,21 +4,21 @@ export const storyMissions: Mission[] = [
   {
     id: 1,
     title: "GHOST_PROTOCOL",
-    objective: "Infiltrate target network 192.168.4.1 and extract encrypted payload",
+    objective: "Complete basic reconnaissance and network penetration",
     status: "ACTIVE",
     steps: [
       { command: "scan wifi", completed: false, description: "Discover available networks" },
-      { command: "connect TARGET_NET", completed: false, description: "Connect to target network" },
-      { command: "inject payload", completed: false, description: "Deploy extraction tool" },
-      { command: "decrypt --key AUTO", completed: false, description: "Extract encrypted data" }
+      { command: "nmap TARGET_NET", completed: false, description: "Scan for open ports" },
+      { command: "exploit TARGET_NET", completed: false, description: "Exploit vulnerabilities" },
+      { command: "inject payload", completed: false, description: "Deploy extraction tool" }
     ],
     reward: 500,
     difficulty: "EASY",
     intel: [
-      "• Target uses WPA2 encryption",
-      "• Multiple IoT devices detected", 
-      "• Firewall appears to be active",
-      "• Unknown security protocols"
+      "• Multiple networks available for practice",
+      "• Start with basic reconnaissance commands", 
+      "• Use nmap to find vulnerable services",
+      "• Complete all steps to earn credits"
     ]
   },
   {
