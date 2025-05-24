@@ -228,11 +228,21 @@ export const commands: Record<string, Command> = {
 
   inject: {
     description: "Inject payload into target",
-    usage: "inject <payload> [--target <id>]",
+    usage: "inject <payload_name>",
     execute: (args: string[], gameState: GameState): CommandResult => {
       if (args.length === 0) {
         return {
-          output: ['ERROR: Payload required', 'Usage: inject <payload>', ''],
+          output: [
+            'ERROR: Payload required',
+            'Usage: inject <payload_name>',
+            '',
+            'Available payloads:',
+            '• basic_payload (Purchase from shop)',
+            '• stealth_payload (Advanced)',
+            '• data_extractor (Mission specific)',
+            '',
+            'Visit the shop to buy payloads'
+          ],
           success: false,
           soundEffect: 'error'
         };
@@ -245,21 +255,55 @@ export const commands: Record<string, Command> = {
           soundEffect: 'error'
         };
       }
+
+      const payloadName = args[0];
       
+      // Check if player owns this payload
+      const ownedPayloads = gameState.narrativeChoices.filter(choice => choice.startsWith('payload_'));
+      
+      if (payloadName === 'basic_payload' && !ownedPayloads.includes('payload_basic')) {
+        return {
+          output: [
+            'ERROR: Payload not available',
+            'You need to purchase basic_payload first',
+            '',
+            'Visit shop → tools → buy basic payload (200₵)'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      if (payloadName === 'payload' || payloadName === 'basic_payload') {
+        return {
+          output: [
+            '▶ Loading basic payload...',
+            '▶ Encrypting transmission...',
+            '▶ Establishing backdoor...',
+            '▶ Injecting payload...',
+            '',
+            '✓ Basic payload deployed successfully',
+            '✓ Remote access established',
+            '⚠ Maintain low profile',
+            '',
+            '+100 credits earned'
+          ],
+          success: true,
+          updateGameState: {
+            credits: gameState.credits + 100
+          },
+          soundEffect: 'success'
+        };
+      }
+
       return {
         output: [
-          '▶ Loading payload...',
-          '▶ Encrypting transmission...',
-          '▶ Establishing backdoor...',
-          '▶ Injecting payload...',
-          '',
-          '✓ Payload deployed successfully',
-          '✓ Remote access established',
-          '⚠ Maintain low profile',
-          ''
+          `ERROR: Unknown payload "${payloadName}"`,
+          'Use: inject basic_payload',
+          'Or purchase advanced payloads from shop'
         ],
-        success: true,
-        soundEffect: 'success'
+        success: false,
+        soundEffect: 'error'
       };
     }
   },
@@ -823,11 +867,11 @@ export const commands: Record<string, Command> = {
         return {
           output: [
             '┌─ HACKING TOOLS ─┐',
-            '│ 1. WiFi Cracker   500₵ │',
-            '│ 2. Port Scanner   300₵ │',
-            '│ 3. Keylogger      800₵ │',
-            '│ 4. Packet Sniffer 600₵ │',
-            '│ 5. SQL Injector   900₵ │',
+            '│ 1. Basic Payload  200₵ │',
+            '│ 2. WiFi Cracker   500₵ │',
+            '│ 3. Port Scanner   300₵ │',
+            '│ 4. Keylogger      800₵ │',
+            '│ 5. Packet Sniffer 600₵ │',
             '└────────────────────┘',
             '',
             'Use: shop buy <number>'
@@ -896,11 +940,11 @@ export const commands: Record<string, Command> = {
         // Handle purchases based on current category context
         // For simplicity, let's handle tool purchases
         const items = [
+          { name: 'Basic Payload', cost: 200, command: null, payload: 'payload_basic' },
           { name: 'WiFi Cracker', cost: 500, command: 'crack' },
           { name: 'Port Scanner', cost: 300, command: 'portscan' },
           { name: 'Keylogger', cost: 800, command: 'keylog' },
-          { name: 'Packet Sniffer', cost: 600, command: 'sniff' },
-          { name: 'SQL Injector', cost: 900, command: 'sqlmap' }
+          { name: 'Packet Sniffer', cost: 600, command: 'sniff' }
         ];
 
         const item = items[itemNum - 1];
@@ -923,23 +967,52 @@ export const commands: Record<string, Command> = {
           };
         }
 
+        const updateState: any = {
+          credits: gameState.credits - item.cost
+        };
+
+        // Handle different item types
+        if (item.payload) {
+          // Payload purchase
+          updateState.narrativeChoices = [...gameState.narrativeChoices, item.payload];
+          return {
+            output: [
+              `▶ Purchasing ${item.name}...`,
+              '▶ Downloading from darknet...',
+              '▶ Installing payload...',
+              '',
+              `✓ ${item.name} acquired!`,
+              `✓ Use: inject basic_payload`,
+              '',
+              `-${item.cost} credits`
+            ],
+            success: true,
+            updateGameState: updateState,
+            soundEffect: 'success'
+          };
+        } else if (item.command) {
+          // Command unlock
+          updateState.unlockedCommands = [...gameState.unlockedCommands, item.command];
+          return {
+            output: [
+              `▶ Purchasing ${item.name}...`,
+              '▶ Downloading from darknet...',
+              '▶ Installing tools...',
+              '',
+              `✓ ${item.name} acquired!`,
+              `✓ New command unlocked: ${item.command}`,
+              '',
+              `-${item.cost} credits`
+            ],
+            success: true,
+            updateGameState: updateState,
+            soundEffect: 'success'
+          };
+        }
+
         return {
-          output: [
-            `▶ Purchasing ${item.name}...`,
-            '▶ Downloading from darknet...',
-            '▶ Installing tools...',
-            '',
-            `✓ ${item.name} acquired!`,
-            `✓ New command unlocked: ${item.command}`,
-            '',
-            `-${item.cost} credits`
-          ],
-          success: true,
-          updateGameState: {
-            credits: gameState.credits - item.cost,
-            unlockedCommands: [...gameState.unlockedCommands, item.command]
-          },
-          soundEffect: 'success'
+          output: ['Purchase failed'],
+          success: false
         };
       }
 
