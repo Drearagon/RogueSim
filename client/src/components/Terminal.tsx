@@ -42,6 +42,13 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       ''
     ];
     setOutput(welcomeMessage);
+    
+    // Ensure shop command is always available
+    if (!gameState.unlockedCommands.includes('shop')) {
+      onGameStateUpdate({
+        unlockedCommands: [...gameState.unlockedCommands, 'shop']
+      });
+    }
   }, []);
 
   // Auto-scroll to bottom

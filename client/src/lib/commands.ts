@@ -838,7 +838,7 @@ export const commands: Record<string, Command> = {
     unlockLevel: 3
   },
 
-  // Shop Interface
+  // Shop Interface - Always available
   shop: {
     description: "Open shop interface",
     usage: "shop",
@@ -863,8 +863,23 @@ export const commands: Record<string, Command> = {
         ],
         success: true
       };
-    },
-    unlockLevel: 0  // Always unlocked
+    }
+    // No unlock level = always available
+  },
+
+  // Test command to verify system works
+  test: {
+    description: "Test command",
+    usage: "test",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      return {
+        output: [
+          'Test command works!',
+          'Shop command should also be available now.'
+        ],
+        success: true
+      };
+    }
   },
 
   // New tool commands from shop
