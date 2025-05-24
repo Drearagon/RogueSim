@@ -17,7 +17,8 @@ export const storyMissions: Mission[] = [
     intel: [
       "• Run 'scan wifi' to discover networks",
       "• Use 'connect TARGET_NET' to join network", 
-      "• Execute 'inject payload' to deploy tools",
+      "• Buy basic payload: 'shop tools' then 'shop buy 1'",
+      "• Execute 'inject basic_payload' to deploy tools",
       "• Use 'complete' command when finished"
     ]
   },
