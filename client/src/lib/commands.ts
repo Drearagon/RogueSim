@@ -229,7 +229,6 @@ export const commands: Record<string, Command> = {
   inject: {
     description: "Inject payload into target",
     usage: "inject <payload> [--target <id>]",
-    unlockLevel: 2,
     execute: (args: string[], gameState: GameState): CommandResult => {
       if (args.length === 0) {
         return {
