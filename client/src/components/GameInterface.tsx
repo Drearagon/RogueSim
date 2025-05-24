@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Terminal } from './Terminal';
 import { MissionPanel } from './MissionPanel';
 import { MatrixRain } from './MatrixRain';
@@ -16,6 +16,13 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
   const currentMission = getCurrentMission(gameState);
   const [showSkillTree, setShowSkillTree] = useState(false);
   const [showShop, setShowShop] = useState(false);
+
+  // Listen for shop open event
+  useEffect(() => {
+    const handleOpenShop = () => setShowShop(true);
+    window.addEventListener('openShop', handleOpenShop);
+    return () => window.removeEventListener('openShop', handleOpenShop);
+  }, []);
 
   return (
     <div className="min-h-screen w-full max-w-full flex flex-col bg-black text-green-500 relative overflow-x-hidden">
