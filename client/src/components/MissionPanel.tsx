@@ -25,23 +25,23 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
           <div className="text-xs md:text-sm text-green-400">Operation: {currentMission.title}</div>
         </div>
         
-        <div className="space-y-3">
+        <div className="space-y-2 md:space-y-3">
           <div>
-            <div className="text-yellow-400 font-semibold">PRIMARY OBJECTIVE:</div>
-            <div className="text-sm pl-4 text-green-300">
+            <div className="text-yellow-400 font-semibold text-xs md:text-sm">PRIMARY OBJECTIVE:</div>
+            <div className="text-xs md:text-sm pl-2 md:pl-4 text-green-300">
               {currentMission.objective}
             </div>
           </div>
           
           <div>
-            <div className="text-cyan-400 font-semibold">STATUS:</div>
-            <div className="text-sm pl-4 text-green-400">
+            <div className="text-cyan-400 font-semibold text-xs md:text-sm">STATUS:</div>
+            <div className="text-xs md:text-sm pl-2 md:pl-4 text-green-400">
               {currentMission.status} - {Math.floor(gameState.missionProgress)}% Complete
             </div>
           </div>
           
           <div>
-            <div className="text-cyan-400 font-semibold">PROGRESS:</div>
+            <div className="text-cyan-400 font-semibold text-xs md:text-sm">PROGRESS:</div>
             <div className="w-full bg-gray-700 rounded h-2 mt-1">
               <div 
                 className="bg-gradient-to-r from-green-500 to-green-400 h-full rounded transition-all shadow-lg shadow-green-500/50"

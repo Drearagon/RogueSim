@@ -28,16 +28,16 @@ export function BootScreen({ onBootComplete }: BootScreenProps) {
   }, [onBootComplete, playBoot]);
 
   return (
-    <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-green-500 font-mono">
-      <div className="text-center space-y-8">
-        <div className="text-4xl md:text-6xl font-bold mb-8 animate-pulse">
-          <div>█▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█</div>
-          <div>█   ROGUE-SIM v1.0   █</div>
-          <div>█  ESP32 CORE ONLINE █</div>
-          <div>█▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█</div>
+    <div className="fixed inset-0 z-50 bg-black flex flex-col items-center justify-center text-green-500 font-mono p-4">
+      <div className="text-center space-y-4 md:space-y-8 max-w-lg">
+        <div className="text-xl md:text-4xl lg:text-6xl font-bold mb-4 md:mb-8 animate-pulse">
+          <div className="text-xs md:text-base lg:text-xl">█▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀▀█</div>
+          <div className="text-xs md:text-base lg:text-xl">█   ROGUE-SIM v1.0   █</div>
+          <div className="text-xs md:text-base lg:text-xl">█  ESP32 CORE ONLINE █</div>
+          <div className="text-xs md:text-base lg:text-xl">█▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄▄█</div>
         </div>
         
-        <div className="text-lg space-y-4">
+        <div className="text-sm md:text-lg space-y-2 md:space-y-4">
           <div className="animate-pulse">Initializing Shadow Protocol...</div>
           <div className="flex items-center justify-center space-x-2">
             <span>Loading</span>
