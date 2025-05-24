@@ -32,7 +32,10 @@
 
   body {
     @apply font-mono antialiased bg-background text-foreground;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    width: 100vw;
+    max-width: 100vw;
   }
 
   /* Terminal glow effects */
