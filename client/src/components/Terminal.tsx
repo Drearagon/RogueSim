@@ -164,7 +164,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
   };
 
   return (
-    <div className="flex-1 bg-gradient-to-br from-black via-green-900/5 to-black relative">
+    <div className="flex flex-col h-screen w-full max-w-full bg-gradient-to-br from-black via-green-900/5 to-black relative overflow-x-hidden">
       {/* Scanline effect */}
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-500/30 to-transparent animate-pulse" 
@@ -173,7 +173,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       </div>
       
       {/* Status bar */}
-      <div className="bg-green-900/20 border-b border-green-500/50 px-2 md:px-4 py-2 flex items-center justify-between text-xs md:text-sm backdrop-blur-sm">
+      <div className="bg-green-900/20 border-b border-green-500/50 px-2 md:px-4 py-2 flex items-center justify-between text-xs md:text-sm backdrop-blur-sm flex-shrink-0">
         <div className="flex items-center space-x-2 md:space-x-4">
           <span className="text-cyan-400 hidden md:inline">RogueSim v1.0</span>
           <span className="text-cyan-400 md:hidden">RS</span>
@@ -198,7 +198,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       {/* Terminal content */}
       <div 
         ref={terminalRef}
-        className="flex-1 p-2 md:p-4 overflow-y-auto font-mono text-green-500 focus:outline-none text-xs md:text-sm md:pl-80"
+        className="flex-1 min-h-0 p-2 md:p-4 overflow-y-auto font-mono text-green-500 focus:outline-none text-xs md:text-sm"
         tabIndex={0}
         onKeyDown={handleKeyDown}
         onClick={() => terminalRef.current?.focus()}
@@ -220,7 +220,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       </div>
       
       {/* Mobile input area */}
-      <div className="md:hidden bg-black/90 border-t border-green-500/50 p-3">
+      <div className="md:hidden bg-black/90 border-t border-green-500/50 p-3 flex-shrink-0">
         <div className="flex items-center space-x-2">
           <span className="text-green-400 text-sm">$</span>
           <input
@@ -234,7 +234,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
                 e.preventDefault();
               }
             }}
-            className="flex-1 bg-transparent border border-green-500/50 text-green-500 p-2 text-sm font-mono focus:outline-none focus:border-green-400"
+            className="flex-1 bg-transparent border border-green-500/50 text-green-500 p-2 text-sm font-mono focus:outline-none focus:border-green-400 min-w-0"
             placeholder="Type command here..."
             autoComplete="off"
             autoCapitalize="off"
@@ -246,7 +246,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
               executeCommand(currentInput);
               setCurrentInput('');
             }}
-            className="bg-green-500 text-black px-3 py-2 text-sm font-bold hover:bg-green-400 transition-colors"
+            className="bg-green-500 text-black px-3 py-2 text-sm font-bold hover:bg-green-400 transition-colors flex-shrink-0"
           >
             EXEC
           </button>

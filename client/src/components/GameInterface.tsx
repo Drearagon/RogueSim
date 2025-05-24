@@ -13,7 +13,7 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
   const currentMission = getCurrentMission(gameState);
 
   return (
-    <div className="h-screen flex flex-col bg-black text-green-500 overflow-hidden relative">
+    <div className="min-h-screen w-full max-w-full flex flex-col bg-black text-green-500 relative overflow-x-hidden">
       <MatrixRain />
       
       {/* Scanline effect */}
@@ -24,17 +24,17 @@ export function GameInterface({ gameState, onGameStateUpdate }: GameInterfacePro
       </div>
       
       {/* Mobile-first layout: Terminal on top, mission panel as collapsible bottom */}
-      <div className="flex-1 order-1">
+      <div className="flex-1 min-h-0 md:ml-80">
         <Terminal gameState={gameState} onGameStateUpdate={onGameStateUpdate} />
       </div>
       
       {/* Mission panel - collapsible on mobile */}
-      <div className="order-2 md:hidden">
+      <div className="md:hidden">
         <MissionPanel gameState={gameState} currentMission={currentMission} />
       </div>
       
       {/* Desktop: Mission panel on side */}
-      <div className="hidden md:block md:absolute md:left-0 md:top-0 md:h-full">
+      <div className="hidden md:block md:fixed md:left-0 md:top-0 md:h-full md:z-20">
         <MissionPanel gameState={gameState} currentMission={currentMission} />
       </div>
 
