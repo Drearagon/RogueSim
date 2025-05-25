@@ -6,6 +6,7 @@ import {
   generateEncryptedMessage,
   narrativeEvents 
 } from './narrativeSystem';
+import { checkEasterEgg, discoverEasterEgg, getEasterEggHints, getEasterEggStats, loadDiscoveredEasterEggs, EasterEgg } from './easterEggs';
 
 const networkDatabase: Network[] = [
   { ssid: "TARGET_NET", channel: 11, power: -42, security: "WPA2" },
