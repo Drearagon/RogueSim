@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState } from '../types/game';
 import { purchaseSkill, canPurchaseSkill } from '../lib/skillTree';
+import { HARDWARE_ITEMS, SOFTWARE_ITEMS, BLACKMARKET_ITEMS } from '../lib/shop/items';
 import { 
   ShoppingCart, 
   Zap, 
