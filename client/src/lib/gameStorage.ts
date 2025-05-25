@@ -36,7 +36,7 @@ const defaultGameState: GameState = {
   },
   ui: {
     activeInterface: 'none',
-    shopTab: 'software',
+    shopTab: 'hardware',
     selectedItem: null
   }
 };
@@ -76,7 +76,9 @@ export async function loadGameState(): Promise<GameState> {
           hydraProtocol: dbState.hydraProtocol || defaultGameState.hydraProtocol,
           narrativeChoices: dbState.narrativeChoices || [],
           suspicionLevel: dbState.suspicionLevel || 0,
-          skillTree: dbState.skillTree || defaultGameState.skillTree
+          skillTree: dbState.skillTree || defaultGameState.skillTree,
+          inventory: dbState.inventory || defaultGameState.inventory,
+          ui: dbState.ui || defaultGameState.ui
         };
         return gameState;
       }

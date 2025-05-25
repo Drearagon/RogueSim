@@ -86,7 +86,20 @@ export default function App() {
 
   // Show login page if not logged in
   if (!isLoggedIn) {
-    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+    return (
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
+        <div className="text-center text-green-400">
+          <h1 className="text-4xl font-mono mb-8">RogueSim: ESP32 Hacker Terminal</h1>
+          <p className="text-lg mb-8">Access the underground hacking network</p>
+          <button 
+            onClick={() => window.location.href = '/api/login'}
+            className="bg-green-500 hover:bg-green-600 text-black px-8 py-3 rounded font-mono text-lg transition-colors"
+          >
+            Initialize Connection
+          </button>
+        </div>
+      </div>
+    );
   }
 
   if (!gameState.isBootComplete) {
