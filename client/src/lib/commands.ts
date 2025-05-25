@@ -1226,58 +1226,5 @@ export const commands: Record<string, Command> = {
     unlockLevel: 0 // Always available
   },
 
-  profile: {
-    description: "View and customize your user profile",
-    usage: "profile",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      setTimeout(() => {
-        const event = new CustomEvent('showProfile');
-        window.dispatchEvent(event);
-      }, 100);
-      
-      return {
-        success: true,
-        output: [
-          "▶ Accessing user profile...",
-          "▶ Loading account information...",
-          "",
-          "✓ Profile interface opened",
-          "✓ Customize your hacker identity:",
-          "  • Update profile picture",
-          "  • Set specialization", 
-          "  • View achievements",
-          "  • Track progression",
-          "  • Customize themes"
-        ]
-      };
-    },
-    unlockLevel: 0 // Always available
-  },
 
-  login: {
-    description: "Access account creation and login system",
-    usage: "login",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      setTimeout(() => {
-        const event = new CustomEvent('showAuth');
-        window.dispatchEvent(event);
-      }, 100);
-      
-      return {
-        success: true,
-        output: [
-          "▶ Accessing authentication system...",
-          "▶ Loading secure login interface...",
-          "",
-          "✓ Authentication portal opened",
-          "✓ Available options:",
-          "  • Create new hacker account",
-          "  • Login to existing account", 
-          "  • Customize profile settings",
-          "  • Save progression across devices"
-        ]
-      };
-    },
-    unlockLevel: 0 // Always available
-  }
 };
