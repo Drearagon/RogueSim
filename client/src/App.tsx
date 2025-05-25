@@ -72,6 +72,7 @@ export default function App() {
   const handleLogout = () => {
     // Clear all stored game data when logging out
     localStorage.removeItem('roguesim_game_state');
+    localStorage.removeItem('roguesim_current_user');
     sessionStorage.removeItem('devMode');
     sessionStorage.removeItem('devGameState');
     
