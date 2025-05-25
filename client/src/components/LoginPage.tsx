@@ -88,18 +88,8 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
     setLoading(true);
     
-    // Create real user account
-    setTimeout(() => {
-      const newUser = createUserAccount({
-        username: username.trim(),
-        email,
-        avatar: selectedAvatar,
-        specialization: selectedSpecialization,
-        bio
-      });
-      onLoginSuccess(newUser);
-      setLoading(false);
-    }, 1000);
+    // Navigate to Replit authentication
+    window.location.href = '/api/login';
   };
 
   if (currentStep === 'setup') {
