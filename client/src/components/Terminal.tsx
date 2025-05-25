@@ -3,6 +3,7 @@ import { useSound } from '../hooks/useSound';
 import { commands } from '../lib/commands';
 import { GameState } from '../types/game';
 import { logCommand } from '../lib/gameStorage';
+import { checkEasterEgg, discoverEasterEgg, checkKonamiCode, loadDiscoveredEasterEggs, getEasterEggStats, EasterEgg } from '../lib/easterEggs';
 
 interface TerminalProps {
   gameState: GameState;
@@ -65,13 +66,20 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     setCommandHistory(prev => [...prev, input]);
     setHistoryIndex(-1);
 
+    // Add command to output
+    setOutput(prev => [...prev, `shadow@roguesim:~$ ${input}`]);
+
+    // Check for easter eggs first!
+    const easterEgg = checkEasterEgg(input, gameState);
+    if (easterEgg) {
+      handleEasterEggDiscovery(easterEgg);
+      return;
+    }
+
     // Parse command
     const parts = input.trim().split(' ');
     const commandName = parts[0].toLowerCase();
     const args = parts.slice(1);
-
-    // Add command to output
-    setOutput(prev => [...prev, `shadow@roguesim:~$ ${input}`]);
 
     // Check if command exists and is unlocked
     if (!commands[commandName]) {
@@ -129,9 +137,81 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     } else {
       playError();
     }
+  }
+
+  const handleEasterEggDiscovery = (easterEgg: EasterEgg) => {
+    discoverEasterEgg(easterEgg.id);
+    
+    const rarityColors = {
+      'common': '🟢',
+      'rare': '🔵', 
+      'epic': '🟣',
+      'legendary': '🟡'
+    };
+
+    const eggOutput = [
+      `${rarityColors[easterEgg.rarity]} EASTER EGG DISCOVERED! ${rarityColors[easterEgg.rarity]}`,
+      "",
+      `🎉 ${easterEgg.name}`,
+      `📝 ${easterEgg.description}`,
+      ""
+    ];
+
+    const updates: Partial<GameState> = {};
+
+    if (easterEgg.reward.credits) {
+      eggOutput.push(`💰 Earned ${easterEgg.reward.credits} credits!`);
+      updates.credits = (gameState.credits || 0) + easterEgg.reward.credits;
+    }
+
+    if (easterEgg.reward.reputation) {
+      eggOutput.push(`⭐ Reputation upgraded to ${easterEgg.reward.reputation}!`);
+      updates.reputation = easterEgg.reward.reputation;
+    }
+
+    if (easterEgg.reward.unlockedCommands) {
+      eggOutput.push(`🔓 Unlocked commands: ${easterEgg.reward.unlockedCommands.join(', ')}`);
+      updates.unlockedCommands = [...(gameState.unlockedCommands || []), ...easterEgg.reward.unlockedCommands];
+    }
+
+    if (easterEgg.reward.specialItems) {
+      eggOutput.push(`🎁 Special items: ${easterEgg.reward.specialItems.join(', ')}`);
+    }
+
+    if (easterEgg.reward.achievement) {
+      eggOutput.push(`🏆 Achievement unlocked: ${easterEgg.reward.achievement}`);
+    }
+
+    if (easterEgg.reward.secretMessage) {
+      eggOutput.push("", `💬 Secret Message:`);
+      eggOutput.push(`"${easterEgg.reward.secretMessage}"`);
+    }
+
+    const stats = getEasterEggStats();
+    eggOutput.push("", `🔍 Easter Eggs: ${stats.discovered}/${stats.total} discovered`);
+
+    setOutput(prev => [...prev, ...eggOutput, '']);
+    
+    if (Object.keys(updates).length > 0) {
+      onGameStateUpdate(updates);
+    }
+    
+    playSuccess();
   };
 
+  // Load discovered easter eggs on mount
+  useEffect(() => {
+    loadDiscoveredEasterEggs();
+  }, []);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Check for Konami code
+    const konamiEgg = checkKonamiCode(e.code);
+    if (konamiEgg) {
+      handleEasterEggDiscovery(konamiEgg);
+      return;
+    }
+
     switch (e.key) {
       case 'Enter':
         executeCommand(currentInput);
