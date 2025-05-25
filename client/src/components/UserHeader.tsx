@@ -65,7 +65,7 @@ export function UserHeader({ user, onShowProfile, onLogout }: UserHeaderProps) {
                   LVL {user.level}
                 </Badge>
                 <span className="text-yellow-400 font-mono text-xs">
-                  {user.credits.toLocaleString()}₡
+                  {user.credits?.toLocaleString() || '0'}₡
                 </span>
               </div>
             </div>
