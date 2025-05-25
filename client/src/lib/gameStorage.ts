@@ -7,12 +7,12 @@ const SESSION_KEY = 'roguesim_session_id';
 
 const defaultGameState: GameState = {
   currentMission: 0,
-  credits: 2847,
-  reputation: 'TRUSTED',
-  completedMissions: 12,
-  unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'man', 'inject', 'nmap', 'exploit', 'shop', 'mission', 'skills', 'complete'],
-  missionProgress: 15,
-  networkStatus: 'CONNECTED',
+  credits: 500,
+  reputation: 'UNKNOWN',
+  completedMissions: 0,
+  unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear'],
+  missionProgress: 0,
+  networkStatus: 'DISCONNECTED',
   soundEnabled: true,
   isBootComplete: false,
   playerLevel: 1,

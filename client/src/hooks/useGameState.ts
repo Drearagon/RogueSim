@@ -5,12 +5,12 @@ import { loadGameState, saveGameState } from '../lib/gameStorage';
 export function useGameState() {
   const [gameState, setGameState] = useState<GameState>({
     currentMission: 0,
-    credits: 2847,
-    reputation: 'TRUSTED',
-    completedMissions: 12,
-    unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'man'],
-    missionProgress: 15,
-    networkStatus: 'CONNECTED',
+    credits: 500,
+    reputation: 'UNKNOWN',
+    completedMissions: 0,
+    unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear'],
+    missionProgress: 0,
+    networkStatus: 'DISCONNECTED',
     soundEnabled: true,
     isBootComplete: false,
     playerLevel: 1,
