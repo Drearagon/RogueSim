@@ -16,25 +16,14 @@ export default function App() {
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [currentView, setCurrentView] = useState<'game' | 'multiplayer' | 'leaderboard' | 'profile'>('game');
 
-  // Show loading while authentication is being determined
-  if (authLoading || gameLoading) {
-    return (
-      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
-        <MatrixRain />
-        <div className="text-green-400 text-center z-10">
-          <div className="animate-pulse text-2xl font-mono mb-4">INITIALIZING SYSTEM...</div>
-          <div className="text-sm">Establishing secure connection</div>
-        </div>
-      </div>
-    );
-  }
-  
-  // Sync sound settings
+  // All hooks must be called before any conditional returns
   useEffect(() => {
-    setEnabled(gameState.soundEnabled);
-  }, [gameState.soundEnabled, setEnabled]);
+    if (gameState?.soundEnabled !== undefined) {
+      setEnabled(gameState.soundEnabled);
+    }
+  }, [gameState?.soundEnabled, setEnabled]);
 
-  // Listen for navigation events from terminal commands
+  // Navigation event listeners
   useEffect(() => {
     const handleShowMultiplayer = () => setCurrentView('multiplayer');
     const handleShowLeaderboard = () => setCurrentView('leaderboard');
@@ -50,6 +39,21 @@ export default function App() {
       window.removeEventListener('showProfile', handleShowProfile);
     };
   }, []);
+
+  // Show loading while authentication is being determined
+  if (authLoading || gameLoading) {
+    return (
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
+        <MatrixRain />
+        <div className="text-green-400 text-center z-10">
+          <div className="animate-pulse text-2xl font-mono mb-4">INITIALIZING SYSTEM...</div>
+          <div className="text-sm">Establishing secure connection</div>
+        </div>
+      </div>
+    );
+  }
+
+
 
   const handleBootComplete = () => {
     updateGameState({ isBootComplete: true });
