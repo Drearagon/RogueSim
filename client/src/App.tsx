@@ -3,6 +3,8 @@ import { BootScreen } from './components/BootScreen';
 import { GameInterface } from './components/GameInterface';
 import { MultiplayerRoom } from './components/MultiplayerRoom';
 import { Leaderboard } from './components/Leaderboard';
+import { AuthScreen } from './components/AuthScreen';
+import { UserProfile } from './components/UserProfile';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 
