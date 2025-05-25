@@ -115,13 +115,17 @@ export default function App() {
       <MultiplayerRoom 
         onStartGame={handleStartMultiplayer}
         onBack={() => setCurrentView('game')}
+        currentUser={currentUser}
       />
     );
   }
 
   if (currentView === 'leaderboard') {
     return (
-      <Leaderboard onClose={() => setCurrentView('game')} />
+      <Leaderboard 
+        onClose={() => setCurrentView('game')} 
+        currentUser={currentUser}
+      />
     );
   }
 

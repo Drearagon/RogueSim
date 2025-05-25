@@ -30,10 +30,17 @@ interface PlayerStats {
 
 interface LeaderboardProps {
   onClose: () => void;
+  currentUser?: {
+    username: string;
+    avatar: string;
+    id: string;
+    level: number;
+    credits: number;
+    reputation: string;
+  };
 }
 
-export function Leaderboard({ onClose }: LeaderboardProps) {
-  const { user } = useAuth();
+export function Leaderboard({ onClose, currentUser }: LeaderboardProps) {
   const [activeTab, setActiveTab] = useState('missions');
   const [leaderboards, setLeaderboards] = useState<Record<string, LeaderboardEntry[]>>({});
   const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
