@@ -6,6 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User, Lock, Mail, Eye, EyeOff, Terminal, Shield } from 'lucide-react';
 import { MatrixRain } from './MatrixRain';
+import { loginUser, createUserAccount } from '@/lib/userStorage';
 
 interface LoginPageProps {
   onLoginSuccess: (user: any) => void;
@@ -52,21 +53,16 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
     try {
       if (isLogin) {
-        // Simulate login
+        // Attempt to login with stored account data
         setTimeout(() => {
-          const mockUser = {
-            id: 'user_' + Date.now(),
-            username: 'ExistingHacker',
-            email,
-            avatar: avatarOptions[0],
-            specialization: 'network',
-            reputation: 'TRUSTED',
-            level: 15,
-            credits: 25000
-          };
-          onLoginSuccess(mockUser);
+          const user = loginUser(email, password);
+          if (user) {
+            onLoginSuccess(user);
+          } else {
+            alert('Account not found. Please register first.');
+          }
           setLoading(false);
-        }, 1500);
+        }, 1000);
       } else {
         // Proceed to setup for new users
         if (password !== confirmPassword) {
@@ -92,22 +88,18 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
     setLoading(true);
     
-    // Simulate account creation
+    // Create real user account
     setTimeout(() => {
-      const newUser = {
-        id: 'user_' + Date.now(),
+      const newUser = createUserAccount({
         username: username.trim(),
         email,
         avatar: selectedAvatar,
         specialization: selectedSpecialization,
-        bio,
-        reputation: 'UNKNOWN',
-        level: 1,
-        credits: 1000
-      };
+        bio
+      });
       onLoginSuccess(newUser);
       setLoading(false);
-    }, 1500);
+    }, 1000);
   };
 
   if (currentStep === 'setup') {
