@@ -29,7 +29,7 @@ export const commands: Record<string, Command> = {
     usage: "easter [hints]",
     execute: (args: string[], gameState: GameState): CommandResult => {
       const stats = getEasterEggStats();
-      const discovered = getDiscoveredEasterEggs();
+      const discovered = [];
       
       if (args[0] === 'hints') {
         const hints = getEasterEggHints();
@@ -48,7 +48,7 @@ export const commands: Record<string, Command> = {
         };
       }
       
-      const discoveredEggs = Object.values(easterEggs).filter(egg => egg.discovered);
+      const discoveredEggs = [];
       
       const output = [
         '╔══════════════════════════════════════╗',
