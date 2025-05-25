@@ -52,7 +52,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   const [ws, setWs] = useState<WebSocket | null>(null);
 
   useEffect(() => {
-    if (currentRoom && user) {
+    if (currentRoom && currentUser) {
       // Initialize WebSocket connection
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
       const wsUrl = `${protocol}//${window.location.host}`;
@@ -62,7 +62,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         // Authenticate with WebSocket
         websocket.send(JSON.stringify({
           type: 'authenticate',
-          payload: { userId: user.id, hackerName: user.hackerName || 'Unknown' }
+          payload: { userId: currentUser.id, hackerName: currentUser.username || 'Unknown' }
         }));
 
         // Join room
