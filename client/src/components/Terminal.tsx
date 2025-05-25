@@ -4,6 +4,7 @@ import { commands } from '../lib/commands';
 import { GameState } from '../types/game';
 import { logCommand } from '../lib/gameStorage';
 import { checkEasterEgg, discoverEasterEgg, checkKonamiCode, loadDiscoveredEasterEggs, getEasterEggStats, EasterEgg } from '../lib/easterEggs';
+import { MemoryTrace } from './MemoryTrace';
 
 interface TerminalProps {
   gameState: GameState;
@@ -17,6 +18,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [cursorVisible, setCursorVisible] = useState(true);
+  const [showMemoryTrace, setShowMemoryTrace] = useState(false);
   const { playKeypress, playError, playSuccess } = useSound();
 
   // Cursor blink effect

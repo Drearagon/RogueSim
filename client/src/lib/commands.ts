@@ -24,6 +24,27 @@ const bleDevices: Device[] = [
 ];
 
 export const commands: Record<string, Command> = {
+  trace: {
+    description: "View memory trace timeline of your activities",
+    usage: "trace",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      return {
+        output: [
+          '▶ Accessing memory trace...',
+          '▶ Analyzing gameplay patterns...',
+          '▶ Constructing timeline visualization...',
+          '',
+          '✓ Memory trace interface loaded',
+          '📊 Interactive timeline available',
+          ''
+        ],
+        success: true,
+        showMemoryTrace: true,
+        soundEffect: 'success'
+      };
+    }
+  },
+
   easter: {
     description: "View discovered easter eggs and hints",
     usage: "easter [hints]",
