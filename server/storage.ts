@@ -167,6 +167,86 @@ export class DatabaseStorage implements IStorage {
       .orderBy(desc(commandLogs.executedAt))
       .limit(100); // Limit to last 100 commands
   }
+
+  // Multiplayer room operations
+  async createRoom(room: InsertRoom): Promise<MultiplayerRoom> {
+    const [newRoom] = await db
+      .insert(multiplayerRooms)
+      .values(room)
+      .returning();
+    return newRoom;
+  }
+
+  async joinRoom(roomMember: InsertRoomMember): Promise<RoomMember> {
+    const [member] = await db
+      .insert(roomMembers)
+      .values(roomMember)
+      .returning();
+    
+    // Update room player count
+    const activeMembers = await db
+      .select()
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomMember.roomId), eq(roomMembers.isActive, true)));
+    
+    await db
+      .update(multiplayerRooms)
+      .set({ currentPlayers: activeMembers.length })
+      .where(eq(multiplayerRooms.id, roomMember.roomId));
+    
+    return member;
+  }
+
+  async leaveRoom(roomId: number, userId: string): Promise<void> {
+    await db
+      .update(roomMembers)
+      .set({ isActive: false })
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.userId, userId)));
+    
+    // Update room player count
+    const activeMembers = await db
+      .select()
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.isActive, true)));
+    
+    await db
+      .update(multiplayerRooms)
+      .set({ currentPlayers: activeMembers.length })
+      .where(eq(multiplayerRooms.id, roomId));
+  }
+
+  async getRoomByCode(roomCode: string): Promise<MultiplayerRoom | undefined> {
+    const [room] = await db
+      .select()
+      .from(multiplayerRooms)
+      .where(eq(multiplayerRooms.roomCode, roomCode));
+    return room;
+  }
+
+  async getRoomMembers(roomId: number): Promise<RoomMember[]> {
+    return await db
+      .select()
+      .from(roomMembers)
+      .where(and(eq(roomMembers.roomId, roomId), eq(roomMembers.isActive, true)));
+  }
+
+  // Player stats operations
+  async getPlayerStats(userId: string): Promise<PlayerStats | undefined> {
+    const [stats] = await db
+      .select()
+      .from(playerStats)
+      .where(eq(playerStats.userId, userId));
+    return stats;
+  }
+
+  async updatePlayerStats(userId: string, stats: Partial<InsertPlayerStats>): Promise<PlayerStats> {
+    const [updatedStats] = await db
+      .update(playerStats)
+      .set({ ...stats, updatedAt: new Date() })
+      .where(eq(playerStats.userId, userId))
+      .returning();
+    return updatedStats;
+  }
 }
 
 export const storage = new DatabaseStorage();
