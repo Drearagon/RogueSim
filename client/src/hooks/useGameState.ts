@@ -44,14 +44,15 @@ export function useGameState() {
 
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load initial state
+  // Load initial state when component mounts
   useEffect(() => {
     const initializeGameState = async () => {
       try {
         const loadedState = await loadGameState();
         setGameState(loadedState);
       } catch (error) {
-        console.warn('Failed to load initial game state:', error);
+        console.warn('Failed to load game state, using defaults:', error);
+        // Keep default state if loading fails
       } finally {
         setIsLoading(false);
       }
