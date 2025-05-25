@@ -86,6 +86,15 @@ export class DatabaseStorage implements IStorage {
     return user;
   }
 
+  async getUserGameSave(userId: string, gameMode: string): Promise<GameSave | undefined> {
+    const [save] = await db
+      .select()
+      .from(gameSaves)
+      .where(and(eq(gameSaves.userId, userId), eq(gameSaves.gameMode, gameMode)))
+      .orderBy(desc(gameSaves.lastSaved));
+    return save;
+  }
+
   async saveGameState(gameState: InsertGameSave): Promise<GameSave> {
     // Check if a save already exists for this session
     const [existingSave] = await db
