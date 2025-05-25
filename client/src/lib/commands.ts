@@ -393,33 +393,7 @@ export const commands: Record<string, Command> = {
     }
   },
 
-  decrypt: {
-    description: "Decrypt captured data",
-    usage: "decrypt --key <key>",
-    unlockLevel: 3,
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      return {
-        output: [
-          '▶ Analyzing encryption algorithm...',
-          '▶ Brute forcing key space...',
-          '▶ Applying quantum algorithms...',
-          '',
-          '████████████████████ 100%',
-          '',
-          '✓ Decryption successful',
-          '✓ Data extracted: classified_docs.zip',
-          '✓ Mission objective completed',
-          ''
-        ],
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 500,
-          missionProgress: Math.min(gameState.missionProgress + 25, 100)
-        },
-        soundEffect: 'success'
-      };
-    }
-  },
+
 
   bypass: {
     description: "Bypass security systems",
