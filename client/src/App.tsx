@@ -3,18 +3,31 @@ import { BootScreen } from './components/BootScreen';
 import { GameInterface } from './components/GameInterface';
 import { MultiplayerRoom } from './components/MultiplayerRoom';
 import { Leaderboard } from './components/Leaderboard';
-import { LoginPage } from './components/LoginPage';
 import { UserProfile } from './components/UserProfile';
 import { UserHeader } from './components/UserHeader';
+import { MatrixRain } from './components/MatrixRain';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
+import { useAuth } from './hooks/useAuth';
 
 export default function App() {
-  const { gameState, updateGameState } = useGameState();
+  const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
   const { setEnabled } = useSound();
+  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
   const [currentView, setCurrentView] = useState<'game' | 'multiplayer' | 'leaderboard' | 'profile'>('game');
-  const [currentUser, setCurrentUser] = useState<any>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  // Show loading while authentication is being determined
+  if (authLoading || gameLoading) {
+    return (
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
+        <MatrixRain />
+        <div className="text-green-400 text-center z-10">
+          <div className="animate-pulse text-2xl font-mono mb-4">INITIALIZING SYSTEM...</div>
+          <div className="text-sm">Establishing secure connection</div>
+        </div>
+      </div>
+    );
+  }
   
   // Sync sound settings
   useEffect(() => {
@@ -46,49 +59,18 @@ export default function App() {
     setCurrentView('game');
   };
 
-  const handleLoginSuccess = (user: any) => {
-    // Clear any existing game data to ensure fresh start for this user
-    localStorage.removeItem('roguesim_game_state');
-    sessionStorage.removeItem('devMode');
-    sessionStorage.removeItem('devGameState');
-    
-    setCurrentUser(user);
-    setIsLoggedIn(true);
-    
-    // Reset game state to ensure this user gets a fresh beginning
-    updateGameState({
-      currentMission: 0,
-      credits: 500,
-      reputation: 'UNKNOWN',
-      completedMissions: 0,
-      unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear'],
-      missionProgress: 0,
-      networkStatus: 'DISCONNECTED',
-      playerLevel: 1,
-      isBootComplete: false
-    });
-  };
+
 
   const handleLogout = () => {
-    // Clear all stored game data when logging out
-    localStorage.removeItem('roguesim_game_state');
-    localStorage.removeItem('roguesim_current_user');
-    sessionStorage.removeItem('devMode');
-    sessionStorage.removeItem('devGameState');
-    
-    setCurrentUser(null);
-    setIsLoggedIn(false);
+    window.location.href = '/api/logout';
   };
 
-  const handleUpdateProfile = (updates: any) => {
-    setCurrentUser((prev: any) => ({ ...prev, ...updates }));
-  };
-
-  // Show login page if not logged in
-  if (!isLoggedIn) {
+  // Show login page if not authenticated
+  if (!isAuthenticated) {
     return (
       <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
-        <div className="text-center text-green-400">
+        <MatrixRain />
+        <div className="text-center text-green-400 z-10">
           <h1 className="text-4xl font-mono mb-8">RogueSim: ESP32 Hacker Terminal</h1>
           <p className="text-lg mb-8">Access the underground hacking network</p>
           <button 
@@ -109,17 +91,14 @@ export default function App() {
   if (currentView === 'profile') {
     return (
       <UserProfile 
-        user={currentUser || {
-          hackerName: 'Anonymous_Hacker',
-          email: 'test@example.com',
-          reputation: 'UNKNOWN',
-          playerLevel: 1,
-          credits: 1000,
-          completedMissions: 0,
-          bio: 'A mysterious hacker in the digital underworld...'
+        user={user || {
+          id: 'loading',
+          firstName: 'Loading',
+          lastName: 'User',
+          email: user?.email || 'loading@example.com'
         }}
         onClose={() => setCurrentView('game')}
-        onUpdateProfile={handleUpdateProfile}
+        onUpdateProfile={() => {}} // Profile updates handled by Replit Auth
       />
     );
   }
@@ -129,7 +108,11 @@ export default function App() {
       <MultiplayerRoom 
         onStartGame={handleStartMultiplayer}
         onBack={() => setCurrentView('game')}
-        currentUser={currentUser}
+        currentUser={{
+          username: user?.firstName || 'Anonymous',
+          avatar: user?.profileImageUrl || '',
+          id: user?.id || ''
+        }}
       />
     );
   }
@@ -138,7 +121,14 @@ export default function App() {
     return (
       <Leaderboard 
         onClose={() => setCurrentView('game')} 
-        currentUser={currentUser}
+        currentUser={{
+          username: user?.firstName || 'Anonymous',
+          avatar: user?.profileImageUrl || '',
+          id: user?.id || '',
+          level: gameState.playerLevel,
+          credits: gameState.credits,
+          reputation: gameState.reputation
+        }}
       />
     );
   }
@@ -146,7 +136,12 @@ export default function App() {
   return (
     <div className="relative">
       <UserHeader 
-        user={currentUser}
+        user={{
+          username: user?.firstName || 'Anonymous',
+          avatar: user?.profileImageUrl || '',
+          id: user?.id || '',
+          email: user?.email || ''
+        }}
         onShowProfile={() => setCurrentView('profile')}
         onLogout={handleLogout}
       />
