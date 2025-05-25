@@ -3,16 +3,18 @@ import { BootScreen } from './components/BootScreen';
 import { GameInterface } from './components/GameInterface';
 import { MultiplayerRoom } from './components/MultiplayerRoom';
 import { Leaderboard } from './components/Leaderboard';
-import { AuthScreen } from './components/AuthScreen';
+import { LoginPage } from './components/LoginPage';
 import { UserProfile } from './components/UserProfile';
+import { UserHeader } from './components/UserHeader';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 
 export default function App() {
   const { gameState, updateGameState } = useGameState();
   const { setEnabled } = useSound();
-  const [currentView, setCurrentView] = useState<'game' | 'multiplayer' | 'leaderboard' | 'auth' | 'profile'>('game');
-  const [currentUser, setCurrentUser] = useState(null);
+  const [currentView, setCurrentView] = useState<'game' | 'multiplayer' | 'leaderboard' | 'profile'>('game');
+  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Sync sound settings
   useEffect(() => {
@@ -23,18 +25,15 @@ export default function App() {
   useEffect(() => {
     const handleShowMultiplayer = () => setCurrentView('multiplayer');
     const handleShowLeaderboard = () => setCurrentView('leaderboard');
-    const handleShowAuth = () => setCurrentView('auth');
     const handleShowProfile = () => setCurrentView('profile');
 
     window.addEventListener('showMultiplayer', handleShowMultiplayer);
     window.addEventListener('showLeaderboard', handleShowLeaderboard);
-    window.addEventListener('showAuth', handleShowAuth);
     window.addEventListener('showProfile', handleShowProfile);
 
     return () => {
       window.removeEventListener('showMultiplayer', handleShowMultiplayer);
       window.removeEventListener('showLeaderboard', handleShowLeaderboard);
-      window.removeEventListener('showAuth', handleShowAuth);
       window.removeEventListener('showProfile', handleShowProfile);
     };
   }, []);
@@ -47,25 +46,27 @@ export default function App() {
     setCurrentView('game');
   };
 
-  const handleAuthSuccess = (user: any) => {
+  const handleLoginSuccess = (user: any) => {
     setCurrentUser(user);
-    setCurrentView('game');
+    setIsLoggedIn(true);
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    setIsLoggedIn(false);
   };
 
   const handleUpdateProfile = (updates: any) => {
-    setCurrentUser(prev => ({ ...prev, ...updates }));
+    setCurrentUser((prev: any) => ({ ...prev, ...updates }));
   };
+
+  // Show login page if not logged in
+  if (!isLoggedIn) {
+    return <LoginPage onLoginSuccess={handleLoginSuccess} />;
+  }
 
   if (!gameState.isBootComplete) {
     return <BootScreen onBootComplete={handleBootComplete} />;
-  }
-
-  if (currentView === 'auth') {
-    return (
-      <AuthScreen 
-        onAuthSuccess={handleAuthSuccess}
-      />
-    );
   }
 
   if (currentView === 'profile') {
@@ -102,11 +103,18 @@ export default function App() {
   }
 
   return (
-    <GameInterface 
-      gameState={gameState} 
-      onGameStateUpdate={updateGameState}
-      onShowMultiplayer={() => setCurrentView('multiplayer')}
-      onShowLeaderboard={() => setCurrentView('leaderboard')}
-    />
+    <div className="relative">
+      <UserHeader 
+        user={currentUser}
+        onShowProfile={() => setCurrentView('profile')}
+        onLogout={handleLogout}
+      />
+      <GameInterface 
+        gameState={gameState} 
+        onGameStateUpdate={updateGameState}
+        onShowMultiplayer={() => setCurrentView('multiplayer')}
+        onShowLeaderboard={() => setCurrentView('leaderboard')}
+      />
+    </div>
   );
 }
