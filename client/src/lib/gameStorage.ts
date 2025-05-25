@@ -43,11 +43,9 @@ const defaultGameState: GameState = {
 
 // Generate or get session ID
 function getSessionId(): string {
-  let sessionId = localStorage.getItem(SESSION_KEY);
-  if (!sessionId) {
-    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-    localStorage.setItem(SESSION_KEY, sessionId);
-  }
+  // Force fresh session to prevent loading invalid old sessions
+  const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+  localStorage.setItem(SESSION_KEY, sessionId);
   return sessionId;
 }
 
