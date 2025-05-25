@@ -25,7 +25,8 @@ export const ShopItemSchema = z.object({
   unlocks: z.array(z.string()).optional(),
   payload: z.string().optional(),
   prerequisites: z.array(z.string()).default([]),
-  maxQuantity: z.number().positive().default(1)
+  maxQuantity: z.number().positive().default(1),
+  requiredMissions: z.number().default(0)
 });
 
 export type ShopItem = z.infer<typeof ShopItemSchema> & {
