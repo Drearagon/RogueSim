@@ -1,7 +1,13 @@
-import type { Express } from "express";
+import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema } from "@shared/schema";
+import { MultiplayerWebSocketServer } from "./websocket";
+
+// Simple authentication middleware for development
+const isAuthenticated: RequestHandler = async (req, res, next) => {
+  next();
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Game state routes
@@ -196,8 +202,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   const httpServer = createServer(app);
   
-  // Initialize WebSocket server for real-time multiplayer
-  const wsServer = new (require('./websocket').MultiplayerWebSocketServer)(httpServer);
+  // WebSocket server will be initialized later to avoid conflicts
+  // const wsServer = new MultiplayerWebSocketServer(httpServer);
   
   return httpServer;
 }
