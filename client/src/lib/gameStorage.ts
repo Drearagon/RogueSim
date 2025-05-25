@@ -53,6 +53,7 @@ function getSessionId(): string {
 
 export async function loadGameState(): Promise<GameState> {
   try {
+    // Clear any problematic old sessions
     const sessionId = getSessionId();
     
     // Try to load from database first
