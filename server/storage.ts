@@ -121,12 +121,18 @@ export class DatabaseStorage implements IStorage {
   }
 
   async loadGameState(sessionId: string): Promise<GameSave | undefined> {
-    const [save] = await db
-      .select()
-      .from(gameSaves)
-      .where(eq(gameSaves.sessionId, sessionId))
-      .orderBy(desc(gameSaves.lastSaved));
-    return save || undefined;
+    try {
+      const [save] = await db
+        .select()
+        .from(gameSaves)
+        .where(eq(gameSaves.sessionId, sessionId))
+        .orderBy(desc(gameSaves.lastSaved));
+      return save || undefined;
+    } catch (error) {
+      // Handle backward compatibility - if new columns don't exist yet, return undefined
+      console.log("Database schema updating, falling back to client storage");
+      return undefined;
+    }
   }
 
   async saveMissionHistory(mission: InsertMissionHistory): Promise<MissionHistory> {
