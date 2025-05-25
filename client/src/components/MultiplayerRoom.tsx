@@ -33,10 +33,14 @@ interface RoomMember {
 interface MultiplayerRoomProps {
   onStartGame: (gameMode: 'multiplayer') => void;
   onBack: () => void;
+  currentUser?: {
+    username: string;
+    avatar: string;
+    id: string;
+  };
 }
 
-export function MultiplayerRoom({ onStartGame, onBack }: MultiplayerRoomProps) {
-  const { user } = useAuth();
+export function MultiplayerRoom({ onStartGame, onBack, currentUser }: MultiplayerRoomProps) {
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState('lobby');
   const [currentRoom, setCurrentRoom] = useState<Room | null>(null);
