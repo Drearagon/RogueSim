@@ -1,28 +1,39 @@
-import { 
-  users, 
-  gameSaves, 
-  missionHistory, 
+import {
+  users,
+  gameSaves,
+  missionHistory,
   commandLogs,
-  type User, 
-  type InsertUser, 
-  type GameSave, 
-  type InsertGameSave,
+  multiplayerRooms,
+  roomMembers,
+  playerStats,
+  type User,
+  type GameSave,
   type MissionHistory,
-  type InsertMissionHistory,
   type CommandLog,
-  type InsertCommandLog
+  type MultiplayerRoom,
+  type RoomMember,
+  type PlayerStats,
+  type UpsertUser,
+  type InsertGameSave,
+  type InsertMissionHistory,
+  type InsertCommandLog,
+  type InsertRoom,
+  type InsertRoomMember,
+  type InsertPlayerStats,
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: number): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  // User operations (required for Replit Auth)
+  getUser(id: string): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  updateHackerName(userId: string, hackerName: string): Promise<User>;
   
   // Game save operations
   saveGameState(gameState: InsertGameSave): Promise<GameSave>;
   loadGameState(sessionId: string): Promise<GameSave | undefined>;
+  getUserGameSave(userId: string, gameMode: string): Promise<GameSave | undefined>;
   
   // Mission history
   saveMissionHistory(mission: InsertMissionHistory): Promise<MissionHistory>;
@@ -31,23 +42,46 @@ export interface IStorage {
   // Command logging
   logCommand(commandLog: InsertCommandLog): Promise<CommandLog>;
   getCommandHistory(sessionId: string): Promise<CommandLog[]>;
+  
+  // Multiplayer operations
+  createRoom(room: InsertRoom): Promise<MultiplayerRoom>;
+  joinRoom(roomMember: InsertRoomMember): Promise<RoomMember>;
+  leaveRoom(roomId: number, userId: string): Promise<void>;
+  getRoomByCode(roomCode: string): Promise<MultiplayerRoom | undefined>;
+  getRoomMembers(roomId: number): Promise<RoomMember[]>;
+  
+  // Player stats
+  getPlayerStats(userId: string): Promise<PlayerStats | undefined>;
+  updatePlayerStats(userId: string, stats: Partial<InsertPlayerStats>): Promise<PlayerStats>;
 }
 
 export class DatabaseStorage implements IStorage {
-  async getUser(id: number): Promise<User | undefined> {
+  // User operations for Replit Auth
+  async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));
-    return user || undefined;
+    return user;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.username, username));
-    return user || undefined;
-  }
-
-  async createUser(insertUser: InsertUser): Promise<User> {
+  async upsertUser(userData: UpsertUser): Promise<User> {
     const [user] = await db
       .insert(users)
-      .values(insertUser)
+      .values(userData)
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          ...userData,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+    return user;
+  }
+
+  async updateHackerName(userId: string, hackerName: string): Promise<User> {
+    const [user] = await db
+      .update(users)
+      .set({ hackerName, updatedAt: new Date() })
+      .where(eq(users.id, userId))
       .returning();
     return user;
   }
