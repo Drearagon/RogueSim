@@ -24,6 +24,68 @@ const bleDevices: Device[] = [
 ];
 
 export const commands: Record<string, Command> = {
+  easter: {
+    description: "View discovered easter eggs and hints",
+    usage: "easter [hints]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const stats = getEasterEggStats();
+      const discovered = getDiscoveredEasterEggs();
+      
+      if (args[0] === 'hints') {
+        const hints = getEasterEggHints();
+        return {
+          output: [
+            '╔══════════════════════════════════════╗',
+            '║            EASTER EGG HINTS          ║',
+            '╠══════════════════════════════════════╣',
+            ...hints.map(hint => `║ ${hint.padEnd(36)} ║`),
+            '║                                      ║',
+            `║ Progress: ${stats.discovered}/${stats.total} discovered              ║`,
+            '╚══════════════════════════════════════╝',
+            ''
+          ],
+          success: true
+        };
+      }
+      
+      const discoveredEggs = Object.values(easterEggs).filter(egg => egg.discovered);
+      
+      const output = [
+        '╔══════════════════════════════════════╗',
+        '║          DISCOVERED EASTER EGGS      ║',
+        '╠══════════════════════════════════════╣',
+        ''
+      ];
+      
+      if (discoveredEggs.length === 0) {
+        output.push('║ No easter eggs discovered yet...     ║');
+        output.push('║ Try exploring hidden commands!       ║');
+      } else {
+        discoveredEggs.forEach(egg => {
+          const rarityColors = {
+            'common': '🟢',
+            'rare': '🔵', 
+            'epic': '🟣',
+            'legendary': '🟡'
+          };
+          output.push(`║ ${rarityColors[egg.rarity]} ${egg.name.padEnd(32)} ║`);
+        });
+      }
+      
+      output.push('║                                      ║');
+      output.push(`║ Progress: ${stats.discovered}/${stats.total} discovered              ║`);
+      output.push('║                                      ║');
+      output.push('║ Use "easter hints" for clues!        ║');
+      output.push('╚══════════════════════════════════════╝');
+      output.push('');
+      
+      return {
+        output,
+        success: true
+      };
+    }
+  },
+
   help: {
     description: "Display available commands",
     usage: "help [command]",
