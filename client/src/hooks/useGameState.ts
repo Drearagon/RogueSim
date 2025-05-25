@@ -28,6 +28,17 @@ export function useGameState() {
     skillTree: {
       nodes: [],
       skillPoints: 5
+    },
+    inventory: {
+      hardware: [],
+      software: [],
+      payloads: [],
+      intel: []
+    },
+    ui: {
+      activeInterface: 'none',
+      shopTab: 'hardware',
+      selectedItem: null
     }
   });
 
