@@ -7,7 +7,9 @@ interface GameModeSelectorProps {
   hackerName: string;
   userEmail?: string;
   onModeChange: (mode: 'single' | 'multiplayer') => void;
-  onStartGame: () => void;
+  onStartGame: (mode?: 'single' | 'multiplayer') => void;
+  onShowMultiplayerRoom: () => void;
+  onShowLeaderboard: () => void;
   onLogout: () => void;
 }
 
