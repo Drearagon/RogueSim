@@ -1158,7 +1158,8 @@ export const commands: Record<string, Command> = {
           "Use the interface to team up with other hackers!"
         ]
       };
-    }
+    },
+    unlockLevel: 0 // Always available
   },
 
   leaderboard: {
@@ -1184,16 +1185,14 @@ export const commands: Record<string, Command> = {
           "  • Total credits earned"
         ]
       };
-    }
+    },
+    unlockLevel: 0 // Always available
   },
 
   devmode: {
     description: "Activate developer account (max level, infinite credits)",
     usage: "devmode",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const { activateDevMode } = require('./devAccount');
-      const devState = activateDevMode();
-      
       return {
         success: true,
         output: [
@@ -1201,20 +1200,28 @@ export const commands: Record<string, Command> = {
           "",
           "✓ Level: 100 (MAX)",
           "✓ Credits: 999,999,999₵",
-          "✓ All items unlocked",
-          "✓ All skills maxed",
-          "✓ All commands available",
-          "✓ Multiplayer privileges granted",
+          "✓ All commands unlocked",
+          "✓ Multiplayer access granted",
           "",
-          "⚡ LEGENDARY status achieved",
-          "🔓 Everything is now unlocked!",
+          "⚡ Everything is now available!",
           "",
           "Type 'multiplayer' to test room features",
-          "Type 'shop' to see all items available"
+          "Type 'leaderboard' to view rankings"
         ],
-        updateGameState: devState,
+        updateGameState: {
+          credits: 999999999,
+          playerLevel: 100,
+          completedMissions: 250,
+          unlockedCommands: [
+            'help', 'scan', 'connect', 'inject', 'deauth', 'crack', 'exploit', 'backdoor',
+            'decrypt', 'nmap', 'keylog', 'shop', 'skills', 'mission', 'complete',
+            'hydra', 'choose', 'multiplayer', 'leaderboard', 'devmode'
+          ],
+          reputation: 'ELITE'
+        },
         soundEffect: 'success'
       };
-    }
+    },
+    unlockLevel: 0 // Always available
   }
 };
