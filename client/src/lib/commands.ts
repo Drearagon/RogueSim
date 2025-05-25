@@ -1134,5 +1134,56 @@ export const commands: Record<string, Command> = {
         };
       }
     }
+  },
+
+  // Multiplayer access commands
+  multiplayer: {
+    description: "Access multiplayer lobby",
+    usage: "multiplayer",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      setTimeout(() => {
+        const event = new CustomEvent('showMultiplayer');
+        window.dispatchEvent(event);
+      }, 100);
+      
+      return {
+        success: true,
+        output: [
+          "▶ Connecting to multiplayer network...",
+          "▶ Establishing secure connection...",
+          "",
+          "✓ Multiplayer lobby accessed",
+          "✓ Ready to create or join rooms",
+          "",
+          "Use the interface to team up with other hackers!"
+        ]
+      };
+    }
+  },
+
+  leaderboard: {
+    description: "View global leaderboards",
+    usage: "leaderboard",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      setTimeout(() => {
+        const event = new CustomEvent('showLeaderboard');
+        window.dispatchEvent(event);
+      }, 100);
+      
+      return {
+        success: true,
+        output: [
+          "▶ Accessing global leaderboards...",
+          "▶ Retrieving player statistics...",
+          "",
+          "✓ Leaderboard data loaded",
+          "✓ Rankings available for:",
+          "  • Mission completion",
+          "  • Speed runs",
+          "  • Multiplayer wins",
+          "  • Total credits earned"
+        ]
+      };
+    }
   }
 };
