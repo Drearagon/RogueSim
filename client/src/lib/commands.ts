@@ -1185,5 +1185,36 @@ export const commands: Record<string, Command> = {
         ]
       };
     }
+  },
+
+  devmode: {
+    description: "Activate developer account (max level, infinite credits)",
+    usage: "devmode",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const { activateDevMode } = require('./devAccount');
+      const devState = activateDevMode();
+      
+      return {
+        success: true,
+        output: [
+          "▶ DEVELOPER MODE ACTIVATED ▶",
+          "",
+          "✓ Level: 100 (MAX)",
+          "✓ Credits: 999,999,999₵",
+          "✓ All items unlocked",
+          "✓ All skills maxed",
+          "✓ All commands available",
+          "✓ Multiplayer privileges granted",
+          "",
+          "⚡ LEGENDARY status achieved",
+          "🔓 Everything is now unlocked!",
+          "",
+          "Type 'multiplayer' to test room features",
+          "Type 'shop' to see all items available"
+        ],
+        updateGameState: devState,
+        soundEffect: 'success'
+      };
+    }
   }
 };
