@@ -10,9 +10,11 @@ import { getCurrentMission } from '../lib/missions';
 interface GameInterfaceProps {
   gameState: GameState;
   onGameStateUpdate: (updates: Partial<GameState>) => void;
+  onShowMultiplayer?: () => void;
+  onShowLeaderboard?: () => void;
 }
 
-export function GameInterface({ gameState, onGameStateUpdate }: GameInterfaceProps) {
+export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer, onShowLeaderboard }: GameInterfaceProps) {
   const currentMission = getCurrentMission(gameState);
   const [showSkillTree, setShowSkillTree] = useState(false);
   const [showShop, setShowShop] = useState(false);
