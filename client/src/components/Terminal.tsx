@@ -120,6 +120,11 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       onGameStateUpdate(result.updateGameState);
     }
 
+    // Handle Memory Trace display
+    if ((result as any).showMemoryTrace) {
+      setShowMemoryTrace(true);
+    }
+
     // Play sound effect
     if (result.soundEffect) {
       switch (result.soundEffect) {
@@ -368,6 +373,14 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           </div>
         </div>
       </div>
+
+      {/* Memory Trace Interface */}
+      {showMemoryTrace && (
+        <MemoryTrace 
+          gameState={gameState}
+          onClose={() => setShowMemoryTrace(false)}
+        />
+      )}
     </div>
   );
 }
