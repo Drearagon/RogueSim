@@ -69,11 +69,22 @@ export default function App() {
     window.location.href = '/api/logout';
   };
 
-  // For mobile compatibility - bypass auth temporarily for smooth gameplay
+  // For mobile compatibility - create default user for smooth gameplay
   const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
   
+  // Create default mobile user if needed
+  const effectiveUser = user || (isMobile ? {
+    id: 'mobile_user',
+    firstName: 'Anonymous_Hacker',
+    lastName: null,
+    email: 'mobile@roguesim.dev',
+    profileImageUrl: null
+  } : null);
+  
+  const effectiveAuth = isAuthenticated || isMobile;
+  
   // Show login page if not authenticated (desktop only)
-  if (!isAuthenticated && !isMobile) {
+  if (!effectiveAuth) {
     return (
       <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
         <MatrixRain />
@@ -98,11 +109,11 @@ export default function App() {
   if (currentView === 'profile') {
     return (
       <UserProfile 
-        user={user || {
-          id: 'loading',
-          firstName: 'Loading',
+        user={effectiveUser || {
+          id: 'mobile_user',
+          firstName: 'Anonymous_Hacker',
           lastName: 'User',
-          email: user?.email || 'loading@example.com'
+          email: 'mobile@roguesim.dev'
         }}
         onClose={() => setCurrentView('game')}
         onUpdateProfile={() => {}} // Profile updates handled by Replit Auth
@@ -116,9 +127,9 @@ export default function App() {
         onStartGame={handleStartMultiplayer}
         onBack={() => setCurrentView('game')}
         currentUser={{
-          username: user?.firstName || 'Anonymous',
-          avatar: user?.profileImageUrl || '',
-          id: user?.id || ''
+          username: effectiveUser?.firstName || 'Anonymous_Hacker',
+          avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
+          id: effectiveUser?.id || 'mobile_user'
         }}
       />
     );
@@ -129,9 +140,9 @@ export default function App() {
       <Leaderboard 
         onClose={() => setCurrentView('game')} 
         currentUser={{
-          username: user?.firstName || 'Anonymous',
-          avatar: user?.profileImageUrl || '',
-          id: user?.id || '',
+          username: effectiveUser?.firstName || 'Anonymous_Hacker',
+          avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
+          id: effectiveUser?.id || 'mobile_user',
           level: gameState.playerLevel,
           credits: gameState.credits,
           reputation: gameState.reputation
@@ -144,10 +155,12 @@ export default function App() {
     <div className="relative">
       <UserHeader 
         user={{
-          username: user?.firstName || 'Anonymous',
-          avatar: user?.profileImageUrl || '',
-          id: user?.id || '',
-          email: user?.email || ''
+          username: effectiveUser?.firstName || 'Anonymous_Hacker',
+          avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
+          reputation: gameState.reputation,
+          level: gameState.playerLevel,
+          credits: gameState.credits,
+          specialization: 'Network Infiltration'
         }}
         onShowProfile={() => setCurrentView('profile')}
         onLogout={handleLogout}
