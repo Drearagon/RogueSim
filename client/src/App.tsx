@@ -47,11 +47,34 @@ export default function App() {
   };
 
   const handleLoginSuccess = (user: any) => {
+    // Clear any existing game data to ensure fresh start for this user
+    localStorage.removeItem('roguesim_game_state');
+    sessionStorage.removeItem('devMode');
+    sessionStorage.removeItem('devGameState');
+    
     setCurrentUser(user);
     setIsLoggedIn(true);
+    
+    // Reset game state to ensure this user gets a fresh beginning
+    updateGameState({
+      currentMission: 0,
+      credits: 500,
+      reputation: 'UNKNOWN',
+      completedMissions: 0,
+      unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear'],
+      missionProgress: 0,
+      networkStatus: 'DISCONNECTED',
+      playerLevel: 1,
+      isBootComplete: false
+    });
   };
 
   const handleLogout = () => {
+    // Clear all stored game data when logging out
+    localStorage.removeItem('roguesim_game_state');
+    sessionStorage.removeItem('devMode');
+    sessionStorage.removeItem('devGameState');
+    
     setCurrentUser(null);
     setIsLoggedIn(false);
   };
