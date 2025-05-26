@@ -53,46 +53,55 @@ export function Leaderboard({ onClose, currentUser }: LeaderboardProps) {
 
   const loadLeaderboards = async () => {
     try {
-      // Simulate leaderboard data for different categories
-      const categories = ['missions', 'speed', 'multiplayer', 'credits'];
-      const mockData: Record<string, LeaderboardEntry[]> = {};
-
-      categories.forEach(category => {
-        mockData[category] = Array.from({ length: 10 }, (_, i) => ({
-          rank: i + 1,
-          userId: `player_${i + 1}`,
-          hackerName: `Anonymous_${String(i + 1).padStart(3, '0')}`,
-          score: Math.floor(Math.random() * 10000) + (10 - i) * 1000,
-          category,
-          details: category === 'speed' ? `${Math.floor(Math.random() * 300) + 60}s` :
-                  category === 'credits' ? `${Math.floor(Math.random() * 50000) + 10000}₡` :
-                  category === 'multiplayer' ? `${Math.floor(Math.random() * 50) + 10} wins` :
-                  `${Math.floor(Math.random() * 100) + 20} missions`,
-          timestamp: new Date(Date.now() - Math.random() * 30 * 24 * 60 * 60 * 1000).toISOString()
-        }));
-      });
-
-      setLeaderboards(mockData);
+      // Load real leaderboard data from the database
+      const response = await fetch('/api/leaderboards');
+      if (response.ok) {
+        const realData = await response.json();
+        setLeaderboards(realData);
+      } else {
+        // If no real data available yet, show empty state
+        setLeaderboards({
+          missions: [],
+          speed: [],
+          multiplayer: [],
+          credits: []
+        });
+      }
     } catch (error) {
       console.error('Failed to load leaderboards:', error);
+      // Show empty state on error
+      setLeaderboards({
+        missions: [],
+        speed: [],
+        multiplayer: [],
+        credits: []
+      });
     }
   };
 
   const loadPlayerStats = async () => {
     try {
-      // Simulate player stats
-      setPlayerStats({
-        totalMissions: 47,
-        successfulMissions: 42,
-        totalCredits: 15750,
-        reputation: 'SKILLED',
-        currentStreak: 8,
-        longestStreak: 12,
-        totalPlayTime: 18420, // seconds
-        multiplayerWins: 15,
-        multiplayerLosses: 8,
-        bestCompletionTime: 127
-      });
+      if (currentUser?.id) {
+        const response = await fetch(`/api/stats/${currentUser.id}`);
+        if (response.ok) {
+          const realStats = await response.json();
+          setPlayerStats(realStats);
+        } else {
+          // If no stats exist yet, create initial stats
+          setPlayerStats({
+            totalMissions: 0,
+            successfulMissions: 0,
+            totalCredits: 0,
+            reputation: 'Novice',
+            currentStreak: 0,
+            longestStreak: 0,
+            totalPlayTime: 0,
+            multiplayerWins: 0,
+            multiplayerLosses: 0,
+            bestCompletionTime: 0
+          });
+        }
+      }
     } catch (error) {
       console.error('Failed to load player stats:', error);
     } finally {
