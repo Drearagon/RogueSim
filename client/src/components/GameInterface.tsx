@@ -4,6 +4,7 @@ import { MissionPanel } from './MissionPanel';
 import { MatrixRain } from './MatrixRain';
 import { SkillTree } from './SkillTree';
 import { ModernShopInterface } from './shop/ModernShopInterface';
+import { TerminalSettings, type TerminalSettings as TerminalSettingsType } from './TerminalSettings';
 import { GameState } from '../types/game';
 import { getCurrentMission } from '../lib/missions';
 import { soundSystem } from '@/lib/soundSystem';
@@ -19,12 +20,32 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
   const currentMission = getCurrentMission(gameState);
   const [showSkillTree, setShowSkillTree] = useState(false);
   const [showShop, setShowShop] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [terminalSettings, setTerminalSettings] = useState<TerminalSettingsType>({
+    colorScheme: 'classic',
+    primaryColor: '#00ff00',
+    backgroundColor: '#000000',
+    textColor: '#00ff00',
+    fontSize: 14,
+    fontFamily: 'JetBrains Mono, monospace',
+    soundEnabled: true,
+    scanlineEffect: true,
+    glowEffect: true,
+    typingSpeed: 5
+  });
 
-  // Listen for shop open event
+  // Listen for shop and settings open events
   useEffect(() => {
     const handleOpenShop = () => setShowShop(true);
+    const handleOpenSettings = () => setShowSettings(true);
+    
     window.addEventListener('openShop', handleOpenShop);
-    return () => window.removeEventListener('openShop', handleOpenShop);
+    window.addEventListener('openSettings', handleOpenSettings);
+    
+    return () => {
+      window.removeEventListener('openShop', handleOpenShop);
+      window.removeEventListener('openSettings', handleOpenSettings);
+    };
   }, []);
 
   // Start ambient cyberpunk atmosphere when game interface loads
@@ -101,6 +122,16 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
           gameState={gameState}
           onUpdateGameState={onGameStateUpdate}
           onClose={() => setShowShop(false)}
+        />
+      )}
+
+      {/* Settings Interface */}
+      {showSettings && (
+        <TerminalSettings
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          settings={terminalSettings}
+          onSettingsChange={setTerminalSettings}
         />
       )}
 

@@ -1000,9 +1000,14 @@ export const commands: Record<string, Command> = {
       // Reset purchased items and restore credits
       const updates = {
         purchasedItems: [],
-        unlockedCommands: ['help', 'scan', 'connect', 'decrypt', 'clear', 'status', 'shop', 'devmode', 'multiplayer', 'leaderboard', 'easter', 'reset_shop'],
-        credits: 2000, // Give plenty of credits for testing
-        inventory: {}
+        unlockedCommands: ['help', 'scan', 'connect', 'decrypt', 'clear', 'status', 'shop', 'devmode', 'multiplayer', 'leaderboard', 'easter', 'reset_shop', 'tutorial', 'settings'],
+        credits: 1000, // Standard starting credits
+        inventory: {
+          hardware: [],
+          software: [],
+          payloads: [],
+          intel: []
+        }
       };
 
       onGameStateUpdate(updates);
@@ -1015,7 +1020,7 @@ export const commands: Record<string, Command> = {
           '> Resetting unlocked commands...',
           '',
           '┌─ RESET COMPLETE ─┐',
-          '│ Credits: 2000     │',
+          '│ Credits: 1000     │',
           '│ Items: Cleared    │',
           '│ Commands: Reset   │',
           '└───────────────────┘',
