@@ -25,9 +25,11 @@ import { db } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
-  // User operations (required for Replit Auth)
+  // User operations for custom authentication
   getUser(id: string): Promise<User | undefined>;
-  upsertUser(user: UpsertUser): Promise<User>;
+  getUserByEmail(email: string): Promise<User | undefined>;
+  getUserByHackerName(hackerName: string): Promise<User | undefined>;
+  createUser(userData: any): Promise<User>;
   updateHackerName(userId: string, hackerName: string): Promise<User>;
   
   // Extended user profile operations
