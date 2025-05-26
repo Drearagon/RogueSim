@@ -78,32 +78,33 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const query = `SELECT * FROM users WHERE email = $1`;
-    const result = await pool.query(query, [email]);
-    return result.rows[0];
+    const [user] = await db.select().from(users).where(eq(users.email, email));
+    return user;
   }
 
   async getUserByHackerName(hackerName: string): Promise<User | undefined> {
-    const query = `SELECT * FROM users WHERE hacker_name = $1`;
-    const result = await pool.query(query, [hackerName]);
-    return result.rows[0];
+    const [user] = await db.select().from(users).where(eq(users.hackerName, hackerName));
+    return user;
   }
 
   async createUser(userData: any): Promise<User> {
-    const query = `
-      INSERT INTO users (id, email, hacker_name, password, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
-      RETURNING *
-    `;
-    
-    const result = await pool.query(query, [
-      userData.id,
-      userData.email,
-      userData.hackerName,
-      userData.password
-    ]);
-    
-    return result.rows[0];
+    try {
+      const [user] = await db
+        .insert(users)
+        .values({
+          id: userData.id,
+          email: userData.email,
+          hackerName: userData.hackerName,
+          password: userData.password,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        .returning();
+      return user;
+    } catch (error) {
+      console.error('Database insert error:', error);
+      throw error;
+    }
   }
 
   async updateHackerName(userId: string, hackerName: string): Promise<User> {
