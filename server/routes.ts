@@ -260,6 +260,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // AI Mission Generation endpoints
+  app.post("/api/missions/generate", isAuthenticated, async (req: any, res) => {
+    try {
+      const { aiMissionGenerator } = await import('./aiMissionGenerator');
+      const userId = req.user.claims.sub;
+      const { playerLevel, completedMissions, reputation } = req.body;
+      
+      const mission = await aiMissionGenerator.generateMission(
+        playerLevel || 1,
+        completedMissions || [],
+        reputation || 'Novice'
+      );
+      
+      res.json(mission);
+    } catch (error) {
+      console.error("Error generating AI mission:", error);
+      res.status(500).json({ error: "Failed to generate mission" });
+    }
+  });
+
+  app.post("/api/missions/generate-batch", isAuthenticated, async (req: any, res) => {
+    try {
+      const { aiMissionGenerator } = await import('./aiMissionGenerator');
+      const userId = req.user.claims.sub;
+      const { playerLevel, completedMissions, reputation, count } = req.body;
+      
+      const missions = await aiMissionGenerator.generateMissionBatch(
+        playerLevel || 1,
+        completedMissions || [],
+        reputation || 'Novice',
+        count || 3
+      );
+      
+      res.json(missions);
+    } catch (error) {
+      console.error("Error generating AI mission batch:", error);
+      res.status(500).json({ error: "Failed to generate missions" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // WebSocket server will be initialized later to avoid conflicts
