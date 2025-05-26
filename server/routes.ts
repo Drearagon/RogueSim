@@ -526,7 +526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // User Profile Management endpoints
   app.post("/api/user/profile", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const profileData = {
         ...req.body,
         userId,
@@ -543,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/user/profile", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const profile = await storage.getUserProfile(userId);
       res.json(profile);
     } catch (error) {
