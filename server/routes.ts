@@ -300,6 +300,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // User Profile Management endpoints
+  app.post("/api/user/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profileData = {
+        ...req.body,
+        userId,
+        id: userId
+      };
+      
+      const profile = await storage.createUserProfile(profileData);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error creating user profile:", error);
+      res.status(500).json({ error: "Failed to create user profile" });
+    }
+  });
+
+  app.get("/api/user/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const profile = await storage.getUserProfile(userId);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error loading user profile:", error);
+      res.status(500).json({ error: "Failed to load user profile" });
+    }
+  });
+
+  app.patch("/api/user/profile", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const updates = req.body;
+      const profile = await storage.updateUserProfile(userId, updates);
+      res.json(profile);
+    } catch (error) {
+      console.error("Error updating user profile:", error);
+      res.status(500).json({ error: "Failed to update user profile" });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // WebSocket server will be initialized later to avoid conflicts

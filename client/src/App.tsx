@@ -6,10 +6,12 @@ import { Leaderboard } from './components/Leaderboard';
 import { UserProfile } from './components/UserProfile';
 import { UserHeader } from './components/UserHeader';
 import { MatrixRain } from './components/MatrixRain';
+import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { Landing } from './pages/Landing';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 import { useAuth } from './hooks/useAuth';
+import { userProfileManager } from './lib/userProfileManager';
 
 export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
