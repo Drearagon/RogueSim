@@ -93,17 +93,16 @@ export class DatabaseStorage implements IStorage {
       .values({
         id: userData.id,
         email: userData.email,
-        firstName: userData.hackerName,
+        hackerName: userData.hackerName,
+        password: userData.password,
+        firstName: userData.firstName,
+        lastName: userData.lastName,
         profileImageUrl: userData.profileImageUrl,
         createdAt: userData.createdAt,
         updatedAt: userData.updatedAt
       })
       .returning();
-    return {
-      ...user,
-      hackerName: user.firstName || '',
-      password: userData.password
-    } as any;
+    return user;
   }
 
   async updateHackerName(userId: string, hackerName: string): Promise<User> {
