@@ -76,8 +76,12 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       const data = await response.json();
 
       if (response.ok) {
-        // Force a page reload to ensure authentication state updates properly
-        window.location.reload();
+        // Store authentication data in localStorage for persistence
+        localStorage.setItem('authenticated', 'true');
+        localStorage.setItem('user', JSON.stringify(data.user));
+        
+        // Trigger auth success callback immediately
+        onAuthSuccess(data.user);
       } else {
         // Provide specific error messages based on response
         if (response.status === 401) {

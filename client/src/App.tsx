@@ -111,11 +111,15 @@ export default function App() {
     );
   }
 
+  // Check localStorage for authentication as backup
+  const isLocallyAuthenticated = localStorage.getItem('authenticated') === 'true';
+  
   // Show authentication screen if not logged in
-  if (!isAuthenticated) {
-    return <AuthScreen onAuthSuccess={() => {
-      // Force a reload to ensure the authentication state updates properly
-      window.location.reload();
+  if (!isAuthenticated && !isLocallyAuthenticated) {
+    return <AuthScreen onAuthSuccess={(user) => {
+      // Update authentication state immediately
+      setUser(user);
+      setIsAuthenticated(true);
     }} />;
   }
 
