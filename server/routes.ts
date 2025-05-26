@@ -47,37 +47,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { hackerName, email, password } = req.body;
 
-      // Check if user already exists
-      const existingUser = await storage.getUserByEmail(email);
-      if (existingUser) {
-        return res.status(400).json({ error: "User already exists with this email" });
-      }
-
-      // Generate verification code
-      const verificationCode = EmailService.generateVerificationCode();
-      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
-
-      // Store verification code in database
-      await storage.storeVerificationCode({
-        email,
-        hackerName,
-        code: verificationCode,
-        expiresAt
-      });
-
-      // Send verification email
-      const emailSent = await EmailService.sendVerificationEmail(email, hackerName, verificationCode);
-      
-      if (!emailSent) {
-        return res.status(500).json({ error: "Failed to send verification email" });
-      }
-
-      // Hash password for storage
+      // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
       
-      // Store user data temporarily (mark as unverified)
+      // Create user directly (temporarily bypassing email verification)
       const userId = uuidv4();
-      await storage.storeUnverifiedUser({
+      const user = await storage.createUser({
         id: userId,
         hackerName,
         email,
@@ -87,10 +62,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       });
 
+      // Create session
+      (req.session as any).userId = userId;
+      (req.session as any).hackerName = hackerName;
+
       res.json({ 
-        message: "Verification code sent to your email",
-        email: email,
-        requiresVerification: true
+        user: {
+          id: user.id,
+          hackerName: user.hackerName,
+          email: user.email,
+          profileImageUrl: user.profileImageUrl
+        }
       });
     } catch (error) {
       console.error("Registration error:", error);
