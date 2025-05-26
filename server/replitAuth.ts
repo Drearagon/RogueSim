@@ -8,8 +8,17 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
+// Validate essential environment variables on startup
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is not set. Please set it securely for session management.");
+}
+
 if (!process.env.REPLIT_DOMAINS) {
-  throw new Error("Environment variable REPLIT_DOMAINS not provided");
+  throw new Error("REPLIT_DOMAINS environment variable not provided. This is required for authentication.");
+}
+
+if (process.env.SESSION_SECRET.length < 32) {
+  console.warn("WARNING: SESSION_SECRET should be at least 32 characters long for security.");
 }
 
 const getOidcConfig = memoize(
