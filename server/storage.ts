@@ -78,31 +78,35 @@ export class DatabaseStorage implements IStorage {
   }
 
   async getUserByEmail(email: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.email, email));
-    return user;
+    const query = `SELECT * FROM users WHERE email = $1`;
+    const result = await pool.query(query, [email]);
+    return result.rows[0];
   }
 
   async getUserByHackerName(hackerName: string): Promise<User | undefined> {
-    const [user] = await db.select().from(users).where(eq(users.firstName, hackerName));
-    return user;
+    const query = `SELECT * FROM users WHERE hacker_name = $1`;
+    const result = await pool.query(query, [hackerName]);
+    return result.rows[0];
   }
 
   async createUser(userData: any): Promise<User> {
-    const [user] = await db
-      .insert(users)
-      .values({
-        id: userData.id,
-        email: userData.email,
-        hackerName: userData.hackerName,
-        password: userData.password,
-        firstName: userData.firstName,
-        lastName: userData.lastName,
-        profileImageUrl: userData.profileImageUrl,
-        createdAt: userData.createdAt,
-        updatedAt: userData.updatedAt
-      })
-      .returning();
-    return user;
+    const query = `
+      INSERT INTO users (id, email, hacker_name, password, first_name, last_name, profile_image_url, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      RETURNING *
+    `;
+    const result = await pool.query(query, [
+      userData.id,
+      userData.email,
+      userData.hackerName,
+      userData.password,
+      userData.firstName || null,
+      userData.lastName || null,
+      userData.profileImageUrl || null,
+      userData.createdAt || new Date(),
+      userData.updatedAt || new Date()
+    ]);
+    return result.rows[0];
   }
 
   async updateHackerName(userId: string, hackerName: string): Promise<User> {
