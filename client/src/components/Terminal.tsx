@@ -91,7 +91,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     }
 
     // Allow certain commands to bypass unlock system
-    const alwaysAvailable = ['help', 'multiplayer', 'leaderboard', 'devmode', 'easter', 'reset_shop'];
+    const alwaysAvailable = ['help', 'multiplayer', 'leaderboard', 'devmode', 'easter', 'reset_shop', 'tutorial', 'settings', 'shop', 'clear', 'status'];
     if (!gameState.unlockedCommands.includes(commandName) && !alwaysAvailable.includes(commandName)) {
       setOutput(prev => [...prev, 'ERROR: Command locked. Complete missions to unlock.', '']);
       playError();
