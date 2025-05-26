@@ -109,19 +109,19 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="hackerName" className="text-green-400 font-mono">
+                <Label htmlFor="username" className="text-green-400 font-mono">
                   <User className="h-4 w-4 inline mr-2" />
-                  Hacker Name
+                  Username / Email
                 </Label>
                 <div className="flex gap-2">
                   <Input
-                    id="hackerName"
+                    id="username"
                     type="text"
-                    value={formData.hackerName}
-                    onChange={(e) => setFormData(prev => ({ ...prev, hackerName: e.target.value }))}
+                    value={formData.email}
+                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                     required
                     className="bg-black border-green-400/50 text-green-400 font-mono focus:border-green-400"
-                    placeholder="Enter your hacker alias"
+                    placeholder={isLogin ? "Enter hacker name or email" : "hacker@secure.net"}
                   />
                   {!isLogin && (
                     <Button
@@ -135,22 +135,6 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     </Button>
                   )}
                 </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-green-400 font-mono">
-                  <Mail className="h-4 w-4 inline mr-2" />
-                  Email
-                </Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                  required
-                  className="bg-black border-green-400/50 text-green-400 font-mono focus:border-green-400"
-                  placeholder="hacker@secure.net"
-                />
               </div>
 
               <div className="space-y-2">
