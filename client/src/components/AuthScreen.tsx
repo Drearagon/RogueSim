@@ -61,7 +61,8 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       const data = await response.json();
 
       if (response.ok) {
-        onAuthSuccess(data.user);
+        // Trigger a refetch of user data and redirect
+        window.location.reload();
       } else {
         setError(data.error || 'Authentication failed');
       }
