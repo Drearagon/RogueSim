@@ -51,6 +51,7 @@ const SHOP_DATA = {
       price: 200,
       category: 'software',
       payload: 'payload_basic',
+      unlocks: ['inject'],
       icon: Eye,
       rarity: 'common' as const,
       prerequisites: []
