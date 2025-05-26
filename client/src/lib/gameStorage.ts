@@ -41,23 +41,61 @@ const defaultGameState: GameState = {
   }
 };
 
-// Generate or get session ID
+// Generate or get persistent session ID per user session
 function getSessionId(): string {
-  const sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
-  localStorage.setItem(SESSION_KEY, sessionId);
+  let sessionId = localStorage.getItem(SESSION_KEY);
+  if (!sessionId) {
+    // Generate unique session ID that persists for this browser session
+    sessionId = 'session_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+    try {
+      localStorage.setItem(SESSION_KEY, sessionId);
+    } catch (error) {
+      console.error("Failed to save session ID:", error);
+      // Fallback to memory-based session ID if localStorage fails
+      sessionId = 'temp_' + Date.now();
+    }
+  }
   return sessionId;
 }
 
 export async function loadGameState(): Promise<GameState> {
-  // For deployment stability, always start with fresh default state
+  try {
+    // Try to load from localStorage first
+    const savedState = localStorage.getItem(STORAGE_KEY);
+    if (savedState) {
+      const parsedState = JSON.parse(savedState);
+      // Merge with default state to ensure all properties exist
+      return { ...defaultGameState, ...parsedState };
+    }
+  } catch (error) {
+    console.error("Failed to load game state from localStorage:", error);
+  }
+  
+  // Return default state if loading fails or no saved state exists
   return defaultGameState;
 }
 
 export async function saveGameState(gameState: GameState): Promise<void> {
   try {
+    // Validate gameState before saving
+    if (!gameState || typeof gameState !== 'object') {
+      throw new Error('Invalid game state object');
+    }
+    
     localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+    console.log('Game state saved successfully');
   } catch (error) {
-    console.error('Failed to save game state:', error);
+    console.error("Local storage failed:", error);
+    
+    // Provide user-friendly feedback for storage issues
+    if (error.name === 'QuotaExceededError') {
+      alert("Game save failed! Your browser storage is full. Please clear some space.");
+    } else {
+      alert("Game save failed! Check browser settings and try again.");
+    }
+    
+    // Still throw the error so calling code can handle it
+    throw error;
   }
 }
 

@@ -40,8 +40,23 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
     setError('');
 
     try {
+      // Validate email format if provided
+      if (!isLogin && formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
+        setError('Please enter a valid email address');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check password match for registration
       if (!isLogin && formData.password !== formData.confirmPassword) {
-        setError('Passwords do not match');
+        setError('Passwords do not match. Please ensure both password fields are identical.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Validate password strength for registration
+      if (!isLogin && formData.password.length < 6) {
+        setError('Password must be at least 6 characters long for security.');
         setIsLoading(false);
         return;
       }
@@ -64,10 +79,20 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         // Trigger auth success callback to update UI
         onAuthSuccess(data.user || {});
       } else {
-        setError(data.error || 'Authentication failed');
+        // Provide specific error messages based on response
+        if (response.status === 401) {
+          setError('Invalid credentials. Please check your username/email and password.');
+        } else if (response.status === 409) {
+          setError('Account already exists. Please use a different email address.');
+        } else if (response.status === 400) {
+          setError(data.error || 'Please fill in all required fields correctly.');
+        } else {
+          setError(data.error || 'Authentication failed. Please try again.');
+        }
       }
     } catch (error) {
-      setError('Connection error. Please try again.');
+      console.error('Authentication error:', error);
+      setError('Network connection failed. Please check your internet connection and try again.');
     }
 
     setIsLoading(false);
