@@ -1,0 +1,120 @@
+2025-05-26 01:53:07.44
+1c257700
+User
+userId: '7ff37c8b-d3a2-4a16-8a8c-9296acf50723',
+2025-05-26 01:53:07.44
+1c257700
+User
+hackerName: 'Blank',
+2025-05-26 01:53:07.44
+1c257700
+User
+email: 'donavinrediron@gmail.com',
+2025-05-26 01:53:07.44
+1c257700
+User
+hashedPassword: '$2b$10$rG/...'
+2025-05-26 01:53:07.44
+1c257700
+User
+}
+2025-05-26 01:53:07.47
+1c257700
+User
+Registration error: error: duplicate key value violates unique constraint "users_email_key"
+2025-05-26 01:53:07.47
+1c257700
+User
+at file:///home/runner/workspace/node_modules/@neondatabase/serverless/index.mjs:1345:74
+2025-05-26 01:53:07.47
+1c257700
+User
+at process.processTicksAndRejections (node:internal/process/task_queues:95:5)
+2025-05-26 01:53:07.47
+1c257700
+User
+at async DatabaseStorage.createUser (file:///home/runner/workspace/dist/index.js:361:5)
+2025-05-26 01:53:07.47
+1c257700
+User
+at async file:///home/runner/workspace/dist/index.js:932:20 {
+2025-05-26 01:53:07.47
+1c257700
+User
+length: 216,
+2025-05-26 01:53:07.47
+1c257700
+User
+severity: 'ERROR',
+2025-05-26 01:53:07.47
+1c257700
+User
+code: '23505',
+2025-05-26 01:53:07.47
+1c257700
+User
+detail: 'Key (email)=(donavinrediron@gmail.com) already exists.',
+2025-05-26 01:53:07.47
+1c257700
+User
+hint: undefined,
+2025-05-26 01:53:07.47
+1c257700
+User
+position: undefined,
+2025-05-26 01:53:07.47
+1c257700
+User
+internalPosition: undefined,
+2025-05-26 01:53:07.47
+1c257700
+User
+internalQuery: undefined,
+2025-05-26 01:53:07.47
+1c257700
+User
+where: undefined,
+2025-05-26 01:53:07.47
+1c257700
+User
+schema: 'public',
+2025-05-26 01:53:07.47
+1c257700
+User
+table: 'users',
+2025-05-26 01:53:07.47
+1c257700
+User
+column: undefined,
+2025-05-26 01:53:07.47
+1c257700
+User
+dataType: undefined,
+2025-05-26 01:53:07.47
+1c257700
+User
+constraint: 'users_email_key',
+2025-05-26 01:53:07.47
+1c257700
+User
+file: 'nbtinsert.c',
+2025-05-26 01:53:07.47
+1c257700
+User
+line: '666',
+2025-05-26 01:53:07.47
+1c257700
+User
+routine: '_bt_check_unique'
+2025-05-26 01:53:07.47
+1c257700
+User
+}
+2025-05-26 01:53:07.50
+1c257700
+User
+7:53:07 AM [express] POST /api/auth/register 500 in 159ms :: {"error":"Registration failed"}
+2025-05-26 01:55:03.02
+7e3ac7de
+System
+system: received signal terminated

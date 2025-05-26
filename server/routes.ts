@@ -171,14 +171,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Create session
       (req.session as any).userId = user.id;
-      (req.session as any).hackerName = user.hackerName;
+      (req.session as any).hackerName = user.hacker_name;
 
       res.json({ 
         user: {
           id: user.id,
-          hackerName: user.hackerName,
-          email: user.email,
-          profileImageUrl: user.profileImageUrl
+          hackerName: user.hacker_name,
+          email: user.email
         }
       });
     } catch (error) {
