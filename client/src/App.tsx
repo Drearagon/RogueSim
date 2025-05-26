@@ -25,20 +25,9 @@ export default function App() {
   // Check authentication state on app load
   useEffect(() => {
     const checkAuth = () => {
-      const storedAuth = localStorage.getItem('authenticated');
-      const storedUser = localStorage.getItem('user');
-      
-      if (storedAuth === 'true' && storedUser) {
-        try {
-          const userData = JSON.parse(storedUser);
-          setUser(userData);
-          setIsAuthenticated(true);
-        } catch (error) {
-          console.log('Invalid stored user data, clearing');
-          localStorage.removeItem('authenticated');
-          localStorage.removeItem('user');
-        }
-      }
+      // Clear any existing localStorage auth data to force proper login
+      localStorage.removeItem('authenticated');
+      localStorage.removeItem('user');
       setAuthLoading(false);
     };
     
@@ -137,11 +126,8 @@ export default function App() {
     );
   }
 
-  // Check localStorage for authentication as backup
-  const isLocallyAuthenticated = localStorage.getItem('authenticated') === 'true';
-  
   // Show authentication screen if not logged in
-  if (!isAuthenticated && !isLocallyAuthenticated) {
+  if (!isAuthenticated) {
     return <AuthScreen onAuthSuccess={(user) => {
       // Update authentication state immediately
       setUser(user);
