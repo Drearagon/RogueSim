@@ -40,10 +40,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     secret: process.env.SESSION_SECRET || 'your-secret-key',
     resave: false,
     saveUninitialized: false,
+    name: 'sessionId', // Explicit session name
     cookie: {
       httpOnly: true,
       secure: false, // Set to true in production with HTTPS
       maxAge: sessionTtl,
+      sameSite: 'lax', // Better compatibility
+      path: '/', // Ensure cookie works for all paths
     },
   }));
 
