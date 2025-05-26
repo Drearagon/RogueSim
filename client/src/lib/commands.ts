@@ -1000,9 +1000,9 @@ export const commands: Record<string, Command> = {
       // Reset purchased items and restore credits
       const updates = {
         purchasedItems: [],
-        unlockedCommands: ['help', 'scan', 'connect', 'decrypt', 'clear', 'status', 'shop', 'devmode', 'multiplayer', 'leaderboard', 'easter'],
+        unlockedCommands: ['help', 'scan', 'connect', 'decrypt', 'clear', 'status', 'shop', 'devmode', 'multiplayer', 'leaderboard', 'easter', 'reset_shop'],
         credits: 2000, // Give plenty of credits for testing
-        experience: gameState.experience // Keep experience
+        inventory: {}
       };
 
       onGameStateUpdate(updates);
@@ -1654,5 +1654,58 @@ export const commands: Record<string, Command> = {
     unlockLevel: 0 // Always available
   },
 
+  tutorial: {
+    description: "Start interactive tutorial for new hackers",
+    usage: "tutorial",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      setTimeout(() => {
+        const event = new CustomEvent('startTutorial');
+        window.dispatchEvent(event);
+      }, 100);
+
+      return {
+        success: true,
+        output: [
+          "▶ TUTORIAL MODE ACTIVATED ▶",
+          "",
+          "✓ Interactive guidance enabled",
+          "✓ Step-by-step instructions ready",
+          "✓ Real-time assistance available",
+          "",
+          "⚡ Learn hacking fundamentals!",
+          "",
+          "Follow the tutorial panel on the right →"
+        ]
+      };
+    },
+    unlockLevel: 0
+  },
+
+  settings: {
+    description: "Customize terminal appearance and behavior",
+    usage: "settings",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      setTimeout(() => {
+        const event = new CustomEvent('openSettings');
+        window.dispatchEvent(event);
+      }, 100);
+
+      return {
+        success: true,
+        output: [
+          "▶ TERMINAL SETTINGS ACCESSED ▶",
+          "",
+          "✓ Color schemes available",
+          "✓ Typography options loaded",
+          "✓ Effects and audio settings ready",
+          "",
+          "⚡ Personalize your experience!",
+          "",
+          "Customize colors, fonts, and effects"
+        ]
+      };
+    },
+    unlockLevel: 0
+  }
 
 };
