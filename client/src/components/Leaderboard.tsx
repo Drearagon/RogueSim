@@ -278,7 +278,7 @@ export function Leaderboard({ onClose, currentUser }: LeaderboardProps) {
                       <div 
                         key={`${entry.rank}-${entry.userId}`}
                         className={`flex items-center gap-4 p-3 rounded border ${
-                          entry.userId === user?.id ? 'border-yellow-400 bg-yellow-400/10' : 'border-green-400/30'
+                          entry.userId === currentUser?.id ? 'border-yellow-400 bg-yellow-400/10' : 'border-green-400/30'
                         }`}
                       >
                         <div className="flex items-center gap-2 w-16">
