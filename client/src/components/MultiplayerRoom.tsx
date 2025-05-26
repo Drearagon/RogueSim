@@ -83,7 +83,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         websocket.close();
       };
     }
-  }, [currentRoom, user]);
+  }, [currentRoom, currentUser]);
 
   const handleWebSocketMessage = (message: any) => {
     switch (message.type) {
@@ -313,7 +313,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
                     >
                       <User className="h-4 w-4" />
                       <span className="flex-1 font-mono">
-                        {user?.id === member.userId ? 'You' : `Player_${member.userId.slice(-4)}`}
+                        {currentUser?.id === member.userId ? 'You' : `Player_${member.userId.slice(-4)}`}
                       </span>
                       {member.role === 'host' && (
                         <Crown className="h-4 w-4 text-yellow-400" />
