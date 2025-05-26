@@ -30,6 +30,11 @@ export interface IStorage {
   upsertUser(user: UpsertUser): Promise<User>;
   updateHackerName(userId: string, hackerName: string): Promise<User>;
   
+  // Extended user profile operations
+  createUserProfile(profileData: any): Promise<any>;
+  getUserProfile(userId: string): Promise<any>;
+  updateUserProfile(userId: string, updates: any): Promise<any>;
+  
   // Game save operations
   saveGameState(gameState: InsertGameSave): Promise<GameSave>;
   loadGameState(sessionId: string): Promise<GameSave | undefined>;
@@ -246,6 +251,120 @@ export class DatabaseStorage implements IStorage {
       .where(eq(playerStats.userId, userId))
       .returning();
     return updatedStats;
+  }
+
+  // Extended user profile operations
+  async createUserProfile(profileData: any): Promise<any> {
+    // Store extended profile data in the user table
+    const [user] = await db
+      .insert(users)
+      .values({
+        id: profileData.id,
+        email: profileData.email,
+        firstName: profileData.hackerName,
+        profileImageUrl: profileData.profileImageUrl,
+      })
+      .onConflictDoUpdate({
+        target: users.id,
+        set: {
+          firstName: profileData.hackerName,
+          email: profileData.email,
+          profileImageUrl: profileData.profileImageUrl,
+          updatedAt: new Date(),
+        },
+      })
+      .returning();
+
+    // Create initial player stats
+    await this.updatePlayerStats(profileData.id, {
+      totalPlayTime: 0,
+      multiplayerWins: 0,
+      multiplayerLosses: 0,
+      bestCompletionTime: null,
+      favoriteCommands: [],
+      achievementsUnlocked: [],
+    });
+
+    return {
+      ...user,
+      ...profileData,
+    };
+  }
+
+  async getUserProfile(userId: string): Promise<any> {
+    const user = await this.getUser(userId);
+    if (!user) return null;
+
+    const stats = await this.getPlayerStats(userId);
+    
+    return {
+      id: user.id,
+      hackerName: user.firstName || 'Anonymous_Hacker',
+      email: user.email,
+      profileImageUrl: user.profileImageUrl,
+      joinDate: user.createdAt?.toISOString(),
+      lastActive: user.updatedAt?.toISOString(),
+      
+      // Game Progress (from profile data or defaults)
+      level: 1,
+      experience: 0,
+      reputation: 'Novice',
+      credits: 1000,
+      
+      // Statistics
+      totalMissions: 0,
+      successfulMissions: 0,
+      failedMissions: 0,
+      currentStreak: 0,
+      longestStreak: 0,
+      totalPlayTime: stats?.totalPlayTime || 0,
+      
+      // Preferences
+      hasCompletedTutorial: false,
+      soundEnabled: true,
+      difficulty: 'normal',
+      preferredGameMode: 'single',
+      
+      // Achievements
+      unlockedAchievements: stats?.achievementsUnlocked || [],
+      unlockedCommands: ['help', 'scan', 'connect', 'missions'],
+      unlockedPayloads: ['basic_payload'],
+      
+      // Save State
+      currentGameState: null,
+      savedMissions: [],
+      inventory: [],
+    };
+  }
+
+  async updateUserProfile(userId: string, updates: any): Promise<any> {
+    // Update user table if needed
+    if (updates.hackerName || updates.email || updates.profileImageUrl) {
+      await db
+        .update(users)
+        .set({
+          firstName: updates.hackerName,
+          email: updates.email,
+          profileImageUrl: updates.profileImageUrl,
+          updatedAt: new Date(),
+        })
+        .where(eq(users.id, userId));
+    }
+
+    // Update player stats if needed
+    const statsUpdates: any = {};
+    if (updates.totalPlayTime !== undefined) statsUpdates.totalPlayTime = updates.totalPlayTime;
+    if (updates.multiplayerWins !== undefined) statsUpdates.multiplayerWins = updates.multiplayerWins;
+    if (updates.multiplayerLosses !== undefined) statsUpdates.multiplayerLosses = updates.multiplayerLosses;
+    if (updates.bestCompletionTime !== undefined) statsUpdates.bestCompletionTime = updates.bestCompletionTime;
+    if (updates.unlockedAchievements !== undefined) statsUpdates.achievementsUnlocked = updates.unlockedAchievements;
+
+    if (Object.keys(statsUpdates).length > 0) {
+      await this.updatePlayerStats(userId, statsUpdates);
+    }
+
+    // Return updated profile
+    return this.getUserProfile(userId);
   }
 }
 
