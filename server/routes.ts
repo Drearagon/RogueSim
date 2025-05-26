@@ -203,8 +203,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         res.json({
           id: user.id,
           hackerName: user.hackerName,
-          email: user.email,
-          profileImageUrl: user.profileImageUrl
+          email: user.email
         });
       } else {
         res.status(404).json({ error: "User not found" });
