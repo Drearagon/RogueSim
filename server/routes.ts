@@ -173,14 +173,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (req.session as any).userId = user.id;
       (req.session as any).hackerName = user.hacker_name;
 
-      // Force session save before responding
-      req.session.save((err) => {
-        if (err) {
-          console.error('Session save error:', err);
-          return res.status(500).json({ error: "Session creation failed" });
-        }
-        
+      // Create session synchronously
+      (req.session as any).save(() => {
         console.log('Session created successfully for user:', user.id);
+        console.log('Session ID:', req.sessionID);
+        
         res.json({ 
           user: {
             id: user.id,
@@ -206,6 +203,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get('/api/auth/user', (req: any, res) => {
     try {
+      // Debug session information
+      console.log('Auth check - Session exists:', !!req.session);
+      console.log('Auth check - User ID in session:', req.session?.userId);
+      console.log('Auth check - Session data:', req.session);
+      
       // Check if user is authenticated via session
       if (!req.session || !req.session.userId) {
         return res.status(401).json({ error: "Authentication required" });
