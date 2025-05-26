@@ -200,6 +200,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  // Set username for first-time users
+  app.post('/api/user/set-username', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.session.userId;
+      const { username } = req.body;
+
+      if (!username || typeof username !== 'string') {
+        return res.status(400).json({ error: "Username is required" });
+      }
+
+      const trimmedUsername = username.trim();
+      
+      if (trimmedUsername.length < 3) {
+        return res.status(400).json({ error: "Username must be at least 3 characters long" });
+      }
+
+      if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
+        return res.status(400).json({ error: "Username can only contain letters, numbers, underscores, and hyphens" });
+      }
+
+      // Check if username is already taken
+      const existingUser = await storage.getUserByHackerName(trimmedUsername);
+      if (existingUser && existingUser.id !== userId) {
+        return res.status(409).json({ error: "Username is already taken" });
+      }
+
+      // Update the user's hacker name
+      const updatedUser = await storage.updateHackerName(userId, trimmedUsername);
+      
+      res.json({ 
+        user: {
+          id: updatedUser.id,
+          hackerName: updatedUser.hackerName,
+          email: updatedUser.email
+        }
+      });
+    } catch (error) {
+      console.error("Username setting error:", error);
+      res.status(500).json({ error: "Failed to set username" });
+    }
+  });
+
   app.get('/api/auth/user', (req: any, res) => {
     try {
       // Debug session information

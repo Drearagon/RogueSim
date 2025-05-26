@@ -9,6 +9,7 @@ import { MatrixRain } from './components/MatrixRain';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { Landing } from './pages/Landing';
 import { AuthScreen } from './components/AuthScreen';
+import { UsernameSetup } from './components/UsernameSetup';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 import { useAuth } from './hooks/useAuth';
@@ -21,6 +22,7 @@ export default function App() {
   const [user, setUser] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
+  const [needsUsername, setNeedsUsername] = useState(false);
 
   // Check authentication state on app load
   useEffect(() => {
@@ -132,6 +134,19 @@ export default function App() {
       // Update authentication state immediately
       setUser(user);
       setIsAuthenticated(true);
+      
+      // Check if user needs to set a username
+      if (!user.hackerName) {
+        setNeedsUsername(true);
+      }
+    }} />;
+  }
+
+  // Show username setup if needed
+  if (needsUsername) {
+    return <UsernameSetup onUsernameSet={(username) => {
+      setUser({ ...user, hackerName: username });
+      setNeedsUsername(false);
     }} />;
   }
 
