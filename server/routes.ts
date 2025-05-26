@@ -134,23 +134,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/auth/login', async (req, res) => {
     try {
-      const { hackerName, email, password } = req.body;
+      const { email, password } = req.body; // email field now contains either email or hacker name
       
-      if ((!email && !hackerName) || !password) {
-        return res.status(400).json({ error: "Email or hacker name and password are required" });
+      if (!email || !password) {
+        return res.status(400).json({ error: "Username/email and password are required" });
       }
       
-      // Find user by email OR hacker name
-      let userQuery, queryParams;
-      if (email) {
-        userQuery = `SELECT id, email, hacker_name, password FROM users WHERE email = $1`;
-        queryParams = [email];
-      } else {
-        userQuery = `SELECT id, email, hacker_name, password FROM users WHERE hacker_name = $1`;
-        queryParams = [hackerName];
-      }
-      
-      const userResult = await pool.query(userQuery, queryParams);
+      // Try to find user by email first, then by hacker name if email doesn't work
+      let userQuery = `SELECT id, email, hacker_name, password FROM users WHERE email = $1 OR hacker_name = $1`;
+      const userResult = await pool.query(userQuery, [email]);
       const user = userResult.rows[0];
       
       if (!user) {
