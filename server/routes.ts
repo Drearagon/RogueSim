@@ -202,7 +202,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (user) {
         res.json({
           id: user.id,
-          hackerName: user.hacker_name || user.hackerName,
+          hackerName: user.hackerName,
           email: user.email
         });
       } else {
