@@ -88,19 +88,25 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(userData: any): Promise<User> {
+    console.log('Creating user with data:', userData);
+    
+    // Direct SQL insert to bypass ORM issues
+    const query = `
+      INSERT INTO users (id, email, password, hacker_name, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
+      RETURNING *
+    `;
+    
     try {
-      const [user] = await db
-        .insert(users)
-        .values({
-          id: userData.id,
-          email: userData.email,
-          hackerName: userData.hackerName,
-          password: userData.password,
-          createdAt: new Date(),
-          updatedAt: new Date()
-        })
-        .returning();
-      return user;
+      const result = await pool.query(query, [
+        userData.id,
+        userData.email,
+        userData.password,
+        userData.hackerName
+      ]);
+      
+      console.log('User created successfully:', result.rows[0]);
+      return result.rows[0];
     } catch (error) {
       console.error('Database insert error:', error);
       throw error;

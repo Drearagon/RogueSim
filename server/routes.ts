@@ -46,20 +46,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post('/api/auth/register', async (req, res) => {
     try {
       const { hackerName, email, password } = req.body;
+      console.log('Registration request:', { hackerName, email, password: password ? '***' : 'missing' });
+
+      if (!hackerName || !email || !password) {
+        return res.status(400).json({ error: "All fields are required" });
+      }
 
       // Hash password
       const hashedPassword = await bcrypt.hash(password, 10);
+      console.log('Password hashed successfully');
       
       // Create user directly (temporarily bypassing email verification)
       const userId = uuidv4();
+      console.log('About to create user with:', { userId, hackerName, email, hashedPassword: hashedPassword.substring(0, 10) + '...' });
+      
       const user = await storage.createUser({
         id: userId,
         hackerName,
         email,
-        password: hashedPassword,
-        profileImageUrl: null,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        password: hashedPassword
       });
 
       // Create session
