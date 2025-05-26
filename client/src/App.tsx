@@ -113,7 +113,10 @@ export default function App() {
 
   // Show authentication screen if not logged in
   if (!isAuthenticated) {
-    return <AuthScreen onAuthSuccess={(user) => window.location.reload()} />;
+    return <AuthScreen onAuthSuccess={() => {
+      // Force a reload to ensure the authentication state updates properly
+      window.location.reload();
+    }} />;
   }
 
 
