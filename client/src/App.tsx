@@ -184,7 +184,7 @@ export default function App() {
         onStartGame={handleStartMultiplayer}
         onBack={() => setCurrentView('game')}
         currentUser={{
-          username: effectiveUser?.firstName || 'Anonymous_Hacker',
+          username: effectiveUser?.hackerName || 'Anonymous_Hacker',
           avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
           id: effectiveUser?.id || 'mobile_user'
         }}
@@ -197,7 +197,7 @@ export default function App() {
       <Leaderboard 
         onClose={() => setCurrentView('game')} 
         currentUser={{
-          username: effectiveUser?.firstName || 'Anonymous_Hacker',
+          username: effectiveUser?.hackerName || 'Anonymous_Hacker',
           avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
           id: effectiveUser?.id || 'mobile_user',
           level: gameState.playerLevel,
@@ -212,7 +212,7 @@ export default function App() {
     <div className="relative">
       <UserHeader 
         user={{
-          username: effectiveUser?.firstName || 'Anonymous_Hacker',
+          username: effectiveUser?.hackerName || 'Anonymous_Hacker',
           avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
           reputation: gameState.reputation,
           level: gameState.playerLevel,
