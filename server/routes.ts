@@ -7,6 +7,7 @@ import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import { EmailService } from "./emailService";
 
 // Session configuration
 const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -52,12 +53,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "User already exists with this email" });
       }
 
-      // Hash password
+      // Generate verification code
+      const verificationCode = EmailService.generateVerificationCode();
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+      // Store verification code in database
+      await storage.storeVerificationCode({
+        email,
+        hackerName,
+        code: verificationCode,
+        expiresAt
+      });
+
+      // Send verification email
+      const emailSent = await EmailService.sendVerificationEmail(email, hackerName, verificationCode);
+      
+      if (!emailSent) {
+        return res.status(500).json({ error: "Failed to send verification email" });
+      }
+
+      // Hash password for storage
       const hashedPassword = await bcrypt.hash(password, 10);
       
-      // Create user with UUID
+      // Store user data temporarily (mark as unverified)
       const userId = uuidv4();
-      const user = await storage.createUser({
+      await storage.storeUnverifiedUser({
         id: userId,
         hackerName,
         email,
@@ -67,9 +87,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date()
       });
 
+      res.json({ 
+        message: "Verification code sent to your email",
+        email: email,
+        requiresVerification: true
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  app.post('/api/auth/verify', async (req, res) => {
+    try {
+      const { email, code } = req.body;
+
+      // Verify the code
+      const verification = await storage.getVerificationCode(email, code);
+      if (!verification || verification.used || new Date() > verification.expiresAt) {
+        return res.status(400).json({ error: "Invalid or expired verification code" });
+      }
+
+      // Mark code as used
+      await storage.markVerificationCodeUsed(verification.id);
+
+      // Get unverified user data
+      const unverifiedUser = await storage.getUnverifiedUser(email);
+      if (!unverifiedUser) {
+        return res.status(400).json({ error: "User data not found" });
+      }
+
+      // Create verified user
+      const user = await storage.createUser(unverifiedUser);
+
+      // Clean up unverified data
+      await storage.deleteUnverifiedUser(email);
+
+      // Send welcome email
+      await EmailService.sendWelcomeEmail(email, unverifiedUser.hackerName);
+
       // Create session
-      req.session.userId = userId;
-      req.session.hackerName = hackerName;
+      (req.session as any).userId = user.id;
+      (req.session as any).hackerName = user.hackerName;
 
       res.json({ 
         user: {
@@ -80,8 +139,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       });
     } catch (error) {
-      console.error("Registration error:", error);
-      res.status(500).json({ error: "Registration failed" });
+      console.error("Verification error:", error);
+      res.status(500).json({ error: "Verification failed" });
     }
   });
 
