@@ -133,10 +133,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post('/api/auth/login', async (req, res) => {
     try {
-      const { hackerName, email, password } = req.body;
+      const { email, password } = req.body;
       
-      // Find user by email or hacker name
-      const user = await storage.getUserByEmail(email) || await storage.getUserByHackerName(hackerName);
+      if (!email || !password) {
+        return res.status(400).json({ error: "Email and password are required" });
+      }
+      
+      // Find user by email
+      const user = await storage.getUserByEmail(email);
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
@@ -153,8 +157,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Create session
-      req.session.userId = user.id;
-      req.session.hackerName = user.hackerName;
+      (req.session as any).userId = user.id;
+      (req.session as any).hackerName = user.hacker_name;
 
       res.json({ 
         user: {
