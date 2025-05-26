@@ -393,47 +393,47 @@ export class DatabaseStorage implements IStorage {
 
   // Email verification operations
   async storeVerificationCode(data: any): Promise<void> {
-    await db.execute(`
+    const query = `
       INSERT INTO verification_codes (email, hacker_name, code, expires_at)
       VALUES ($1, $2, $3, $4)
-    `, [data.email, data.hackerName, data.code, data.expiresAt]);
+    `;
+    await pool.query(query, [data.email, data.hackerName, data.code, data.expiresAt]);
   }
 
   async getVerificationCode(email: string, code: string): Promise<any> {
-    const result = await db.execute(`
+    const query = `
       SELECT * FROM verification_codes 
       WHERE email = $1 AND code = $2 AND used = false
       ORDER BY created_at DESC LIMIT 1
-    `, [email, code]);
+    `;
+    const result = await pool.query(query, [email, code]);
     return result.rows[0];
   }
 
   async markVerificationCodeUsed(id: number): Promise<void> {
-    await db.execute(`
-      UPDATE verification_codes SET used = true WHERE id = $1
-    `, [id]);
+    const query = `UPDATE verification_codes SET used = true WHERE id = $1`;
+    await pool.query(query, [id]);
   }
 
   async storeUnverifiedUser(userData: any): Promise<void> {
-    await db.execute(`
+    const query = `
       INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       ON CONFLICT (email) DO UPDATE SET
         id = $1, hacker_name = $2, password = $4, updated_at = $7
-    `, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl, userData.createdAt, userData.updatedAt]);
+    `;
+    await pool.query(query, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl, userData.createdAt, userData.updatedAt]);
   }
 
   async getUnverifiedUser(email: string): Promise<any> {
-    const result = await db.execute(`
-      SELECT * FROM unverified_users WHERE email = $1
-    `, [email]);
+    const query = `SELECT * FROM unverified_users WHERE email = $1`;
+    const result = await pool.query(query, [email]);
     return result.rows[0];
   }
 
   async deleteUnverifiedUser(email: string): Promise<void> {
-    await db.execute(`
-      DELETE FROM unverified_users WHERE email = $1
-    `, [email]);
+    const query = `DELETE FROM unverified_users WHERE email = $1`;
+    await pool.query(query, [email]);
   }
 }
 
