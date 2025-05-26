@@ -10,8 +10,18 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { EmailService } from "./emailService";
 
-// Session configuration
+// Enhanced session configuration with environment validation
 const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+
+// Validate critical environment variables on startup
+if (!process.env.SESSION_SECRET) {
+  throw new Error("SESSION_SECRET is not set. Please set it securely for production deployment.");
+}
+
+if (!process.env.DATABASE_URL) {
+  throw new Error("DATABASE_URL is not set. Database connection required for session management.");
+}
+
 const pgStore = connectPg(session);
 const sessionStore = new pgStore({
   conString: process.env.DATABASE_URL,
@@ -19,6 +29,8 @@ const sessionStore = new pgStore({
   ttl: sessionTtl,
   tableName: "sessions",
 });
+
+console.log('Session store initialized successfully with database connection');
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
