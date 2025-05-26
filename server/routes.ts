@@ -200,6 +200,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Leaderboard endpoint
+  app.get("/api/leaderboards", async (req, res) => {
+    try {
+      // Get real leaderboard data from existing game saves and mission history
+      const response = await fetch('/api/game/saves');
+      if (response.ok) {
+        const gameSaves = await response.json();
+        
+        const leaderboards = {
+          missions: gameSaves
+            .map((save: any, index: number) => ({
+              rank: index + 1,
+              userId: save.userId || save.sessionId,
+              hackerName: `Player_${(save.userId || save.sessionId).slice(-4)}`,
+              score: save.gameState?.completedMissions?.length || 0,
+              category: 'missions',
+              details: `${save.gameState?.completedMissions?.length || 0} missions`,
+              timestamp: save.updatedAt || new Date().toISOString()
+            }))
+            .sort((a: any, b: any) => b.score - a.score)
+            .slice(0, 10),
+          
+          credits: gameSaves
+            .map((save: any, index: number) => ({
+              rank: index + 1,
+              userId: save.userId || save.sessionId,
+              hackerName: `Player_${(save.userId || save.sessionId).slice(-4)}`,
+              score: save.gameState?.credits || 0,
+              category: 'credits',
+              details: `${save.gameState?.credits || 0}₡`,
+              timestamp: save.updatedAt || new Date().toISOString()
+            }))
+            .sort((a: any, b: any) => b.score - a.score)
+            .slice(0, 10),
+          
+          speed: [],
+          multiplayer: []
+        };
+        
+        res.json(leaderboards);
+      } else {
+        // If no data available, return empty leaderboards
+        res.json({
+          missions: [],
+          speed: [],
+          multiplayer: [],
+          credits: []
+        });
+      }
+    } catch (error) {
+      console.error("Error getting leaderboards:", error);
+      res.json({
+        missions: [],
+        speed: [],
+        multiplayer: [],
+        credits: []
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   
   // WebSocket server will be initialized later to avoid conflicts

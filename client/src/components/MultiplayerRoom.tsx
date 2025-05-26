@@ -134,7 +134,8 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         body: {
           name: roomName,
           gameMode: 'cooperative',
-          maxPlayers: 4
+          maxPlayers: 4,
+          userId: currentUser?.id || 'mobile_user_' + Date.now()
         }
       });
 
