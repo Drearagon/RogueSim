@@ -44,7 +44,7 @@ export default function App() {
           } else {
             // Create new profile for first-time user
             const newProfile = await userProfileManager.createProfile({
-              hackerName: user.firstName || 'Anonymous_Hacker',
+              hackerName: user.hackerName || 'Anonymous_Hacker',
               email: user.email || '',
               profileImageUrl: user.profileImageUrl || ''
             });
