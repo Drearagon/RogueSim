@@ -155,17 +155,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Ensure both password and hash are properly defined strings
-      const inputPassword = String(password).trim();
-      const storedHash = String(user.password).trim();
-      
-      if (!inputPassword || !storedHash) {
-        return res.status(401).json({ error: "Invalid credentials" });
-      }
-
-      // Use synchronous bcrypt to avoid async/promise issues
-      const validPassword = bcrypt.compareSync(inputPassword, storedHash);
+      // Use async bcrypt comparison for better reliability
+      const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
+        console.log('Password validation failed for user:', user.email);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
