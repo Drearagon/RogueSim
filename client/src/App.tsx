@@ -6,6 +6,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { UserProfile } from './components/UserProfile';
 import { UserHeader } from './components/UserHeader';
 import { MatrixRain } from './components/MatrixRain';
+import { Landing } from './pages/Landing';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 import { useAuth } from './hooks/useAuth';
@@ -69,37 +70,13 @@ export default function App() {
     window.location.href = '/api/logout';
   };
 
-  // For mobile compatibility - create default user for smooth gameplay
-  const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  // Use real authentication for all users to ensure individual profiles
+  const effectiveUser = user;
+  const effectiveAuth = isAuthenticated;
   
-  // Create default mobile user if needed
-  const effectiveUser = user || (isMobile ? {
-    id: 'mobile_user',
-    firstName: 'Anonymous_Hacker',
-    lastName: null,
-    email: 'mobile@roguesim.dev',
-    profileImageUrl: null
-  } : null);
-  
-  const effectiveAuth = isAuthenticated || isMobile;
-  
-  // Show login page if not authenticated (desktop only)
+  // Show landing page if not authenticated
   if (!effectiveAuth) {
-    return (
-      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
-        <MatrixRain />
-        <div className="text-center text-green-400 z-10">
-          <h1 className="text-4xl font-mono mb-8">RogueSim: ESP32 Hacker Terminal</h1>
-          <p className="text-lg mb-8">Access the underground hacking network</p>
-          <button 
-            onClick={() => window.location.href = '/api/login'}
-            className="bg-green-500 hover:bg-green-600 text-black px-8 py-3 rounded font-mono text-lg transition-colors"
-          >
-            Initialize Connection
-          </button>
-        </div>
-      </div>
-    );
+    return <Landing />;
   }
 
   if (!gameState.isBootComplete) {
@@ -110,10 +87,10 @@ export default function App() {
     return (
       <UserProfile 
         user={effectiveUser || {
-          id: 'mobile_user',
-          firstName: 'Anonymous_Hacker',
+          id: 'default_user',
+          firstName: 'Player',
           lastName: 'User',
-          email: 'mobile@roguesim.dev'
+          email: 'player@roguesim.dev'
         }}
         onClose={() => setCurrentView('game')}
         onUpdateProfile={() => {}} // Profile updates handled by Replit Auth
