@@ -17,7 +17,33 @@ import { userProfileManager } from './lib/userProfileManager';
 export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
   const { setEnabled } = useSound();
-  const { user, isLoading: authLoading, isAuthenticated } = useAuth();
+  // Use localStorage-based authentication instead of problematic useAuth hook
+  const [user, setUser] = useState<any>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Check authentication state on app load
+  useEffect(() => {
+    const checkAuth = () => {
+      const storedAuth = localStorage.getItem('authenticated');
+      const storedUser = localStorage.getItem('user');
+      
+      if (storedAuth === 'true' && storedUser) {
+        try {
+          const userData = JSON.parse(storedUser);
+          setUser(userData);
+          setIsAuthenticated(true);
+        } catch (error) {
+          console.log('Invalid stored user data, clearing');
+          localStorage.removeItem('authenticated');
+          localStorage.removeItem('user');
+        }
+      }
+      setAuthLoading(false);
+    };
+    
+    checkAuth();
+  }, []);
   const [currentView, setCurrentView] = useState<'game' | 'multiplayer' | 'leaderboard' | 'profile' | 'onboarding'>('game');
   const [userProfile, setUserProfile] = useState<any>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
