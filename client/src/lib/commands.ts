@@ -993,6 +993,42 @@ export const commands: Record<string, Command> = {
     unlockLevel: 3
   },
 
+  reset_shop: {
+    description: "Reset shop purchases and restore credits (dev command)",
+    usage: "reset_shop",
+    execute: (args: string[], gameState: GameState, onGameStateUpdate: (updates: Partial<GameState>) => void): CommandResult => {
+      // Reset purchased items and restore credits
+      const updates = {
+        purchasedItems: [],
+        unlockedCommands: ['help', 'scan', 'connect', 'decrypt', 'clear', 'status', 'shop', 'devmode', 'multiplayer', 'leaderboard', 'easter'],
+        credits: 2000, // Give plenty of credits for testing
+        experience: gameState.experience // Keep experience
+      };
+
+      onGameStateUpdate(updates);
+
+      return {
+        output: [
+          '> SHOP RESET INITIATED...',
+          '> Clearing purchased items...',
+          '> Restoring credits...',
+          '> Resetting unlocked commands...',
+          '',
+          '┌─ RESET COMPLETE ─┐',
+          '│ Credits: 2000     │',
+          '│ Items: Cleared    │',
+          '│ Commands: Reset   │',
+          '└───────────────────┘',
+          '',
+          '> Shop reset successfully. You can now test purchases!',
+          ''
+        ],
+        success: true,
+        soundEffect: 'success'
+      };
+    }
+  },
+
   hydra: {
     description: "Access Hydra Protocol",
     usage: "hydra [status|contacts|messages]",
