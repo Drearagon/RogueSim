@@ -128,17 +128,18 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
     }
 
     try {
-      const room = await apiRequest({
-        url: '/api/rooms/create',
-        method: 'POST',
-        body: {
+      const response = await apiRequest(
+        'POST',
+        '/api/rooms/create',
+        {
           name: roomName,
           gameMode: 'cooperative',
           maxPlayers: 4,
           userId: currentUser?.id || 'mobile_user_' + Date.now()
         }
-      });
+      );
 
+      const room = await response.json();
       setCurrentRoom(room);
       setActiveTab('room');
       toast({
