@@ -91,21 +91,18 @@ export class DatabaseStorage implements IStorage {
 
   async createUser(userData: any): Promise<User> {
     const query = `
-      INSERT INTO users (id, email, hacker_name, password, first_name, last_name, profile_image_url, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      INSERT INTO users (id, email, hacker_name, password, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, NOW(), NOW())
       RETURNING *
     `;
+    
     const result = await pool.query(query, [
       userData.id,
       userData.email,
       userData.hackerName,
-      userData.password,
-      userData.firstName || null,
-      userData.lastName || null,
-      userData.profileImageUrl || null,
-      userData.createdAt || new Date(),
-      userData.updatedAt || new Date()
+      userData.password
     ]);
+    
     return result.rows[0];
   }
 
