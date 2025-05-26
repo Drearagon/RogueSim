@@ -71,6 +71,8 @@ export interface IStorage {
 }
 
 export class DatabaseStorage implements IStorage {
+  public pool = pool; // Expose pool for direct queries
+  
   // User operations for Replit Auth
   async getUser(id: string): Promise<User | undefined> {
     const [user] = await db.select().from(users).where(eq(users.id, id));

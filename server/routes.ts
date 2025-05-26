@@ -1,6 +1,7 @@
 import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { pool } from "./db";
 import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema } from "@shared/schema";
 import { MultiplayerWebSocketServer } from "./websocket";
 import bcrypt from "bcrypt";
@@ -139,25 +140,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ error: "Email and password are required" });
       }
       
-      // Find user by email
-      const user = await storage.getUserByEmail(email);
-      console.log('Found user:', user ? 'YES' : 'NO');
-      console.log('User password field:', user?.password ? 'EXISTS' : 'MISSING');
+      // Find user by email using direct SQL query to bypass ORM issues
+      const userQuery = `SELECT id, email, hacker_name, password FROM users WHERE email = $1`;
+      const userResult = await pool.query(userQuery, [email]);
+      const user = userResult.rows[0];
       
       if (!user) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Check if user has a password
-      if (!user.password) {
-        console.log('No password found for user');
+      // Check if password field exists and has content
+      if (!user.password || user.password.length === 0) {
+        console.log('No password found for user:', user.email);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       // Verify password
-      console.log('About to compare passwords...');
       const validPassword = await bcrypt.compare(password, user.password);
-      console.log('Password comparison result:', validPassword);
       if (!validPassword) {
         return res.status(401).json({ error: "Invalid credentials" });
       }
