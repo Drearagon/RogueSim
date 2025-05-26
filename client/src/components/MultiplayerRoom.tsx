@@ -227,14 +227,22 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   };
 
   const sendChatMessage = () => {
-    if (!chatInput.trim() || !ws) return;
+    if (!chatInput.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
 
-    ws.send(JSON.stringify({
-      type: 'room_chat',
-      payload: { message: chatInput }
-    }));
-
-    setChatInput('');
+    try {
+      ws.send(JSON.stringify({
+        type: 'room_chat',
+        payload: { message: chatInput }
+      }));
+      setChatInput('');
+    } catch (error) {
+      console.error('Failed to send chat message:', error);
+      toast({
+        title: "Chat Error",
+        description: "Failed to send message. Connection may be unstable.",
+        variant: "destructive"
+      });
+    }
   };
 
   const copyRoomCode = () => {

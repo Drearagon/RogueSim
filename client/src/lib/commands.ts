@@ -24,6 +24,68 @@ const bleDevices: Device[] = [
 ];
 
 export const commands: Record<string, Command> = {
+  generate: {
+    description: "Generate AI-powered procedural mission tailored to your skill level",
+    usage: "generate",
+    execute: async (args: string[], gameState: GameState, onGameStateUpdate: (updates: Partial<GameState>) => void): Promise<CommandResult> => {
+      try {
+        const response = await fetch('/api/missions/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            playerLevel: gameState.playerLevel,
+            completedMissions: gameState.completedMissions,
+            reputation: gameState.reputation
+          })
+        });
+
+        if (response.ok) {
+          const mission = await response.json();
+          const updatedMissions = [...gameState.availableMissions, mission];
+          onGameStateUpdate({ availableMissions: updatedMissions });
+
+          return {
+            output: [
+              '> ACCESSING AI MISSION GENERATOR...',
+              '',
+              '┌─ AI MISSION SYSTEM ─────────────────────┐',
+              '│ STATUS: MISSION GENERATED SUCCESSFULLY  │',
+              '│ DIFFICULTY: ADAPTIVE TO YOUR SKILL     │',
+              '│ TYPE: PROCEDURAL & INTELLIGENT         │',
+              '│ AI MODEL: GPT-4O ACTIVE                │',
+              '└─────────────────────────────────────────┘',
+              '',
+              `🤖 AI Mission: "${mission.title}"`,
+              `🎯 Target: ${mission.target}`,
+              `⚡ Difficulty: ${mission.difficulty}/10`,
+              `💰 Reward: ${mission.rewards.credits}₡`,
+              '',
+              'Mission added to your available missions!',
+              'Use "missions" to view details and start.'
+            ],
+            credits: gameState.credits,
+            experience: gameState.experience + 25
+          };
+        } else {
+          throw new Error('Failed to generate mission');
+        }
+      } catch (error) {
+        return {
+          output: [
+            '> AI MISSION GENERATOR ERROR',
+            '',
+            '❌ Failed to connect to AI mission system',
+            '🔧 Falling back to standard mission protocols',
+            '',
+            'Use "missions" to view available standard missions.'
+          ],
+          credits: gameState.credits,
+          experience: gameState.experience
+        };
+      }
+    }
+  },
   trace: {
     description: "View memory trace timeline of your activities",
     usage: "trace",
