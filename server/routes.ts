@@ -169,22 +169,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Create session and ensure it's saved
+      // Create session and add to response
       (req.session as any).userId = user.id;
       (req.session as any).hackerName = user.hacker_name;
 
-      // Create session synchronously
-      (req.session as any).save(() => {
-        console.log('Session created successfully for user:', user.id);
-        console.log('Session ID:', req.sessionID);
-        
-        res.json({ 
-          user: {
-            id: user.id,
-            hackerName: user.hacker_name,
-            email: user.email
-          }
-        });
+      console.log('Session created successfully for user:', user.id);
+      
+      // Send user data with authentication token
+      res.json({ 
+        user: {
+          id: user.id,
+          hackerName: user.hacker_name,
+          email: user.email,
+          authenticated: true
+        },
+        sessionId: req.sessionID
       });
     } catch (error) {
       console.error("Login error:", error);
