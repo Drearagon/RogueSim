@@ -22,9 +22,13 @@ const sessionStore = new pgStore({
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
+  console.log('Auth check - Session exists:', !!req.session);
+  console.log('Auth check - User ID in session:', req.session?.userId);
+  
   if (req.session && req.session.userId) {
     next();
   } else {
+    console.log('Authentication failed - no valid session');
     res.status(401).json({ error: "Authentication required" });
   }
 };
@@ -162,16 +166,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Create session
+      // Create session and ensure it's saved
       (req.session as any).userId = user.id;
       (req.session as any).hackerName = user.hacker_name;
 
-      res.json({ 
-        user: {
-          id: user.id,
-          hackerName: user.hacker_name,
-          email: user.email
+      // Force session save before responding
+      req.session.save((err) => {
+        if (err) {
+          console.error('Session save error:', err);
+          return res.status(500).json({ error: "Session creation failed" });
         }
+        
+        console.log('Session created successfully for user:', user.id);
+        res.json({ 
+          user: {
+            id: user.id,
+            hackerName: user.hacker_name,
+            email: user.email
+          }
+        });
       });
     } catch (error) {
       console.error("Login error:", error);
