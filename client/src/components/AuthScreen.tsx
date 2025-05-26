@@ -24,6 +24,8 @@ interface UserProfile {
 export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
+  const [showVerification, setShowVerification] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
   const [formData, setFormData] = useState({
     hackerName: '',
     email: '',

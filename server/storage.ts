@@ -37,6 +37,14 @@ export interface IStorage {
   getUserProfile(userId: string): Promise<any>;
   updateUserProfile(userId: string, updates: any): Promise<any>;
   
+  // Email verification operations
+  storeVerificationCode(data: any): Promise<void>;
+  getVerificationCode(email: string, code: string): Promise<any>;
+  markVerificationCodeUsed(id: number): Promise<void>;
+  storeUnverifiedUser(userData: any): Promise<void>;
+  getUnverifiedUser(email: string): Promise<any>;
+  deleteUnverifiedUser(email: string): Promise<void>;
+  
   // Game save operations
   saveGameState(gameState: InsertGameSave): Promise<GameSave>;
   loadGameState(sessionId: string): Promise<GameSave | undefined>;
@@ -381,6 +389,51 @@ export class DatabaseStorage implements IStorage {
 
     // Return updated profile
     return this.getUserProfile(userId);
+  }
+
+  // Email verification operations
+  async storeVerificationCode(data: any): Promise<void> {
+    await db.execute(`
+      INSERT INTO verification_codes (email, hacker_name, code, expires_at)
+      VALUES ($1, $2, $3, $4)
+    `, [data.email, data.hackerName, data.code, data.expiresAt]);
+  }
+
+  async getVerificationCode(email: string, code: string): Promise<any> {
+    const result = await db.execute(`
+      SELECT * FROM verification_codes 
+      WHERE email = $1 AND code = $2 AND used = false
+      ORDER BY created_at DESC LIMIT 1
+    `, [email, code]);
+    return result.rows[0];
+  }
+
+  async markVerificationCodeUsed(id: number): Promise<void> {
+    await db.execute(`
+      UPDATE verification_codes SET used = true WHERE id = $1
+    `, [id]);
+  }
+
+  async storeUnverifiedUser(userData: any): Promise<void> {
+    await db.execute(`
+      INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      ON CONFLICT (email) DO UPDATE SET
+        id = $1, hacker_name = $2, password = $4, updated_at = $7
+    `, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl, userData.createdAt, userData.updatedAt]);
+  }
+
+  async getUnverifiedUser(email: string): Promise<any> {
+    const result = await db.execute(`
+      SELECT * FROM unverified_users WHERE email = $1
+    `, [email]);
+    return result.rows[0];
+  }
+
+  async deleteUnverifiedUser(email: string): Promise<void> {
+    await db.execute(`
+      DELETE FROM unverified_users WHERE email = $1
+    `, [email]);
   }
 }
 
