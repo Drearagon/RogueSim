@@ -99,7 +99,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     }
 
     // Execute command
-    const result = commands[commandName].execute(args, gameState);
+    const result = commands[commandName].execute(args, gameState, onGameStateUpdate);
     
     // Log command execution to database
     logCommand(commandName, args, result.success, result.output).catch(error => {
