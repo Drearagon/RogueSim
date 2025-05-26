@@ -188,19 +188,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', (req: any, res) => {
     try {
-      const userId = req.session.userId;
-      const user = await storage.getUser(userId);
-      if (user) {
-        res.json({
-          id: user.id,
-          hackerName: user.hackerName,
-          email: user.email
-        });
-      } else {
-        res.status(404).json({ error: "User not found" });
+      // Check if user is authenticated via session
+      if (!req.session || !req.session.userId) {
+        return res.status(401).json({ error: "Authentication required" });
       }
+
+      const userId = req.session.userId;
+      storage.getUser(userId).then(user => {
+        if (user) {
+          res.json({
+            id: user.id,
+            hackerName: user.hacker_name,
+            email: user.email
+          });
+        } else {
+          res.status(404).json({ error: "User not found" });
+        }
+      }).catch(error => {
+        console.error("Error fetching user:", error);
+        res.status(500).json({ error: "Failed to fetch user" });
+      });
     } catch (error) {
       console.error("Error fetching user:", error);
       res.status(500).json({ error: "Failed to fetch user" });
