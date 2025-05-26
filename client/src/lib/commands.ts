@@ -1570,9 +1570,56 @@ export const commands: Record<string, Command> = {
   },
 
   devmode: {
-    description: "Activate developer account (max level, infinite credits)",
-    usage: "devmode",
+    description: "Developer mode access (password protected)",
+    usage: "devmode [password] | devmode off",
     execute: (args: string[], gameState: GameState): CommandResult => {
+      const DEV_PASSWORD = "RogueSim2025!";
+      const command = args[0];
+      
+      // Check if trying to deactivate dev mode
+      if (command === 'off') {
+        return {
+          success: true,
+          output: [
+            "▶ DEVELOPER MODE DEACTIVATED ▶",
+            "",
+            "✓ Returning to normal game state",
+            "✓ Credits reset to normal levels",
+            "✓ Command access restricted",
+            "",
+            "⚡ Back to regular gameplay!",
+            ""
+          ],
+          updateGameState: {
+            credits: 1000,
+            playerLevel: 1,
+            completedMissions: 0,
+            unlockedCommands: ['help', 'scan', 'connect', 'decrypt', 'clear', 'status', 'shop', 'devmode', 'multiplayer', 'leaderboard', 'easter', 'reset_shop'],
+            reputation: 'NOVICE'
+          },
+          soundEffect: 'success'
+        };
+      }
+      
+      // Check password
+      if (command !== DEV_PASSWORD) {
+        return {
+          success: false,
+          output: [
+            "▶ ACCESS DENIED ▶",
+            "",
+            "✗ Invalid developer credentials",
+            "✗ Authorization required",
+            "",
+            "Usage: devmode [password]",
+            "       devmode off (to deactivate)",
+            ""
+          ],
+          soundEffect: 'error'
+        };
+      }
+      
+      // Activate dev mode with correct password
       return {
         success: true,
         output: [
@@ -1585,9 +1632,9 @@ export const commands: Record<string, Command> = {
           "",
           "⚡ Everything is now available!",
           "",
-          "Type 'multiplayer' to test room features",
-          "Type 'leaderboard' to view rankings",
-          "Type 'profile' to customize your account"
+          "Type 'devmode off' to deactivate",
+          "Type 'reset_shop' to test shop system",
+          ""
         ],
         updateGameState: {
           credits: 999999999,
@@ -1596,7 +1643,8 @@ export const commands: Record<string, Command> = {
           unlockedCommands: [
             'help', 'scan', 'connect', 'inject', 'deauth', 'crack', 'exploit', 'backdoor',
             'decrypt', 'nmap', 'keylog', 'shop', 'skills', 'mission', 'complete',
-            'hydra', 'choose', 'multiplayer', 'leaderboard', 'devmode', 'profile', 'login'
+            'hydra', 'choose', 'multiplayer', 'leaderboard', 'devmode', 'profile', 'login',
+            'extract_data', 'file_recovery', 'extended_scan', 'wifi_monitor', 'iot_hack', 'sensor_spoof', 'reset_shop'
           ],
           reputation: 'ELITE'
         },
