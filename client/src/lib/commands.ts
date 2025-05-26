@@ -24,6 +24,230 @@ const bleDevices: Device[] = [
 ];
 
 export const commands: Record<string, Command> = {
+  extract_data: {
+    description: "Extract and analyze data from compromised systems",
+    usage: "extract_data [target]",
+    execute: (args: string[], gameState: GameState, onGameStateUpdate: (updates: Partial<GameState>) => void): CommandResult => {
+      const target = args[0] || 'default';
+      
+      const extractionResults = [
+        '> INITIALIZING DATA EXTRACTION PROTOCOL...',
+        '> Scanning target filesystem...',
+        '> [████████████████████████] 100%',
+        '',
+        '┌─ EXTRACTED DATA SUMMARY ─┐',
+        '│ Files recovered: 247      │',
+        '│ Database entries: 1,832   │',
+        '│ Encrypted files: 23       │',
+        '│ Sensitive docs: 12        │',
+        '└───────────────────────────┘',
+        '',
+        `> Data extraction from ${target} completed successfully.`,
+        '> Use "file_recovery" to restore deleted files.',
+        ''
+      ];
+
+      // Award credits for successful extraction
+      onGameStateUpdate({
+        credits: gameState.credits + 150,
+        experience: gameState.experience + 75
+      });
+
+      return {
+        output: extractionResults,
+        success: true
+      };
+    }
+  },
+
+  file_recovery: {
+    description: "Recover deleted or corrupted files from extracted data",
+    usage: "file_recovery [--deep]",
+    execute: (args: string[], gameState: GameState, onGameStateUpdate: (updates: Partial<GameState>) => void): CommandResult => {
+      const deepScan = args.includes('--deep');
+      
+      const recoveryResults = [
+        '> STARTING FILE RECOVERY OPERATION...',
+        deepScan ? '> Deep scan mode enabled' : '> Standard recovery mode',
+        '> Analyzing file signatures...',
+        '> [████████████████████████] 100%',
+        '',
+        '┌─ RECOVERY RESULTS ─┐',
+        deepScan ? '│ Files recovered: 89  │' : '│ Files recovered: 34  │',
+        deepScan ? '│ Corrupted files: 12  │' : '│ Corrupted files: 5   │',
+        deepScan ? '│ Deleted emails: 156  │' : '│ Deleted emails: 67   │',
+        '│ System logs: Found   │',
+        '└─────────────────────┘',
+        '',
+        deepScan ? '> Deep recovery completed. Critical files restored.' : '> Standard recovery completed.',
+        ''
+      ];
+
+      // Award more credits for deep scan
+      const creditsAwarded = deepScan ? 200 : 100;
+      onGameStateUpdate({
+        credits: gameState.credits + creditsAwarded,
+        experience: gameState.experience + (deepScan ? 100 : 50)
+      });
+
+      return {
+        output: recoveryResults,
+        success: true
+      };
+    }
+  },
+
+  extended_scan: {
+    description: "Extended range WiFi network scanning with high-gain adapter",
+    usage: "extended_scan [--passive]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const passive = args.includes('--passive');
+      
+      const extendedNetworks = [
+        '> EXTENDED RANGE WIFI SCANNING...',
+        '> High-gain adapter active',
+        passive ? '> Passive mode: Stealth scanning' : '> Active mode: Full spectrum',
+        '> [████████████████████████] 100%',
+        '',
+        '┌─ EXTENDED SCAN RESULTS ─┐',
+        '│ SSID: CORP_INTERNAL_5G   │',
+        '│ Channel: 149 | -38 dBm   │',
+        '│ Security: WPA3-Enterprise │',
+        '│                          │',
+        '│ SSID: HIDDEN_BACKUP_NET  │',
+        '│ Channel: 165 | -45 dBm   │',
+        '│ Security: WPA2+AES       │',
+        '│                          │',
+        '│ SSID: IoT_MANAGEMENT     │',
+        '│ Channel: 44 | -52 dBm    │',
+        '│ Security: WEP (Vulnerable)│',
+        '└──────────────────────────┘',
+        '',
+        passive ? '> Extended scan completed (undetected)' : '> Extended scan completed',
+        '> Additional networks discovered outside normal range.',
+        ''
+      ];
+
+      return {
+        output: extendedNetworks,
+        success: true
+      };
+    }
+  },
+
+  wifi_monitor: {
+    description: "Monitor WiFi traffic and capture packets",
+    usage: "wifi_monitor [channel] [--capture]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const channel = args[0] || '11';
+      const capture = args.includes('--capture');
+      
+      const monitorResults = [
+        '> STARTING WIFI MONITORING...',
+        `> Monitoring channel ${channel}`,
+        capture ? '> Packet capture enabled' : '> Monitor mode only',
+        '> [████████████████████████] Monitoring...',
+        '',
+        '┌─ TRAFFIC ANALYSIS ─┐',
+        '│ Packets captured: 2,847   │',
+        '│ Unique devices: 23        │',
+        '│ Data frames: 1,923        │',
+        '│ Management frames: 892    │',
+        '│ Control frames: 32        │',
+        '│                           │',
+        '│ Suspicious activity:      │',
+        '│ • Deauth attacks detected │',
+        '│ • Rogue AP discovered     │',
+        '└───────────────────────────┘',
+        '',
+        capture ? '> Packets saved to capture.pcap' : '> Monitoring session completed',
+        ''
+      ];
+
+      return {
+        output: monitorResults,
+        success: true
+      };
+    }
+  },
+
+  iot_hack: {
+    description: "Exploit IoT devices using ESP32 capabilities",
+    usage: "iot_hack [device_type]",
+    execute: (args: string[], gameState: GameState, onGameStateUpdate: (updates: Partial<GameState>) => void): CommandResult => {
+      const deviceType = args[0] || 'smart_camera';
+      
+      const iotResults = [
+        '> ESP32 IOT HACKING MODULE ACTIVATED...',
+        `> Targeting ${deviceType.replace('_', ' ')}`,
+        '> Scanning for vulnerabilities...',
+        '> [████████████████████████] 100%',
+        '',
+        '┌─ IOT EXPLOITATION ─┐',
+        '│ Firmware version: 2.1.4   │',
+        '│ Known CVE: CVE-2023-1337  │',
+        '│ Default creds: FOUND      │',
+        '│ Telnet service: OPEN      │',
+        '│                           │',
+        '│ EXPLOITATION SUCCESS!     │',
+        '│ Device compromised        │',
+        '│ Backdoor installed        │',
+        '└───────────────────────────┘',
+        '',
+        `> ${deviceType.replace('_', ' ')} successfully compromised`,
+        '> Access maintained through persistent backdoor',
+        ''
+      ];
+
+      // Award substantial credits for IoT hacking
+      onGameStateUpdate({
+        credits: gameState.credits + 300,
+        experience: gameState.experience + 125
+      });
+
+      return {
+        output: iotResults,
+        success: true
+      };
+    }
+  },
+
+  sensor_spoof: {
+    description: "Spoof sensor data using ESP32 transmitters",
+    usage: "sensor_spoof [sensor_type] [value]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const sensorType = args[0] || 'temperature';
+      const value = args[1] || 'normal';
+      
+      const spoofResults = [
+        '> ESP32 SENSOR SPOOFING INITIATED...',
+        `> Target sensor: ${sensorType}`,
+        `> Spoofed value: ${value}`,
+        '> Calibrating transmitter frequency...',
+        '> [████████████████████████] 100%',
+        '',
+        '┌─ SPOOFING STATUS ─┐',
+        '│ Signal strength: 98%      │',
+        '│ Frequency match: PERFECT  │',
+        '│ Interference: MINIMAL     │',
+        '│ Detection risk: LOW       │',
+        '│                           │',
+        '│ SPOOFING ACTIVE!          │',
+        '│ Target sensor deceived    │',
+        '└───────────────────────────┘',
+        '',
+        `> ${sensorType} sensor successfully spoofed`,
+        '> Maintaining transmission...',
+        ''
+      ];
+
+      return {
+        output: spoofResults,
+        success: true
+      };
+    }
+  },
+
   generate: {
     description: "Generate AI-powered procedural mission tailored to your skill level",
     usage: "generate",
