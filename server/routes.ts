@@ -9,6 +9,7 @@ import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { EmailService } from "./emailService";
+import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger";
 
 // Enhanced session configuration with environment validation
 const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
@@ -174,10 +175,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
-      // Use async bcrypt comparison for better reliability
+      // Enhanced password validation with logging
       const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
-        console.log('Password validation failed for user:', user.email);
+        authLogger.warn(`Password validation failed for user: ${user.email}`);
+        logAuthEvent('login_failed', user.email, false);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
@@ -185,21 +187,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (req.session as any).userId = user.id;
       (req.session as any).hackerName = user.hacker_name;
 
-      console.log('Session created successfully for user:', user.id);
+      sessionLogger.info(`Session created successfully for user: ${user.id.substring(0, 8)}...`);
       
+      // Enhanced logging for successful authentication
+      logAuthEvent('login_success', user.email, true);
+      logUserAction(user.id, 'user_login', { email: user.email });
+
       // Send user data with authentication token
       res.json({ 
         user: {
           id: user.id,
-          hackerName: user.hacker_name,
+          hackerName: user.hacker_name, // Fixed: using hacker_name from database
           email: user.email,
           authenticated: true
         },
         sessionId: req.sessionID
       });
     } catch (error) {
-      console.error("Login error:", error);
-      res.status(500).json({ error: "Login failed" });
+      // Enhanced error logging and handling
+      authLogger.error("Login error occurred", { 
+        error: error.message, 
+        email: email?.substring(0, 3) + '***' 
+      });
+      logAuthEvent('login_error', email, false);
+      res.status(500).json({ error: "Login failed due to server error" });
     }
   });
 
