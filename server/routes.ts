@@ -3,21 +3,148 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema } from "@shared/schema";
 import { MultiplayerWebSocketServer } from "./websocket";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import bcrypt from "bcrypt";
+import { v4 as uuidv4 } from "uuid";
+import session from "express-session";
+import connectPg from "connect-pg-simple";
+
+// Session configuration
+const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
+const pgStore = connectPg(session);
+const sessionStore = new pgStore({
+  conString: process.env.DATABASE_URL,
+  createTableIfMissing: false,
+  ttl: sessionTtl,
+  tableName: "sessions",
+});
+
+// Authentication middleware
+const isAuthenticated: RequestHandler = (req: any, res, next) => {
+  if (req.session && req.session.userId) {
+    next();
+  } else {
+    res.status(401).json({ error: "Authentication required" });
+  }
+};
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Initialize authentication system
-  await setupAuth(app);
+  // Session middleware
+  app.use(session({
+    store: sessionStore,
+    secret: process.env.SESSION_SECRET || 'your-secret-key',
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      httpOnly: true,
+      secure: false, // Set to true in production with HTTPS
+      maxAge: sessionTtl,
+    },
+  }));
 
-  // Authentication routes
+  // Custom authentication routes
+  app.post('/api/auth/register', async (req, res) => {
+    try {
+      const { hackerName, email, password } = req.body;
+
+      // Check if user already exists
+      const existingUser = await storage.getUserByEmail(email);
+      if (existingUser) {
+        return res.status(400).json({ error: "User already exists with this email" });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(password, 10);
+      
+      // Create user with UUID
+      const userId = uuidv4();
+      const user = await storage.createUser({
+        id: userId,
+        hackerName,
+        email,
+        password: hashedPassword,
+        profileImageUrl: null,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      });
+
+      // Create session
+      req.session.userId = userId;
+      req.session.hackerName = hackerName;
+
+      res.json({ 
+        user: {
+          id: user.id,
+          hackerName: user.hackerName,
+          email: user.email,
+          profileImageUrl: user.profileImageUrl
+        }
+      });
+    } catch (error) {
+      console.error("Registration error:", error);
+      res.status(500).json({ error: "Registration failed" });
+    }
+  });
+
+  app.post('/api/auth/login', async (req, res) => {
+    try {
+      const { hackerName, email, password } = req.body;
+      
+      // Find user by email or hacker name
+      const user = await storage.getUserByEmail(email) || await storage.getUserByHackerName(hackerName);
+      if (!user) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Verify password
+      const validPassword = await bcrypt.compare(password, user.password);
+      if (!validPassword) {
+        return res.status(401).json({ error: "Invalid credentials" });
+      }
+
+      // Create session
+      req.session.userId = user.id;
+      req.session.hackerName = user.hackerName;
+
+      res.json({ 
+        user: {
+          id: user.id,
+          hackerName: user.hackerName,
+          email: user.email,
+          profileImageUrl: user.profileImageUrl
+        }
+      });
+    } catch (error) {
+      console.error("Login error:", error);
+      res.status(500).json({ error: "Login failed" });
+    }
+  });
+
+  app.post('/api/auth/logout', (req, res) => {
+    req.session.destroy((err) => {
+      if (err) {
+        return res.status(500).json({ error: "Logout failed" });
+      }
+      res.json({ message: "Logged out successfully" });
+    });
+  });
+
   app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.session.userId;
       const user = await storage.getUser(userId);
-      res.json(user);
+      if (user) {
+        res.json({
+          id: user.id,
+          hackerName: user.hackerName,
+          email: user.email,
+          profileImageUrl: user.profileImageUrl
+        });
+      } else {
+        res.status(404).json({ error: "User not found" });
+      }
     } catch (error) {
       console.error("Error fetching user:", error);
-      res.status(500).json({ message: "Failed to fetch user" });
+      res.status(500).json({ error: "Failed to fetch user" });
     }
   });
 
