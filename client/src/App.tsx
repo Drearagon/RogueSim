@@ -17,7 +17,48 @@ export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
   const { setEnabled } = useSound();
   const { user, isLoading: authLoading, isAuthenticated } = useAuth();
-  const [currentView, setCurrentView] = useState<'game' | 'multiplayer' | 'leaderboard' | 'profile'>('game');
+  const [currentView, setCurrentView] = useState<'game' | 'multiplayer' | 'leaderboard' | 'profile' | 'onboarding'>('game');
+  const [userProfile, setUserProfile] = useState<any>(null);
+  const [needsOnboarding, setNeedsOnboarding] = useState(false);
+
+  // Load user profile and handle onboarding
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const loadUserProfile = async () => {
+        try {
+          const profile = await userProfileManager.loadProfile();
+          if (profile) {
+            setUserProfile(profile);
+            // Check if user needs onboarding
+            if (!profile.hasCompletedTutorial) {
+              setNeedsOnboarding(true);
+              setCurrentView('onboarding');
+            }
+            // Sync profile data with game state
+            updateGameState({
+              credits: profile.credits,
+              playerLevel: profile.level,
+              reputation: profile.reputation
+            });
+          } else {
+            // Create new profile for first-time user
+            const newProfile = await userProfileManager.createProfile({
+              hackerName: user.firstName || 'Anonymous_Hacker',
+              email: user.email || '',
+              profileImageUrl: user.profileImageUrl || ''
+            });
+            setUserProfile(newProfile);
+            setNeedsOnboarding(true);
+            setCurrentView('onboarding');
+          }
+        } catch (error) {
+          console.error('Failed to load user profile:', error);
+        }
+      };
+      
+      loadUserProfile();
+    }
+  }, [isAuthenticated, user]);
 
   // All hooks must be called before any conditional returns
   useEffect(() => {
@@ -25,6 +66,19 @@ export default function App() {
       setEnabled(gameState.soundEnabled);
     }
   }, [gameState?.soundEnabled, setEnabled]);
+
+  // Auto-save game progress
+  useEffect(() => {
+    if (userProfile && gameState) {
+      const saveProgress = async () => {
+        await userProfileManager.saveGameState(gameState);
+      };
+      
+      // Save every 30 seconds
+      const interval = setInterval(saveProgress, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [userProfile, gameState]);
 
   // Navigation event listeners
   useEffect(() => {
@@ -70,6 +124,24 @@ export default function App() {
 
   const handleLogout = () => {
     window.location.href = '/api/logout';
+  };
+
+  const handleOnboardingComplete = async () => {
+    if (userProfile) {
+      await userProfileManager.markTutorialComplete();
+      setUserProfile({ ...userProfile, hasCompletedTutorial: true });
+      setNeedsOnboarding(false);
+      setCurrentView('game');
+    }
+  };
+
+  const handleOnboardingSkip = async () => {
+    if (userProfile) {
+      await userProfileManager.markTutorialComplete();
+      setUserProfile({ ...userProfile, hasCompletedTutorial: true });
+      setNeedsOnboarding(false);
+      setCurrentView('game');
+    }
   };
 
   // Use real authentication for all users to ensure individual profiles
