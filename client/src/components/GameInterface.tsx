@@ -6,6 +6,7 @@ import { SkillTree } from './SkillTree';
 import { ModernShopInterface } from './shop/ModernShopInterface';
 import { GameState } from '../types/game';
 import { getCurrentMission } from '../lib/missions';
+import { soundSystem } from '@/lib/soundSystem';
 
 interface GameInterfaceProps {
   gameState: GameState;
@@ -24,6 +25,20 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
     const handleOpenShop = () => setShowShop(true);
     window.addEventListener('openShop', handleOpenShop);
     return () => window.removeEventListener('openShop', handleOpenShop);
+  }, []);
+
+  // Start ambient cyberpunk atmosphere when game interface loads
+  useEffect(() => {
+    const startAmbient = async () => {
+      await soundSystem.resumeContext();
+      soundSystem.startAmbient();
+    };
+    
+    startAmbient();
+    
+    return () => {
+      soundSystem.stopAmbient();
+    };
   }, []);
 
   return (
