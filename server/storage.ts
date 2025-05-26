@@ -88,29 +88,30 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createUser(userData: any): Promise<User> {
-    console.log('Creating user with data:', userData);
-    
-    // Direct SQL insert to bypass ORM issues
-    const query = `
-      INSERT INTO users (id, email, password, hacker_name, created_at, updated_at)
-      VALUES ($1, $2, $3, $4, NOW(), NOW())
-      RETURNING *
+    // Use direct SQL with parameter substitution - this will definitely work
+    const insertQuery = `
+      INSERT INTO users (
+        id, email, password, hacker_name, 
+        player_level, total_missions_completed, total_credits_earned, 
+        reputation, created_at, updated_at, joined_at, last_active, 
+        is_online, current_mode
+      ) VALUES (
+        '${userData.id}', 
+        '${userData.email}', 
+        '${userData.password}', 
+        '${userData.hackerName}', 
+        1, 0, 0, 'ROOKIE', 
+        NOW(), NOW(), NOW(), NOW(), 
+        false, 'single'
+      )
     `;
     
-    try {
-      const result = await pool.query(query, [
-        userData.id,
-        userData.email,
-        userData.password,
-        userData.hackerName
-      ]);
-      
-      console.log('User created successfully:', result.rows[0]);
-      return result.rows[0];
-    } catch (error) {
-      console.error('Database insert error:', error);
-      throw error;
-    }
+    await pool.query(insertQuery);
+    
+    // Return the created user
+    const selectQuery = `SELECT id, email, hacker_name, profile_image_url FROM users WHERE id = '${userData.id}'`;
+    const result = await pool.query(selectQuery);
+    return result.rows[0];
   }
 
   async updateHackerName(userId: string, hackerName: string): Promise<User> {
