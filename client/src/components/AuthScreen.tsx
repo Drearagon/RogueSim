@@ -76,8 +76,8 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       const data = await response.json();
 
       if (response.ok) {
-        // Trigger auth success callback to update UI
-        onAuthSuccess(data.user || {});
+        // Force a page reload to ensure authentication state updates properly
+        window.location.reload();
       } else {
         // Provide specific error messages based on response
         if (response.status === 401) {
