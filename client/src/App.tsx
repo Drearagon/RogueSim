@@ -8,6 +8,7 @@ import { UserHeader } from './components/UserHeader';
 import { MatrixRain } from './components/MatrixRain';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { Landing } from './pages/Landing';
+import { AuthScreen } from './components/AuthScreen';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 import { useAuth } from './hooks/useAuth';
@@ -108,6 +109,11 @@ export default function App() {
         </div>
       </div>
     );
+  }
+
+  // Show authentication screen if not logged in
+  if (!isAuthenticated) {
+    return <AuthScreen onAuthSuccess={(user) => window.location.reload()} />;
   }
 
 
