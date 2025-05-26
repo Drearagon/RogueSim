@@ -21,7 +21,7 @@ import {
   type InsertRoomMember,
   type InsertPlayerStats,
 } from "@shared/schema";
-import { db } from "./db";
+import { db, pool } from "./db";
 import { eq, and, desc } from "drizzle-orm";
 
 export interface IStorage {
