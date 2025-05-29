@@ -38,7 +38,10 @@ const defaultGameState: GameState = {
     activeInterface: 'none',
     shopTab: 'hardware',
     selectedItem: null
-  }
+  },
+  missionSteps: {},
+  branchChoices: {},
+  dynamicMissionSteps: {}
 };
 
 // Generate or get persistent session ID per user session
@@ -84,11 +87,11 @@ export async function saveGameState(gameState: GameState): Promise<void> {
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
     console.log('Game state saved successfully');
-  } catch (error) {
+  } catch (error: unknown) {
     console.error("Local storage failed:", error);
     
     // Provide user-friendly feedback for storage issues
-    if (error.name === 'QuotaExceededError') {
+    if (error instanceof Error && error.name === 'QuotaExceededError') {
       alert("Game save failed! Your browser storage is full. Please clear some space.");
     } else {
       alert("Game save failed! Check browser settings and try again.");

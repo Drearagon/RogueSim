@@ -3,11 +3,21 @@ import { Terminal } from './Terminal';
 import { MissionPanel } from './MissionPanel';
 import { MatrixRain } from './MatrixRain';
 import { SkillTree } from './SkillTree';
-import { ModernShopInterface } from './shop/ModernShopInterface';
-import { TerminalSettings, type TerminalSettings as TerminalSettingsType } from './TerminalSettings';
+import { EnhancedShopInterface } from './shop/EnhancedShopInterface';
+import { MissionCompleteNotification } from './MissionCompleteNotification';
+import { SocialEngineeringInterface } from './SocialEngineeringInterface';
+import { FocusInterface } from './FocusInterface';
+import { NetworkMapInterface } from './NetworkMapInterface';
+import { ScriptEditorInterface } from './ScriptEditorInterface';
+import { RogueNetInterface } from './RogueNetInterface';
+import PsychProfileInterface from './PsychProfileInterface';
 import { GameState } from '../types/game';
 import { getCurrentMission } from '../lib/missions';
 import { soundSystem } from '@/lib/soundSystem';
+import { socialEngineeringSystem } from '@/lib/socialEngineering';
+import { dynamicNetworkSystem } from '@/lib/dynamicNetworkSystem';
+import { focusSystem } from '@/lib/focusSystem';
+import { scriptingSystem } from '@/lib/scriptingSystem';
 
 interface GameInterfaceProps {
   gameState: GameState;
@@ -20,31 +30,73 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
   const currentMission = getCurrentMission(gameState);
   const [showSkillTree, setShowSkillTree] = useState(false);
   const [showShop, setShowShop] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
-  const [terminalSettings, setTerminalSettings] = useState<TerminalSettingsType>({
-    colorScheme: 'classic',
-    primaryColor: '#00ff00',
-    backgroundColor: '#000000',
-    textColor: '#00ff00',
-    fontSize: 14,
-    fontFamily: 'JetBrains Mono, monospace',
-    soundEnabled: true,
-    scanlineEffect: true,
-    glowEffect: true,
-    typingSpeed: 5
-  });
+  const [showSocialEngineering, setShowSocialEngineering] = useState(false);
+  const [showNetworkMap, setShowNetworkMap] = useState(false);
+  const [showScriptEditor, setShowScriptEditor] = useState(false);
+  const [showRogueNet, setShowRogueNet] = useState(false);
+  const [showPsychProfile, setShowPsychProfile] = useState(false);
+  const [showMissionComplete, setShowMissionComplete] = useState(false);
+  const [missionCompleteData, setMissionCompleteData] = useState<{
+    missionTitle: string;
+    reward: number;
+  } | null>(null);
 
-  // Listen for shop and settings open events
+  // Initialize default psych profile if not exists
+  const defaultPsychProfile = {
+    cunning: 50,
+    empathy: 50,
+    aggression: 30,
+    patience: 40,
+    paranoia: 60,
+    curiosity: 70,
+    ethicalAlignment: 0,
+    corporateReputation: 0,
+    hackivistReputation: 0,
+    criminalReputation: 0,
+    governmentReputation: 0,
+    mentalStability: 80,
+    moralConflict: 20,
+    unlockedStoryPaths: [],
+    permanentConsequences: [],
+    majorDecisions: []
+  };
+
+  // Listen for mission completion events
+  useEffect(() => {
+    const handleMissionComplete = (event: CustomEvent) => {
+      setMissionCompleteData(event.detail);
+      setShowMissionComplete(true);
+    };
+
+    window.addEventListener('missionComplete', handleMissionComplete as EventListener);
+    return () => {
+      window.removeEventListener('missionComplete', handleMissionComplete as EventListener);
+    };
+  }, []);
+
+  // Listen for interface open events
   useEffect(() => {
     const handleOpenShop = () => setShowShop(true);
-    const handleOpenSettings = () => setShowSettings(true);
+    const handleOpenSocialEngineering = () => setShowSocialEngineering(true);
+    const handleOpenNetworkMap = () => setShowNetworkMap(true);
+    const handleOpenScriptEditor = () => setShowScriptEditor(true);
+    const handleOpenRogueNet = () => setShowRogueNet(true);
+    const handleOpenPsychProfile = () => setShowPsychProfile(true);
     
-    window.addEventListener('openShop', handleOpenShop);
-    window.addEventListener('openSettings', handleOpenSettings);
+    window.addEventListener('openEnhancedShop', handleOpenShop);
+    window.addEventListener('openSocialEngineering', handleOpenSocialEngineering);
+    window.addEventListener('openNetworkMap', handleOpenNetworkMap);
+    window.addEventListener('openScriptEditor', handleOpenScriptEditor);
+    window.addEventListener('openRogueNet', handleOpenRogueNet);
+    window.addEventListener('openPsychProfile', handleOpenPsychProfile);
     
     return () => {
-      window.removeEventListener('openShop', handleOpenShop);
-      window.removeEventListener('openSettings', handleOpenSettings);
+      window.removeEventListener('openEnhancedShop', handleOpenShop);
+      window.removeEventListener('openSocialEngineering', handleOpenSocialEngineering);
+      window.removeEventListener('openNetworkMap', handleOpenNetworkMap);
+      window.removeEventListener('openScriptEditor', handleOpenScriptEditor);
+      window.removeEventListener('openRogueNet', handleOpenRogueNet);
+      window.removeEventListener('openPsychProfile', handleOpenPsychProfile);
     };
   }, []);
 
@@ -63,7 +115,7 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
   }, []);
 
   return (
-    <div className="min-h-screen w-full max-w-full flex flex-col bg-black text-green-500 relative overflow-x-hidden">
+    <div className="min-h-screen w-full flex flex-col bg-black text-green-500 relative" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>
       <MatrixRain />
       
       {/* Scanline effect */}
@@ -72,9 +124,14 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
           className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-500/20 to-transparent scanline-animation"
         />
       </div>
+
+      {/* Focus Interface - Always visible in top right */}
+      <div className="fixed top-4 right-4 z-30">
+        <FocusInterface />
+      </div>
       
       {/* Mobile-first layout: Terminal on top, mission panel as collapsible bottom */}
-      <div className="flex-1 min-h-0 md:ml-80">
+      <div className="flex-1 min-h-0 md:ml-80" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>
         <Terminal 
           gameState={gameState} 
           onGameStateUpdate={(updates) => {
@@ -82,6 +139,11 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
             if (updates.narrativeChoices) {
               const hasShopTrigger = updates.narrativeChoices.some(choice => choice === 'TRIGGER_SHOP_UI');
               const hasSkillsTrigger = updates.narrativeChoices.some(choice => choice === 'open_skills_interface');
+              const hasSocialTrigger = updates.narrativeChoices.some(choice => choice === 'open_social_engineering');
+              const hasNetworkTrigger = updates.narrativeChoices.some(choice => choice === 'open_network_map');
+              const hasScriptTrigger = updates.narrativeChoices.some(choice => choice === 'open_script_editor');
+              const hasRogueNetTrigger = updates.narrativeChoices.some(choice => choice === 'open_roguenet');
+              const hasPsychProfileTrigger = updates.narrativeChoices.some(choice => choice === 'open_psych_profile');
               
               if (hasShopTrigger) {
                 setShowShop(true);
@@ -91,6 +153,26 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
                 setShowSkillTree(true);
                 updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_skills_interface');
               }
+              if (hasSocialTrigger) {
+                setShowSocialEngineering(true);
+                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_social_engineering');
+              }
+              if (hasNetworkTrigger) {
+                setShowNetworkMap(true);
+                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_network_map');
+              }
+              if (hasScriptTrigger) {
+                setShowScriptEditor(true);
+                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_script_editor');
+              }
+              if (hasRogueNetTrigger) {
+                setShowRogueNet(true);
+                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_roguenet');
+              }
+              if (hasPsychProfileTrigger) {
+                setShowPsychProfile(true);
+                updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_psych_profile');
+              }
             }
             onGameStateUpdate(updates);
           }}
@@ -98,7 +180,7 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
       </div>
       
       {/* Mission panel - collapsible on mobile */}
-      <div className="md:hidden">
+      <div className="md:hidden" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>
         <MissionPanel gameState={gameState} currentMission={currentMission} />
       </div>
       
@@ -109,32 +191,80 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
       
       {/* Skill Tree Interface */}
       {showSkillTree && (
-        <SkillTree
+        <SkillTree 
           gameState={gameState}
           onUpdateGameState={onGameStateUpdate}
           onClose={() => setShowSkillTree(false)}
         />
       )}
-
+      
       {/* Shop Interface */}
       {showShop && (
-        <ModernShopInterface
+        <EnhancedShopInterface 
           gameState={gameState}
           onUpdateGameState={onGameStateUpdate}
           onClose={() => setShowShop(false)}
         />
       )}
 
-      {/* Settings Interface */}
-      {showSettings && (
-        <TerminalSettings
-          isOpen={showSettings}
-          onClose={() => setShowSettings(false)}
-          settings={terminalSettings}
-          onSettingsChange={setTerminalSettings}
+      {/* Social Engineering Interface */}
+      {showSocialEngineering && (
+        <SocialEngineeringInterface 
+          onClose={() => setShowSocialEngineering(false)}
         />
       )}
 
+      {/* Network Map Interface */}
+      {showNetworkMap && (
+        <NetworkMapInterface 
+          onClose={() => setShowNetworkMap(false)}
+        />
+      )}
+
+      {/* Script Editor Interface */}
+      {showScriptEditor && (
+        <ScriptEditorInterface 
+          onClose={() => setShowScriptEditor(false)}
+        />
+      )}
+      
+      {/* RogueNet Interface */}
+      {showRogueNet && (
+        <RogueNetInterface 
+          onClose={() => setShowRogueNet(false)}
+          currentUser={{
+            id: gameState.playerLevel?.toString() || 'anonymous',
+            hackerName: 'CyberOp_' + (gameState.playerLevel || 1),
+            credits: gameState.credits || 0,
+            reputation: gameState.reputation || 'Novice'
+          }}
+        />
+      )}
+      
+      {/* Psych Profile Interface */}
+      {showPsychProfile && (
+        <PsychProfileInterface 
+          psychProfile={gameState.psychProfile || defaultPsychProfile}
+          onProfileUpdate={(updatedProfile) => {
+            onGameStateUpdate({ psychProfile: updatedProfile });
+          }}
+          onMakeDecision={(decisionId, choice) => {
+            // Handle decision consequences
+            console.log(`Decision made: ${decisionId} -> ${choice}`);
+          }}
+          onClose={() => setShowPsychProfile(false)}
+        />
+      )}
+      
+      {/* Mission Complete Notification */}
+      {showMissionComplete && missionCompleteData && (
+        <MissionCompleteNotification
+          isVisible={showMissionComplete}
+          missionTitle={missionCompleteData.missionTitle}
+          reward={missionCompleteData.reward}
+          onClose={() => setShowMissionComplete(false)}
+        />
+      )}
     </div>
   );
 }

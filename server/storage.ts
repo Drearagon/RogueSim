@@ -48,6 +48,7 @@ export interface IStorage {
   // Game save operations
   saveGameState(gameState: InsertGameSave): Promise<GameSave>;
   loadGameState(sessionId: string): Promise<GameSave | undefined>;
+  getAllGameSaves(): Promise<GameSave[]>;
   getUserGameSave(userId: string, gameMode: string): Promise<GameSave | undefined>;
   
   // Mission history
@@ -172,6 +173,18 @@ export class DatabaseStorage implements IStorage {
       // Handle backward compatibility - if new columns don't exist yet, return undefined
       console.log("Database schema updating, falling back to client storage");
       return undefined;
+    }
+  }
+
+  async getAllGameSaves(): Promise<GameSave[]> {
+    try {
+      return await db
+        .select()
+        .from(gameSaves)
+        .orderBy(desc(gameSaves.lastSaved));
+    } catch (error) {
+      console.log("Error getting all game saves:", error);
+      return [];
     }
   }
 

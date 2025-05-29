@@ -1,0 +1,132 @@
+🧩 RogueSim Gameplay Enhancement Plan — Phase II: Depth & Community
+1. 🕵️‍♂️ Social Engineering Module
+Goal: Bring mind games and deception into play.
+
+🔹 Social Engineered Missions
+Convince NPCs to give up info, passwords, or access
+
+Use keyword prompts or fake profiles in a simulated email/chat interface
+
+🔹 Phishing Toolkit
+Create fake login pages
+
+Deploy them as missions against other players or AI targets
+
+Gain “intel” as a resource for other missions
+
+2. 🧬 Dynamic Network System
+Goal: Create procedural and persistent systems to hack.
+
+🔸 Network Map Generator
+Procedurally generates:
+
+Firewalls
+
+Subnets
+
+Honeytraps
+
+Privilege escalators
+
+🔸 Persistent Backdoors
+Leave a dormant exploit in a server for later
+
+Risk: may be discovered or patched by AI
+
+🔸 Traceback System
+Risk of being traced during missions based on:
+
+Command volume
+
+Time spent
+
+Skill tree modifiers
+
+3. 📡 RogueNet (Player-Driven Dark Web)
+Goal: Let players shape the world.
+
+🔹 Player-Built Market
+Sell custom tools, scripts, upgrades
+
+Use in-game currency or bartering
+
+🔹 Message Board
+Post public mission contracts
+
+Optional “rogue bounties” (PvP kill orders)
+
+🔹 RogueNet Handles
+Players have unique IDs visible only in RogueNet (like darknet usernames)
+
+4. ⚙️ Advanced Terminal Scripting
+Goal: Add power-user capabilities for automation.
+
+🔸 Script Runner
+Write small routines in a Lua-style DSL or JSON-based flow
+
+Example:
+
+json
+Copy
+Edit
+{
+  "if": "scan_success",
+  "then": ["inject_exploit", "trigger_logwipe"]
+}
+🔸 Macro Commands
+Bind multiple commands to a single alias
+
+alias intrude="ping && nmap && inject_payload"
+
+5. 🧠 Psych Profile & Alignment System
+Goal: Let the player’s behavior affect the story.
+
+🔹 Ethics Tracker
+Player actions rated on:
+
+Collateral damage
+
+Data integrity
+
+Civilian impact
+
+🔹 Resulting Perks
+Pure: gain trust missions from AI protectors
+
+Corrupt: gain high-reward missions from syndicates
+
+Balanced: unlock unique multi-faction missions
+
+6. 🌐 Cross-Mission World Events
+Goal: Make the game feel alive and global.
+
+🔸 Global Events
+"Server Outbreak" — everyone gets mission variants tied to a common storyline
+
+"Patch Week" — forces players to change tactics due to security updates
+
+🔸 Leaderboard Shifts
+Events can disrupt or flip standings based on response speed or success
+
+7. 🧠 Mental Load + Focus Mechanic
+Goal: Introduce tension and pacing.
+
+🔸 Focus Meter
+Each action costs focus
+
+Overload causes command delays or hallucination-like effects in UI
+
+🔸 Restore Focus
+Through breaks, stimulants (in-game items), or “Deep Focus Mode”
+
+8. 🎭 Simulated OS Modes
+Goal: Let players simulate full OS environments for deeper immersion.
+
+🔹 Modes
+BasicShell – standard command line
+
+GhostOS – stealth-mode interface
+
+CrimsonKernel – high power, high risk
+
+Each has its own UI, quirks, vulnerabilities, and advantages.

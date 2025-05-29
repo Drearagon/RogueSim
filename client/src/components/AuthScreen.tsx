@@ -61,6 +61,25 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         return;
       }
 
+      // Validate hacker name for registration
+      if (!isLogin) {
+        if (!formData.hackerName || formData.hackerName.trim().length < 3) {
+          setError('Hacker name must be at least 3 characters long.');
+          setIsLoading(false);
+          return;
+        }
+        if (formData.hackerName.length > 20) {
+          setError('Hacker name must be no more than 20 characters.');
+          setIsLoading(false);
+          return;
+        }
+        if (!/^[a-zA-Z0-9_-]+$/.test(formData.hackerName)) {
+          setError('Hacker name can only contain letters, numbers, hyphens, and underscores.');
+          setIsLoading(false);
+          return;
+        }
+      }
+
       const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -140,19 +159,36 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
               <div className="space-y-2">
                 <Label htmlFor="username" className="text-green-400 font-mono">
                   <User className="h-4 w-4 inline mr-2" />
-                  Username / Email
+                  {isLogin ? 'Username / Email' : 'Email'}
                 </Label>
-                <div className="flex gap-2">
-                  <Input
-                    id="username"
-                    type="text"
-                    value={formData.email}
-                    onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-                    required
-                    className="bg-black border-green-400/50 text-green-400 font-mono focus:border-green-400"
-                    placeholder={isLogin ? "Enter hacker name or email" : "hacker@secure.net"}
-                  />
-                  {!isLogin && (
+                <Input
+                  id="username"
+                  type={isLogin ? "text" : "email"}
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  required
+                  className="bg-black border-green-400/50 text-green-400 font-mono focus:border-green-400"
+                  placeholder={isLogin ? "Enter hacker name or email" : "hacker@secure.net"}
+                />
+              </div>
+
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="hackerName" className="text-green-400 font-mono">
+                    <Terminal className="h-4 w-4 inline mr-2" />
+                    Hacker Name
+                  </Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="hackerName"
+                      type="text"
+                      value={formData.hackerName}
+                      onChange={(e) => setFormData(prev => ({ ...prev, hackerName: e.target.value }))}
+                      required
+                      className="bg-black border-green-400/50 text-green-400 font-mono focus:border-green-400"
+                      placeholder="Enter your hacker alias"
+                      maxLength={20}
+                    />
                     <Button
                       type="button"
                       onClick={generateHackerName}
@@ -162,9 +198,12 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
                     >
                       GEN
                     </Button>
-                  )}
+                  </div>
+                  <p className="text-xs text-green-400/60 font-mono">
+                    3-20 characters, letters, numbers, hyphens, and underscores only
+                  </p>
                 </div>
-              </div>
+              )}
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-green-400 font-mono">

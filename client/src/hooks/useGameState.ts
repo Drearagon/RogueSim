@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { GameState } from '../types/game';
 import { loadGameState, saveGameState } from '../lib/gameStorage';
+import { initializeFactionStandings } from '../lib/factionSystem';
 
 export function useGameState() {
   const [gameState, setGameState] = useState<GameState>({
@@ -27,7 +28,9 @@ export function useGameState() {
     suspicionLevel: 0,
     skillTree: {
       nodes: [],
-      skillPoints: 5
+      skillPoints: 5,
+      totalSkillsUnlocked: 0,
+      specializationBonuses: {}
     },
     inventory: {
       hardware: [],
@@ -39,7 +42,30 @@ export function useGameState() {
       activeInterface: 'none',
       shopTab: 'hardware',
       selectedItem: null
-    }
+    },
+    missionSteps: {},
+    branchChoices: {},
+    dynamicMissionSteps: {},
+    // Faction system state - properly initialized
+    factionStandings: initializeFactionStandings(),
+    activeFaction: undefined,
+    factionEvents: [],
+    completedFactionMissions: [],
+    factionMissionCooldowns: {},
+    activeFactionWars: [],
+    factionAchievements: [],
+    // Enhanced Mission System
+    availableMissions: [],
+    activeMission: undefined,
+    currentMissionProgress: undefined,
+    completedMissionIds: [],
+    failedMissionIds: [],
+    missionHistory: [],
+    specialMissionActive: false,
+    specialMissionData: undefined,
+    customTerminalState: undefined,
+    missionCooldowns: {},
+    emergencyMissions: []
   });
 
   const [isLoading, setIsLoading] = useState(true);
@@ -49,6 +75,10 @@ export function useGameState() {
     const initializeGameState = async () => {
       try {
         const loadedState = await loadGameState();
+        // Ensure faction standings are initialized even in loaded state
+        if (!loadedState.factionStandings || Object.keys(loadedState.factionStandings).length === 0) {
+          loadedState.factionStandings = initializeFactionStandings();
+        }
         setGameState(loadedState);
       } catch (error) {
         console.warn('Failed to load game state, using defaults:', error);
@@ -75,6 +105,18 @@ export function useGameState() {
   const resetGame = useCallback(async () => {
     try {
       const defaultState = await loadGameState();
+      // Ensure faction standings are initialized in reset state
+      if (!defaultState.factionStandings || Object.keys(defaultState.factionStandings).length === 0) {
+        defaultState.factionStandings = initializeFactionStandings();
+      }
+      // Ensure mission properties are initialized
+      if (!defaultState.availableMissions) defaultState.availableMissions = [];
+      if (!defaultState.completedMissionIds) defaultState.completedMissionIds = [];
+      if (!defaultState.failedMissionIds) defaultState.failedMissionIds = [];
+      if (!defaultState.missionHistory) defaultState.missionHistory = [];
+      if (!defaultState.missionCooldowns) defaultState.missionCooldowns = {};
+      if (!defaultState.emergencyMissions) defaultState.emergencyMissions = [];
+      
       setGameState(defaultState);
       await saveGameState(defaultState);
     } catch (error) {

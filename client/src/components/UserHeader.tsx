@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -9,7 +9,9 @@ import {
   Trophy, 
   Coins,
   ChevronDown,
-  User
+  User,
+  Target,
+  Shield
 } from 'lucide-react';
 
 interface UserHeaderProps {
@@ -21,41 +23,166 @@ interface UserHeaderProps {
     credits: number;
     specialization?: string;
   };
+  gameState?: {
+    completedMissions?: number;
+    currentMission?: number;
+    activeFaction?: string;
+    skillTree?: {
+      skillPoints?: number;
+    };
+  };
   onShowProfile: () => void;
   onLogout: () => void;
 }
 
-export function UserHeader({ user, onShowProfile, onLogout }: UserHeaderProps) {
+interface TerminalSettings {
+  colorScheme: string;
+  primaryColor: string;
+  backgroundColor: string;
+  textColor: string;
+  fontSize: number;
+  fontFamily: string;
+  soundEnabled: boolean;
+  scanlineEffect: boolean;
+  glowEffect: boolean;
+  typingSpeed: number;
+}
+
+export function UserHeader({ user, gameState, onShowProfile, onLogout }: UserHeaderProps) {
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [terminalSettings, setTerminalSettings] = useState<TerminalSettings>({
+    colorScheme: 'classic',
+    primaryColor: '#00ff00',
+    backgroundColor: '#000000',
+    textColor: '#00ff00',
+    fontSize: 14,
+    fontFamily: 'JetBrains Mono, monospace',
+    soundEnabled: true,
+    scanlineEffect: true,
+    glowEffect: true,
+    typingSpeed: 5
+  });
+
+  // Listen for terminal settings changes
+  useEffect(() => {
+    const handleTerminalSettingsChanged = (event: CustomEvent) => {
+      if (event.detail) {
+        setTerminalSettings(event.detail);
+      }
+    };
+
+    window.addEventListener('terminalSettingsChanged', handleTerminalSettingsChanged as EventListener);
+    
+    return () => {
+      window.removeEventListener('terminalSettingsChanged', handleTerminalSettingsChanged as EventListener);
+    };
+  }, []);
 
   const getReputationColor = (rep: string) => {
-    const colors = {
-      'UNKNOWN': 'bg-gray-500',
-      'SUSPICIOUS': 'bg-yellow-500',
-      'TRUSTED': 'bg-blue-500',
-      'ELITE': 'bg-purple-500',
-      'LEGENDARY': 'bg-yellow-400'
-    };
-    return colors[rep as keyof typeof colors] || 'bg-gray-500';
+    switch (rep?.toUpperCase()) {
+      case 'NOVICE': return 'bg-gray-500';
+      case 'SCRIPT_KIDDIE': return 'bg-green-500';
+      case 'HACKER': return 'bg-blue-500';
+      case 'ELITE': return 'bg-purple-500';
+      case 'LEGENDARY': return 'bg-yellow-500';
+      default: return 'bg-gray-500';
+    }
   };
 
+  const handleProfileClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Profile button clicked');
+    onShowProfile();
+    setIsDropdownOpen(false);
+  };
+
+  const handleLogoutClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Logout button clicked');
+    onLogout();
+    setIsDropdownOpen(false);
+  };
+
+  const handleShopClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Shop button clicked');
+    const event = new CustomEvent('openEnhancedShop');
+    window.dispatchEvent(event);
+    setIsDropdownOpen(false);
+  };
+
+  const handleSkillsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Skills button clicked');
+    const event = new CustomEvent('showSkillTree');
+    window.dispatchEvent(event);
+    setIsDropdownOpen(false);
+  };
+
+  const handleFactionClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Faction button clicked');
+    const event = new CustomEvent('showFactionInterface');
+    window.dispatchEvent(event);
+    setIsDropdownOpen(false);
+  };
+
+  const handleSettingsClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    console.log('Settings button clicked');
+    const event = new CustomEvent('openSettings');
+    window.dispatchEvent(event);
+    setIsDropdownOpen(false);
+  };
+
+  // Get actual mission count from gameState
+  const completedMissions = gameState?.completedMissions || 0;
+  const skillPoints = gameState?.skillTree?.skillPoints || 0;
+
   return (
-    <div className="absolute top-4 right-4 z-50">
+    <div className="absolute top-4 right-4 md:right-32" style={{ zIndex: 9999 }}>
       <div className="relative">
         <Button
-          onClick={() => setIsDropdownOpen(!isDropdownOpen)}
-          className="bg-black/80 border border-green-400/50 hover:border-green-400 p-3 h-auto backdrop-blur-sm"
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDropdownOpen(!isDropdownOpen);
+          }}
+          className="p-3 h-auto backdrop-blur-sm hover:opacity-90 transition-opacity"
           variant="outline"
+          style={{
+            backgroundColor: `${terminalSettings.backgroundColor}cc`,
+            borderColor: `${terminalSettings.primaryColor}80`,
+            color: terminalSettings.textColor
+          }}
         >
           <div className="flex items-center gap-3">
-            <Avatar className="w-8 h-8 border border-green-400">
+            <Avatar 
+              className="w-8 h-8 border"
+              style={{ borderColor: terminalSettings.primaryColor }}
+            >
               <AvatarImage src={user.avatar} />
-              <AvatarFallback className="bg-green-400 text-black font-mono text-xs">
+              <AvatarFallback 
+                className="font-mono text-xs"
+                style={{
+                  backgroundColor: terminalSettings.primaryColor,
+                  color: terminalSettings.backgroundColor
+                }}
+              >
                 {user.username.slice(0, 2).toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="text-left">
-              <div className="text-green-400 font-mono text-sm font-bold">
+              <div 
+                className="font-mono text-sm font-bold"
+                style={{ color: terminalSettings.primaryColor }}
+              >
                 {user.username}
               </div>
               <div className="flex items-center gap-2">
@@ -69,75 +196,186 @@ export function UserHeader({ user, onShowProfile, onLogout }: UserHeaderProps) {
                 </span>
               </div>
             </div>
-            <ChevronDown className="w-4 h-4 text-green-400" />
+            <ChevronDown 
+              className={`w-4 h-4 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`}
+              style={{ color: terminalSettings.primaryColor }}
+            />
           </div>
         </Button>
 
+        {/* Dropdown Menu */}
         {isDropdownOpen && (
-          <Card className="absolute top-full right-0 mt-2 w-64 bg-black/90 border-green-400 backdrop-blur-sm">
-            <CardContent className="p-4 space-y-3">
-              <div className="flex items-center gap-3 pb-3 border-b border-green-400/30">
-                <Avatar className="w-12 h-12 border border-green-400">
-                  <AvatarImage src={user.avatar} />
-                  <AvatarFallback className="bg-green-400 text-black font-mono">
-                    {user.username.slice(0, 2).toUpperCase()}
-                  </AvatarFallback>
-                </Avatar>
-                <div>
-                  <div className="text-green-400 font-mono font-bold">
+          <Card 
+            className="absolute top-full right-0 mt-2 w-72 backdrop-blur-lg shadow-2xl border-2"
+            style={{
+              backgroundColor: `${terminalSettings.backgroundColor}f8`,
+              borderColor: `${terminalSettings.primaryColor}80`,
+              zIndex: 10000
+            }}
+          >
+            <CardContent className="p-4">
+              <div className="space-y-4">
+                {/* User Info */}
+                <div 
+                  className="text-center border-b pb-3"
+                  style={{ borderColor: `${terminalSettings.primaryColor}50` }}
+                >
+                  <div 
+                    className="font-mono font-bold text-lg"
+                    style={{ color: terminalSettings.primaryColor }}
+                  >
                     {user.username}
                   </div>
-                  <Badge className={`${getReputationColor(user.reputation)} text-white font-mono text-xs`}>
-                    {user.reputation}
-                  </Badge>
-                </div>
-              </div>
-
-              <div className="space-y-2 pb-3 border-b border-green-400/30">
-                <div className="flex justify-between items-center">
-                  <span className="text-green-400/70 font-mono text-sm">Level:</span>
-                  <span className="text-green-400 font-mono font-bold">{user.level}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-green-400/70 font-mono text-sm">Credits:</span>
-                  <span className="text-yellow-400 font-mono font-bold">
-                    {user.credits.toLocaleString()}₡
-                  </span>
-                </div>
-                {user.specialization && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-green-400/70 font-mono text-sm">Spec:</span>
-                    <span className="text-green-400 font-mono text-xs capitalize">
-                      {user.specialization.replace('_', ' ')}
+                  <div 
+                    className="font-mono text-sm"
+                    style={{ color: `${terminalSettings.textColor}b3` }}
+                  >
+                    {user.specialization || 'Network Infiltration Specialist'}
+                  </div>
+                  <div className="flex items-center justify-center gap-2 mt-2">
+                    <Badge className={`${getReputationColor(user.reputation)} text-white font-mono`}>
+                      {user.reputation}
+                    </Badge>
+                    <span className="text-yellow-400 font-mono text-sm">
+                      <Coins className="w-4 h-4 inline mr-1" />
+                      {user.credits?.toLocaleString() || '0'}₡
                     </span>
                   </div>
-                )}
-              </div>
+                </div>
 
-              <div className="space-y-2">
-                <Button
-                  onClick={() => {
-                    onShowProfile();
-                    setIsDropdownOpen(false);
-                  }}
-                  className="w-full justify-start bg-transparent border-green-400/30 text-green-400 hover:bg-green-400/10 font-mono"
-                  variant="outline"
-                >
-                  <User className="w-4 h-4 mr-2" />
-                  View Profile
-                </Button>
-                
-                <Button
-                  onClick={() => {
-                    onLogout();
-                    setIsDropdownOpen(false);
-                  }}
-                  className="w-full justify-start bg-transparent border-red-400/30 text-red-400 hover:bg-red-400/10 font-mono"
-                  variant="outline"
-                >
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </Button>
+                {/* Real Stats */}
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <div className="text-center">
+                    <div 
+                      className="font-mono font-bold text-lg"
+                      style={{ color: terminalSettings.primaryColor }}
+                    >
+                      {user.level}
+                    </div>
+                    <div 
+                      className="font-mono"
+                      style={{ color: `${terminalSettings.textColor}b3` }}
+                    >
+                      Level
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-cyan-400 font-mono font-bold text-lg">
+                      <Trophy className="w-4 h-4 inline mr-1" />
+                      {completedMissions}
+                    </div>
+                    <div 
+                      className="font-mono"
+                      style={{ color: `${terminalSettings.textColor}b3` }}
+                    >
+                      Missions
+                    </div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-purple-400 font-mono font-bold text-lg">
+                      {skillPoints}
+                    </div>
+                    <div 
+                      className="font-mono"
+                      style={{ color: `${terminalSettings.textColor}b3` }}
+                    >
+                      Skill Pts
+                    </div>
+                  </div>
+                </div>
+
+                {/* Faction Status */}
+                {gameState?.activeFaction && (
+                  <div 
+                    className="text-center border-y py-2"
+                    style={{ borderColor: `${terminalSettings.primaryColor}30` }}
+                  >
+                    <div className="text-orange-400 font-mono text-sm">
+                      <Shield className="w-4 h-4 inline mr-1" />
+                      Active Faction: {gameState.activeFaction.replace('_', ' ').toUpperCase()}
+                    </div>
+                  </div>
+                )}
+
+                {/* Quick Actions */}
+                <div className="grid grid-cols-2 gap-2 text-xs">
+                  <Button
+                    onClick={handleShopClick}
+                    className="h-10 bg-transparent font-mono text-xs hover:opacity-80 transition-opacity"
+                    variant="outline"
+                    style={{
+                      borderColor: `${terminalSettings.primaryColor}60`,
+                      color: terminalSettings.primaryColor
+                    }}
+                  >
+                    🛒 Shop
+                  </Button>
+                  
+                  <Button
+                    onClick={handleSkillsClick}
+                    className="h-10 bg-transparent font-mono text-xs hover:opacity-80 transition-opacity"
+                    variant="outline"
+                    style={{
+                      borderColor: `${terminalSettings.primaryColor}60`,
+                      color: terminalSettings.primaryColor
+                    }}
+                  >
+                    🧠 Skills
+                  </Button>
+
+                  <Button
+                    onClick={handleFactionClick}
+                    className="h-10 bg-transparent font-mono text-xs hover:opacity-80 transition-opacity"
+                    variant="outline"
+                    style={{
+                      borderColor: `${terminalSettings.primaryColor}60`,
+                      color: terminalSettings.primaryColor
+                    }}
+                  >
+                    🏴‍☠️ Factions
+                  </Button>
+
+                  <Button
+                    onClick={handleSettingsClick}
+                    className="h-10 bg-transparent font-mono text-xs hover:opacity-80 transition-opacity"
+                    variant="outline"
+                    style={{
+                      borderColor: `${terminalSettings.primaryColor}60`,
+                      color: terminalSettings.primaryColor
+                    }}
+                  >
+                    ⚙️ Settings
+                  </Button>
+                </div>
+
+                {/* Main Action Buttons */}
+                <div className="space-y-2">
+                  <Button
+                    onClick={handleProfileClick}
+                    className="w-full justify-start bg-transparent font-mono hover:opacity-80 transition-opacity"
+                    variant="outline"
+                    style={{
+                      borderColor: `${terminalSettings.primaryColor}60`,
+                      color: terminalSettings.primaryColor
+                    }}
+                  >
+                    <User className="w-4 h-4 mr-2" />
+                    View Profile
+                  </Button>
+                  
+                  <Button
+                    onClick={handleLogoutClick}
+                    className="w-full justify-start bg-transparent font-mono hover:opacity-80 transition-opacity"
+                    variant="outline"
+                    style={{
+                      borderColor: '#ff404060',
+                      color: '#ff4040'
+                    }}
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </Button>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -147,8 +385,13 @@ export function UserHeader({ user, onShowProfile, onLogout }: UserHeaderProps) {
       {/* Click outside to close dropdown */}
       {isDropdownOpen && (
         <div 
-          className="fixed inset-0 z-40" 
-          onClick={() => setIsDropdownOpen(false)}
+          className="fixed inset-0"
+          style={{ zIndex: 9998 }}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            setIsDropdownOpen(false);
+          }}
         />
       )}
     </div>

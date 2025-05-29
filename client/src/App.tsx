@@ -14,6 +14,12 @@ import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 import { useAuth } from './hooks/useAuth';
 import { userProfileManager } from './lib/userProfileManager';
+import { initializeFactionStandings } from './lib/factionSystem';
+import { FactionInterface } from './components/FactionInterface';
+import { SkillTreeInterface } from './components/SkillTreeInterface';
+import { MissionInterface } from './components/MissionInterface';
+import { initializeSkillTree, purchaseSkill } from './lib/skillSystem';
+import { GameState, Mission } from './types/game';
 
 export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
@@ -35,9 +41,12 @@ export default function App() {
     
     checkAuth();
   }, []);
-  const [currentView, setCurrentView] = useState<'game' | 'multiplayer' | 'leaderboard' | 'profile' | 'onboarding'>('game');
+  const [currentView, setCurrentView] = useState<'auth' | 'game' | 'multiplayer' | 'leaderboard' | 'profile' | 'onboarding'>('auth');
   const [userProfile, setUserProfile] = useState<any>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
+  const [showFactionInterface, setShowFactionInterface] = useState(false);
+  const [showSkillTreeInterface, setShowSkillTreeInterface] = useState(false);
+  const [showMissionInterface, setShowMissionInterface] = useState(false);
 
   // Load user profile and handle onboarding
   useEffect(() => {
@@ -103,16 +112,89 @@ export default function App() {
     const handleShowMultiplayer = () => setCurrentView('multiplayer');
     const handleShowLeaderboard = () => setCurrentView('leaderboard');
     const handleShowProfile = () => setCurrentView('profile');
+    const handleShowFactionInterface = () => setShowFactionInterface(true);
 
     window.addEventListener('showMultiplayer', handleShowMultiplayer);
     window.addEventListener('showLeaderboard', handleShowLeaderboard);
     window.addEventListener('showProfile', handleShowProfile);
+    window.addEventListener('showFactionInterface', handleShowFactionInterface);
 
     return () => {
       window.removeEventListener('showMultiplayer', handleShowMultiplayer);
       window.removeEventListener('showLeaderboard', handleShowLeaderboard);
       window.removeEventListener('showProfile', handleShowProfile);
+      window.removeEventListener('showFactionInterface', handleShowFactionInterface);
     };
+  }, []);
+
+  // Event listeners for faction interface
+  useEffect(() => {
+    const handleShowFactionInterface = () => setShowFactionInterface(true);
+    const handleShowSkillTree = () => setShowSkillTreeInterface(true);
+    const handleShowMissionInterface = () => setShowMissionInterface(true);
+    
+    window.addEventListener('showFactionInterface', handleShowFactionInterface);
+    window.addEventListener('showSkillTree', handleShowSkillTree);
+    window.addEventListener('showMissionInterface', handleShowMissionInterface);
+    
+    return () => {
+      window.removeEventListener('showFactionInterface', handleShowFactionInterface);
+      window.removeEventListener('showSkillTree', handleShowSkillTree);
+      window.removeEventListener('showMissionInterface', handleShowMissionInterface);
+    };
+  }, []);
+
+  // Initialize faction standings and skill tree if not present
+  useEffect(() => {
+    try {
+      let needsUpdate = false;
+      const updates: Partial<GameState> = {};
+
+      // Check and initialize faction standings
+      if (!gameState.factionStandings || Object.keys(gameState.factionStandings).length === 0) {
+        updates.factionStandings = initializeFactionStandings();
+        needsUpdate = true;
+      }
+
+      // Check and initialize skill tree
+      if (!gameState.skillTree || !gameState.skillTree.nodes || gameState.skillTree.nodes.length === 0) {
+        updates.skillTree = initializeSkillTree();
+        needsUpdate = true;
+      }
+
+      // Initialize mission-related properties
+      if (!gameState.availableMissions) {
+        updates.availableMissions = [];
+        needsUpdate = true;
+      }
+      if (!gameState.completedMissionIds) {
+        updates.completedMissionIds = [];
+        needsUpdate = true;
+      }
+      if (!gameState.failedMissionIds) {
+        updates.failedMissionIds = [];
+        needsUpdate = true;
+      }
+      if (!gameState.missionHistory) {
+        updates.missionHistory = [];
+        needsUpdate = true;
+      }
+      if (!gameState.missionCooldowns) {
+        updates.missionCooldowns = {};
+        needsUpdate = true;
+      }
+      if (!gameState.emergencyMissions) {
+        updates.emergencyMissions = [];
+        needsUpdate = true;
+      }
+
+      // Apply all updates at once to avoid multiple re-renders
+      if (needsUpdate) {
+        updateGameState(updates);
+      }
+    } catch (error) {
+      console.error('Error during game state initialization:', error);
+    }
   }, []);
 
   // Show loading while authentication is being determined
@@ -150,8 +232,6 @@ export default function App() {
     }} />;
   }
 
-
-
   const handleBootComplete = () => {
     updateGameState({ isBootComplete: true });
   };
@@ -160,10 +240,28 @@ export default function App() {
     setCurrentView('game');
   };
 
-
-
   const handleLogout = () => {
-    window.location.href = '/api/logout';
+    console.log('handleLogout called in App.tsx');
+    // Clear authentication state
+    setUser(null);
+    setIsAuthenticated(false);
+    setUserProfile(null);
+    setNeedsOnboarding(false);
+    setCurrentView('auth');
+    
+    // Clear any stored auth data
+    localStorage.removeItem('authenticated');
+    localStorage.removeItem('user');
+    
+    // Try to call the logout API, but don't depend on it
+    fetch('/api/logout', { method: 'POST' }).catch(() => {
+      // Ignore errors - we've already cleared local state
+    });
+  };
+
+  const handleShowProfile = () => {
+    console.log('handleShowProfile called in App.tsx');
+    setCurrentView('profile');
   };
 
   const handleOnboardingComplete = async () => {
@@ -182,6 +280,58 @@ export default function App() {
       setNeedsOnboarding(false);
       setCurrentView('game');
     }
+  };
+
+  const handleSkillPurchase = (skillId: string) => {
+    const result = purchaseSkill(skillId, gameState.skillTree);
+    const newUnlockedCommands = [...gameState.unlockedCommands, ...result.unlockedCommands];
+    
+    updateGameState({ 
+      skillTree: result.skillTree,
+      unlockedCommands: newUnlockedCommands
+    });
+  };
+
+  const handleFactionAction = (action: string, data?: any) => {
+    // Handle faction-related actions
+    switch (action) {
+      case 'join':
+        // This would be handled by the faction command in the terminal
+        break;
+      case 'leave':
+        // This would be handled by the faction command in the terminal
+        break;
+      case 'start_mission':
+        // This would be handled by the faction_mission command in the terminal
+        break;
+    }
+    setShowFactionInterface(false);
+  };
+
+  const handleMissionStart = (mission: Mission) => {
+    // Start the selected mission
+    const missionProgress = {
+      missionId: mission.id,
+      startTime: Date.now(),
+      currentObjective: 0,
+      completedObjectives: [],
+      timeElapsed: 0,
+      suspicionLevel: 0,
+      score: 0,
+      attempts: 1,
+      status: 'IN_PROGRESS' as const
+    };
+
+    updateGameState({
+      activeMission: mission,
+      currentMissionProgress: missionProgress,
+      missionCooldowns: {
+        ...gameState.missionCooldowns,
+        [mission.id]: Date.now()
+      }
+    });
+
+    setShowMissionInterface(false);
   };
 
   // Use real authentication for all users to ensure individual profiles
@@ -242,6 +392,19 @@ export default function App() {
     );
   }
 
+  // Ensure gameState is properly initialized before rendering
+  if (!gameState || !gameState.skillTree) {
+    return (
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
+        <MatrixRain />
+        <div className="text-green-400 text-center z-10">
+          <div className="animate-pulse text-2xl font-mono mb-4">INITIALIZING NEURAL MATRIX...</div>
+          <div className="text-sm">Loading skill systems</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="relative">
       <UserHeader 
@@ -253,7 +416,15 @@ export default function App() {
           credits: gameState.credits,
           specialization: 'Network Infiltration'
         }}
-        onShowProfile={() => setCurrentView('profile')}
+        gameState={{
+          completedMissions: gameState.completedMissions,
+          currentMission: gameState.currentMission,
+          activeFaction: gameState.activeFaction,
+          skillTree: {
+            skillPoints: gameState.skillTree.skillPoints
+          }
+        }}
+        onShowProfile={handleShowProfile}
         onLogout={handleLogout}
       />
       <GameInterface 
@@ -262,6 +433,32 @@ export default function App() {
         onShowMultiplayer={() => setCurrentView('multiplayer')}
         onShowLeaderboard={() => setCurrentView('leaderboard')}
       />
+      
+      {/* Faction Interface */}
+      {showFactionInterface && (
+        <FactionInterface
+          gameState={gameState}
+          onFactionAction={handleFactionAction}
+          onClose={() => setShowFactionInterface(false)}
+        />
+      )}
+
+      {showSkillTreeInterface && (
+        <SkillTreeInterface
+          gameState={gameState}
+          onSkillPurchase={handleSkillPurchase}
+          onClose={() => setShowSkillTreeInterface(false)}
+        />
+      )}
+
+      {/* Mission Interface */}
+      {showMissionInterface && (
+        <MissionInterface
+          gameState={gameState}
+          onMissionStart={handleMissionStart}
+          onClose={() => setShowMissionInterface(false)}
+        />
+      )}
     </div>
   );
 }
