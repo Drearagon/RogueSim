@@ -6,7 +6,7 @@ import {
   generateEncryptedMessage,
   narrativeEvents 
 } from './narrativeSystem';
-import { checkEasterEgg, discoverEasterEgg, getEasterEggHints, getEasterEggStats, loadDiscoveredEasterEggs, getDiscoveredEasterEggs, EasterEgg } from './easterEggs';
+import { checkEasterEgg, discoverEasterEgg, getEasterEggHints, getEasterEggStats, loadDiscoveredEasterEggs, EasterEgg } from './easterEggs';
 import { shouldAwardCommandCredits } from './missionTracker';
 import { 
   factions, 
@@ -28,9 +28,6 @@ import {
   allSkills,
   calculateSkillTreeProgress
 } from './skillSystem';
-import { newsFeedSystem } from './newsFeedSystem';
-import { npcSystem } from './npcSystem';
-import { realTimeMiniGameSystem } from './realTimeMiniGames';
 
 const networkDatabase: Network[] = [
   { ssid: "TARGET_NET", channel: 11, power: -42, security: "WPA2" },
@@ -83,8 +80,7 @@ export const commands: Record<string, Command> = {
         updateGameState,
         soundEffect: 'success'
       };
-    },
-    unlockLevel: 999 // Shop exclusive - Advanced data extraction tools
+    }
   },
 
   file_recovery: {
@@ -123,8 +119,7 @@ export const commands: Record<string, Command> = {
         updateGameState,
         soundEffect: 'success'
       };
-    },
-    unlockLevel: 999 // Shop exclusive - Data recovery utilities
+    }
   },
 
   extended_scan: {
@@ -162,8 +157,7 @@ export const commands: Record<string, Command> = {
         output: extendedNetworks,
         success: true
       };
-    },
-    unlockLevel: 999 // Shop exclusive - WiFi Adapter v2+
+    }
   },
 
   wifi_monitor: {
@@ -199,8 +193,7 @@ export const commands: Record<string, Command> = {
         output: monitorResults,
         success: true
       };
-    },
-    unlockLevel: 999 // Shop exclusive - WiFi Suite v3+
+    }
   },
 
   iot_hack: {
@@ -243,8 +236,7 @@ export const commands: Record<string, Command> = {
         updateGameState,
         soundEffect: 'success'
       };
-    },
-    unlockLevel: 999 // Shop exclusive - ESP32 Dev v2+
+    }
   },
 
   sensor_spoof: {
@@ -252,136 +244,100 @@ export const commands: Record<string, Command> = {
     usage: "sensor_spoof [sensor_type] [value]",
     execute: (args: string[], gameState: GameState): CommandResult => {
       const sensorType = args[0] || 'temperature';
-      const spoofValue = args[1] || '25.5';
+      const value = args[1] || 'normal';
       
       const spoofResults = [
-        '> ESP32 SENSOR SPOOFING ACTIVATED...',
-        `> Targeting ${sensorType} sensors`,
-        `> Injecting false reading: ${spoofValue}`,
+        '> ESP32 SENSOR SPOOFING INITIATED...',
+        `> Target sensor: ${sensorType}`,
+        `> Spoofed value: ${value}`,
+        '> Calibrating transmitter frequency...',
         '> [████████████████████████] 100%',
         '',
         '┌─ SPOOFING STATUS ─┐',
-        '│ Signal transmitted: OK    │',
-        '│ Target sensors: 12        │',
-        '│ False data injected: OK   │',
+        '│ Signal strength: 98%      │',
+        '│ Frequency match: PERFECT  │',
+        '│ Interference: MINIMAL     │',
         '│ Detection risk: LOW       │',
         '│                           │',
-        '│ SPOOFING SUCCESSFUL!      │',
-        '│ Sensors compromised       │',
+        '│ SPOOFING ACTIVE!          │',
+        '│ Target sensor deceived    │',
         '└───────────────────────────┘',
         '',
-        `> ${sensorType} sensors now reporting: ${spoofValue}`,
-        '> Environmental monitoring systems deceived',
+        `> ${sensorType} sensor successfully spoofed`,
+        '> Maintaining transmission...',
         ''
       ];
 
-      // Only award credits if this command is completing a mission step
-      const shouldAwardCredits = shouldAwardCommandCredits('sensor_spoof', args, true, gameState);
-      const updateGameState = shouldAwardCredits ? {
-        credits: gameState.credits + 200
-      } : undefined;
-
       return {
         output: spoofResults,
-        success: true,
-        updateGameState,
-        soundEffect: 'success'
+        success: true
       };
-    },
-    unlockLevel: 999 // Shop exclusive - ESP32 Dev v2+
+    }
   },
 
   trace: {
-    description: "Trace network connections and routing paths",
-    usage: "trace [target]",
+    description: "View memory trace timeline of your activities",
+    usage: "trace",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      if (!args[0]) {
-        return {
-          output: ['Usage: trace [target]'],
-          success: false
-        };
-      }
-
       return {
         output: [
-          `> Tracing route to ${args[0]}...`,
+          '▶ Accessing memory trace...',
+          '▶ Analyzing gameplay patterns...',
+          '▶ Constructing timeline visualization...',
           '',
-          '┌─ NETWORK TRACE ─┐',
-          '│ 1  192.168.1.1   │',
-          '│ 2  10.0.0.1      │',
-          '│ 3  203.0.113.1   │',
-          '│ 4  * * *         │',
-          '│ 5  TARGET FOUND  │',
-          '└──────────────────┘',
-          '',
-          'Trace complete'
+          '✓ Memory trace interface loaded',
+          '📊 Interactive timeline available',
+          ''
         ],
-        success: true
+        success: true,
+        soundEffect: 'success'
       };
-    },
-    unlockLevel: 1 // Basic networking command
+    }
   },
 
   easter: {
-    description: "Show easter egg statistics and hints",
-    usage: "easter [stats|hints]",
+    description: "View discovered easter eggs and hints",
+    usage: "easter [hints]",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const option = args[0];
+      const stats = getEasterEggStats();
       
-      if (option === 'stats') {
-        const stats = getEasterEggStats();
-        return {
-          output: [
-            '┌─ EASTER EGG STATISTICS ─┐',
-            `│ Total Found: ${stats.discovered}/${stats.total}      │`,
-            `│ Discovery Rate: ${Math.round((stats.discovered / stats.total) * 100)}%     │`,
-            `│ Remaining: ${stats.remaining}    │`,
-            '└─────────────────────────┘',
-            '',
-            'Keep exploring to find hidden secrets!'
-          ],
-          success: true
-        };
-      }
-      
-      if (option === 'hints') {
+      if (args[0] === 'hints') {
         const hints = getEasterEggHints();
         return {
           output: [
-            '┌─ EASTER EGG HINTS ─┐',
-            ...hints.map(hint => `│ ${hint.padEnd(20)} │`),
-            '└─────────────────────┘',
-            '',
-            'Try these commands and phrases!'
+            '╔══════════════════════════════════════╗',
+            '║            EASTER EGG HINTS          ║',
+            '╠══════════════════════════════════════╣',
+            ...hints.map(hint => `║ ${hint.padEnd(36)} ║`),
+            '║                                      ║',
+            `║ Progress: ${stats.discovered}/${stats.total} discovered              ║`,
+            '╚══════════════════════════════════════╝',
+            ''
           ],
           success: true
         };
       }
-
-      // Get discovered easter egg IDs
-      const discoveredIds = getDiscoveredEasterEggs();
-      const stats = getEasterEggStats();
       
       const output = [
-        '┌─ DISCOVERED EASTER EGGS ─┐',
-        ...(discoveredIds.length > 0 
-          ? discoveredIds.map((id: string) => `│ ${id.padEnd(24)} │`)
-          : ['│ None discovered yet...   │']
-        ),
-        '└───────────────────────────┘',
+        '╔══════════════════════════════════════╗',
+        '║          DISCOVERED EASTER EGGS      ║',
+        '╠══════════════════════════════════════╣',
         '',
-        `Progress: ${stats.discovered}/${stats.total} found`,
-        '',
-        'Type "easter stats" for statistics',
-        'Type "easter hints" for discovery hints'
+        '║ No easter eggs discovered yet...     ║',
+        '║ Try exploring hidden commands!       ║',
+        '║                                      ║',
+        `║ Progress: ${stats.discovered}/${stats.total} discovered              ║`,
+        '║                                      ║',
+        '║ Use "easter hints" for clues!        ║',
+        '╚══════════════════════════════════════╝',
+        ''
       ];
       
       return {
         output,
         success: true
       };
-    },
-    unlockLevel: 0 // Always available
+    }
   },
 
   help: {
@@ -410,380 +366,136 @@ export const commands: Record<string, Command> = {
       }
       
       const availableCommands = Object.keys(commands).filter(cmd => 
-        isCommandAvailable(cmd, gameState)
-      );
-      
-      // Group commands by category for better organization
-      const coreCommands = availableCommands.filter(cmd => 
-        ['help', 'clear', 'status', 'scan', 'connect', 'man'].includes(cmd)
-      );
-      const hackingCommands = availableCommands.filter(cmd => 
-        ['inject', 'crack', 'exploit', 'bypass', 'spoof', 'decrypt', 'recon'].includes(cmd)
-      );
-      const systemCommands = availableCommands.filter(cmd => 
-        ['shop', 'mission', 'skills', 'faction', 'devmode', 'tutorial', 'psych_profile'].includes(cmd)
-      );
-      const otherCommands = availableCommands.filter(cmd => 
-        !coreCommands.includes(cmd) && !hackingCommands.includes(cmd) && !systemCommands.includes(cmd)
-      );
-
-      const output = [
-        '╔═══════════════════════════════════════════════════════════════════════════════╗',
-        '║                              AVAILABLE COMMANDS                               ║',
-        '╠═══════════════════════════════════════════════════════════════════════════════╣'
-      ];
-
-      if (coreCommands.length > 0) {
-        output.push('║ CORE COMMANDS:                                                                ║');
-        coreCommands.forEach(cmd => {
-          const desc = commands[cmd].description;
-          const line = `║ ${cmd.padEnd(15)} - ${desc.padEnd(55)} ║`;
-          output.push(line.substring(0, 79) + '║');
-        });
-        output.push('║                                                                               ║');
-      }
-
-      if (hackingCommands.length > 0) {
-        output.push('║ HACKING TOOLS:                                                                ║');
-        hackingCommands.forEach(cmd => {
-          const desc = commands[cmd].description;
-          const line = `║ ${cmd.padEnd(15)} - ${desc.padEnd(55)} ║`;
-          output.push(line.substring(0, 79) + '║');
-        });
-        output.push('║                                                                               ║');
-      }
-
-      if (systemCommands.length > 0) {
-        output.push('║ SYSTEM ACCESS:                                                                ║');
-        systemCommands.forEach(cmd => {
-          const desc = commands[cmd].description;
-          const line = `║ ${cmd.padEnd(15)} - ${desc.padEnd(55)} ║`;
-          output.push(line.substring(0, 79) + '║');
-        });
-        output.push('║                                                                               ║');
-      }
-
-      if (otherCommands.length > 0) {
-        output.push('║ OTHER COMMANDS:                                                               ║');
-        otherCommands.forEach(cmd => {
-          const desc = commands[cmd].description;
-          const line = `║ ${cmd.padEnd(15)} - ${desc.padEnd(55)} ║`;
-          output.push(line.substring(0, 79) + '║');
-        });
-        output.push('║                                                                               ║');
-      }
-
-      output.push(
-        '╠═══════════════════════════════════════════════════════════════════════════════╣',
-        '║ Type "man <command>" for detailed help                                       ║',
-        '║ Type "hints" for mission-specific guidance                                   ║',
-        '╚═══════════════════════════════════════════════════════════════════════════════╝',
-        ''
+        gameState.unlockedCommands.includes(cmd)
       );
       
       return {
-        output,
+        output: [
+          '┌─ AVAILABLE COMMANDS ─┐',
+          ...availableCommands.map(cmd => `│ ${cmd.padEnd(10)} - ${commands[cmd].description.substring(0, 20)} │`),
+          '└─────────────────────┘',
+          '',
+          'Type "man <cmd>" for help',
+          ''
+        ],
         success: true
       };
-    },
-    unlockLevel: 0 // Always available
+    }
   },
 
   scan: {
-    description: "Scan for WiFi networks or BLE devices",
-    usage: "scan [wifi|ble] [--detailed]",
+    description: "Scan for networks and devices",
+    usage: "scan [wifi|ble|ports]",
     execute: (args: string[], gameState: GameState): CommandResult => {
       const target = args[0] || 'wifi';
-      const detailed = args.includes('--detailed');
       
-      // Only award credits if this command is completing a mission step
-      const shouldAwardCredits = shouldAwardCommandCredits('scan', args, true, gameState);
-      const updateGameState = shouldAwardCredits ? {
-        credits: gameState.credits + 25
-      } : undefined;
-
-      if (target === 'ble') {
-        if (detailed) {
+      switch(target) {
+        case 'wifi':
           return {
             output: [
-              '> Performing detailed BLE scan...',
+              '▶ WiFi scan...',
               '',
-              '┌─ BLUETOOTH LE DEVICES ─┐',
-              '│ Device: Smart Watch      │',
-              '│ MAC: XX:XX:XX:XX:XX:01   │',
-              '│ RSSI: -45 dBm           │',
-              '│ Services: Heart Rate     │',
-              '│                          │',
-              '│ Device: Fitness Tracker  │',
-              '│ MAC: XX:XX:XX:XX:XX:02   │',
-              '│ RSSI: -52 dBm           │',
-              '│ Services: Step Counter   │',
-              '│                          │',
-              '│ Device: IoT Sensor       │',
-              '│ MAC: XX:XX:XX:XX:XX:03   │',
-              '│ RSSI: -38 dBm           │',
-              '│ Services: Temperature    │',
-              '│                          │',
-              '│ Device: Shadow Beacon    │',
-              '│ MAC: SHADOW_MAC_001      │',
-              '│ RSSI: -28 dBm           │',
-              '│ Services: Unknown        │',
-              '│ ⚠ Encrypted comms        │',
-              '└─────────────────────────┘',
+              '┌─ NETWORKS ─┐',
+              ...networkDatabase.map(net => 
+                `│ ${net.ssid.substring(0, 12).padEnd(12)} ${net.channel.toString().padStart(2)} ${net.power.toString().padStart(3)} │`
+              ),
+              '└────────────┘',
               '',
-              'Detailed BLE scan complete.',
+              `✓ ${networkDatabase.length} networks found`,
+              '⚠ WEP detected',
               ''
             ],
             success: true,
-            updateGameState,
-            soundEffect: 'success'
+            soundEffect: 'keypress'
           };
-        }
-
-        return {
-          output: [
-            '> Scanning for BLE devices...',
-            '',
-            '┌─ BLUETOOTH LE DEVICES ─┐',
-            '│ Smart Watch             │',
-            '│ Fitness Tracker         │',
-            '│ IoT Sensor              │',
-            '│ Shadow Beacon           │',
-            '└─────────────────────────┘',
-            '',
-            'BLE scan complete. Use "scan ble --detailed" for more info.',
-            ''
-          ],
-          success: true,
-          updateGameState,
-          soundEffect: 'success'
-        };
-      }
-
-      if (target === 'wifi') {
-        if (detailed) {
+        
+        case 'ble':
           return {
             output: [
-              '> Performing detailed WiFi scan...',
+              '▶ Scanning Bluetooth Low Energy devices...',
               '',
-              '┌─ DETAILED SCAN RESULTS ─┐',
-              '│ SSID: TARGET_NET        │',
-              '│ BSSID: aa:bb:cc:dd:ee:ff │',
-              '│ Channel: 11 | -42 dBm   │',
-              '│ Security: WPA2-PSK      │',
-              '│ Clients: 3 connected    │',
-              '│                         │',
-              '│ SSID: HomeNetwork_5G    │',
-              '│ BSSID: 11:22:33:44:55:66 │',
-              '│ Channel: 6 | -67 dBm    │',
-              '│ Security: WPA3-SAE      │',
-              '│ Clients: 8 connected    │',
-              '└─────────────────────────┘',
+              ...bleDevices.map(device => `Device: ${device.name} (${device.mac})`),
               '',
-              'Detailed scan complete.',
+              `✓ ${bleDevices.length} BLE devices found`,
               ''
             ],
             success: true,
-            updateGameState,
-            soundEffect: 'success'
+            soundEffect: 'keypress'
           };
-        }
-
-        return {
-          output: [
-            '> Scanning for WiFi networks...',
-            '',
-            '┌─ WIFI NETWORKS ─┐',
-            '│ TARGET_NET      │',
-            '│ HomeNetwork_5G  │',
-            '│ NETGEAR_Guest   │',
-            '│ IoT_Device_001  │',
-            '│ [HIDDEN]        │',
-            '└─────────────────┘',
-            '',
-            'Scan complete. Use "scan wifi --detailed" for more info.',
-            ''
-          ],
-          success: true,
-          updateGameState,
-          soundEffect: 'success'
-        };
+        
+        case 'ports':
+          return {
+            output: [
+              '▶ Port scanning target...',
+              '',
+              'PORT    STATE    SERVICE',
+              '22/tcp  open     ssh',
+              '80/tcp  open     http', 
+              '443/tcp open     https',
+              '8080/tcp filtered http-proxy',
+              '',
+              '✓ Scan complete',
+              ''
+            ],
+            success: true,
+            soundEffect: 'keypress'
+          };
+        
+        default:
+          return {
+            output: [`ERROR: Unknown scan target '${target}'`, 'Try: wifi, ble, or ports', ''],
+            success: false,
+            soundEffect: 'error'
+          };
       }
-
-      return {
-        output: [
-          `ERROR: Unknown scan target '${target}'`,
-          'Usage: scan [wifi|ble] [--detailed]',
-          'Available targets: wifi, ble',
-          ''
-        ],
-        success: false,
-        soundEffect: 'error'
-      };
-    },
-    unlockLevel: 0 // Basic starter command
+    }
   },
 
   connect: {
-    description: "Connect to a WiFi network or BLE device",
-    usage: "connect <ssid|device_name> [password]",
+    description: "Connect to a target network",
+    usage: "connect <ssid> [--password <pass>]",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      if (!args[0]) {
+      if (args.length === 0) {
         return {
-          output: ['Usage: connect <ssid|device_name> [password]'],
-          success: false
+          output: ['ERROR: SSID required', 'Usage: connect <ssid>', ''],
+          success: false,
+          soundEffect: 'error'
         };
       }
-
-      const target = args[0];
-      const password = args[1];
       
-      // Check if it's a BLE device
-      const bleDevice = bleDevices.find(d => 
-        d.name.toLowerCase().includes(target.toLowerCase()) || 
-        target.toLowerCase().includes(d.name.toLowerCase())
-      );
+      const ssid = args[0];
+      const network = networkDatabase.find(net => net.ssid === ssid);
       
-      if (bleDevice) {
-        // Only award credits if this command is completing a mission step
-        const shouldAwardCredits = shouldAwardCommandCredits('connect', args, true, gameState);
-        const updateGameState = shouldAwardCredits ? {
-          networkStatus: 'BLE_CONNECTED',
-          connectedNetwork: bleDevice.name,
-          credits: gameState.credits + 75
-        } : {
-          networkStatus: 'BLE_CONNECTED',
-          connectedNetwork: bleDevice.name
-        };
-
-        if (bleDevice.name === 'Shadow Beacon') {
-          return {
-            output: [
-              `> Connecting to ${bleDevice.name}...`,
-              '> Initiating BLE handshake...',
-              '> Analyzing encryption protocols...',
-              '> Exploiting firmware vulnerability...',
-              '',
-              '✓ BLE connection established',
-              `✓ Connected to ${bleDevice.name}`,
-              `✓ Device Type: ${bleDevice.type}`,
-              `✓ MAC Address: ${bleDevice.mac}`,
-              '',
-              '⚠ Suspicious encrypted traffic detected',
-              '⚠ This device may be part of a shadow network',
-              ''
-            ],
-            success: true,
-            updateGameState,
-            soundEffect: 'success'
-          };
-        }
-
-        return {
-          output: [
-            `> Connecting to ${bleDevice.name}...`,
-            '> Initiating BLE handshake...',
-            '> Pairing request sent...',
-            '',
-            '✓ BLE connection established',
-            `✓ Connected to ${bleDevice.name}`,
-            `✓ Device Type: ${bleDevice.type}`,
-            `✓ MAC Address: ${bleDevice.mac}`,
-            '',
-            'BLE device ready for interaction',
-            ''
-          ],
-          success: true,
-          updateGameState,
-          soundEffect: 'success'
-        };
-      }
-
-      // Check WiFi networks
-      const network = networkDatabase.find(n => n.ssid === target);
-
       if (!network) {
         return {
-          output: [`ERROR: Network or device '${target}' not found`, 'Use "scan wifi" or "scan ble" to see available targets'],
+          output: [`ERROR: Network '${ssid}' not found`, 'Run "scan wifi" to discover networks', ''],
           success: false,
           soundEffect: 'error'
         };
       }
-
-      // Special case for TARGET_NET - allow connection without password for tutorial
-      if (target === 'TARGET_NET') {
-        const shouldAwardCredits = shouldAwardCommandCredits('connect', args, true, gameState);
-        const updateGameState = shouldAwardCredits ? {
-          networkStatus: 'CONNECTED',
-          connectedNetwork: target,
-          credits: gameState.credits + 50
-        } : {
-          networkStatus: 'CONNECTED',
-          connectedNetwork: target
-        };
-
-        return {
-          output: [
-            `> Connecting to ${target}...`,
-            '> Exploiting known vulnerability...',
-            '> Bypassing WPA2 security...',
-            '> DHCP request...',
-            '',
-            '✓ Connection established',
-            `✓ Connected to ${target}`,
-            `✓ IP: 192.168.4.${Math.floor(Math.random() * 200) + 10}`,
-            '',
-            '⚠ Unauthorized access detected - stay low profile',
-            ''
-          ],
-          success: true,
-          updateGameState,
-          soundEffect: 'success'
-        };
-      }
-
-      if (network.security !== 'OPEN' && !password) {
-        return {
-          output: [
-            `ERROR: Network '${target}' requires password`,
-            'Try using "crack" command to discover passwords',
-            'Or use "recon" to gather intelligence'
-          ],
-          success: false,
-          soundEffect: 'error'
-        };
-      }
-
-      // Only award credits if this command is completing a mission step
-      const shouldAwardCredits = shouldAwardCommandCredits('connect', args, true, gameState);
-      const updateGameState = shouldAwardCredits ? {
-        networkStatus: 'CONNECTED',
-        connectedNetwork: target,
-        credits: gameState.credits + 50
-      } : {
-        networkStatus: 'CONNECTED',
-        connectedNetwork: target
-      };
-
+      
       return {
         output: [
-          `> Connecting to ${target}...`,
-          '> Authenticating...',
-          '> DHCP request...',
+          `▶ Attempting connection to '${ssid}'...`,
+          '▶ Analyzing security protocols...',
+          '▶ Executing handshake...',
+          '▶ Establishing encrypted tunnel...',
           '',
-          '✓ Connection established',
-          `✓ Connected to ${target}`,
-          `✓ IP: 192.168.1.${Math.floor(Math.random() * 200) + 10}`,
+          `✓ Connected to ${ssid}`,
+          `✓ Assigned IP: 192.168.4.${Math.floor(Math.random() * 254) + 2}`,
+          '✓ Network access granted',
           '',
-          'Connection successful!',
+          '⚠ Remember: Unauthorized access is illegal',
           ''
         ],
         success: true,
-        updateGameState,
+        updateGameState: { 
+          networkStatus: 'CONNECTED',
+          currentNetwork: ssid
+        },
         soundEffect: 'success'
       };
-    },
-    unlockLevel: 0 // Basic starter command
+    }
   },
 
   status: {
@@ -842,22 +554,20 @@ export const commands: Record<string, Command> = {
             'Usage: inject <payload_name>',
             '',
             'Available payloads:',
-            '• payload (basic injection - always available)',
-            '• basic_payload (enhanced version - purchase from shop)',
-            '• stealth_payload (advanced stealth)',
-            '• data_extractor (mission specific)',
+            '• basic_payload (Purchase from shop)',
+            '• stealth_payload (Advanced)',
+            '• data_extractor (Mission specific)',
             '',
-            'For tutorial: use "inject payload"',
-            'For advanced missions: visit shop to buy enhanced payloads'
+            'Visit the shop to buy payloads'
           ],
           success: false,
           soundEffect: 'error'
         };
       }
       
-      if (gameState.networkStatus !== 'CONNECTED' && gameState.networkStatus !== 'BLE_CONNECTED') {
+      if (gameState.networkStatus !== 'CONNECTED') {
         return {
-          output: ['ERROR: No network connection', 'Connect to a WiFi network or BLE device first', ''],
+          output: ['ERROR: No network connection', 'Connect to a network first', ''],
           success: false,
           soundEffect: 'error'
         };
@@ -865,17 +575,23 @@ export const commands: Record<string, Command> = {
 
       const payloadName = args[0];
       
-      // Check if player owns enhanced payloads
+      // Check if player owns this payload
       const ownedPayloads = gameState.narrativeChoices.filter(choice => choice.startsWith('payload_'));
       
-      // Basic payload - always available for tutorial
-      if (payloadName === 'payload') {
-        // Only award credits if this command is completing a mission step
-        const shouldAwardCredits = shouldAwardCommandCredits('inject', args, true, gameState);
-        const updateGameState = shouldAwardCredits ? {
-          credits: gameState.credits + 100
-        } : undefined;
+      if (payloadName === 'basic_payload' && !ownedPayloads.includes('payload_basic')) {
+        return {
+          output: [
+            'ERROR: Payload not available',
+            'You need to purchase basic_payload first',
+            '',
+            'Visit shop → tools → buy basic payload (200₵)'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
 
+      if (payloadName === 'payload' || payloadName === 'basic_payload') {
         return {
           output: [
             '▶ Loading basic payload...',
@@ -886,140 +602,9 @@ export const commands: Record<string, Command> = {
             '✓ Basic payload deployed successfully',
             '✓ Remote access established',
             '⚠ Maintain low profile',
-            '',
-            shouldAwardCredits ? '+100 credits earned' : 'Payload injection successful'
+            ''
           ],
           success: true,
-          updateGameState,
-          soundEffect: 'success'
-        };
-      }
-
-      // Enhanced basic payload from shop
-      if (payloadName === 'basic_payload') {
-        if (!ownedPayloads.includes('payload_basic')) {
-          return {
-            output: [
-              'ERROR: Enhanced payload not available',
-              'You need to purchase basic_payload first',
-              '',
-              'Option 1: Use "inject payload" for basic operations',
-              'Option 2: Visit shop → software → buy Basic Payload (200₵)',
-              '',
-              `Current credits: ${gameState.credits}₵`
-            ],
-            success: false,
-            soundEffect: 'error'
-          };
-        }
-
-        // Only award credits if this command is completing a mission step
-        const shouldAwardCredits = shouldAwardCommandCredits('inject', args, true, gameState);
-        const updateGameState = shouldAwardCredits ? {
-          credits: gameState.credits + 150
-        } : undefined;
-
-        return {
-          output: [
-            '▶ Loading enhanced payload...',
-            '▶ Advanced encryption active...',
-            '▶ Multi-vector injection...',
-            '▶ Deploying enhanced backdoor...',
-            '',
-            '✓ Enhanced payload deployed successfully',
-            '✓ Advanced remote access established',
-            '✓ Stealth protocols active',
-            '⚠ Enhanced persistence enabled',
-            '',
-            shouldAwardCredits ? '+150 credits earned' : 'Enhanced payload injection successful'
-          ],
-          success: true,
-          updateGameState,
-          soundEffect: 'success'
-        };
-      }
-
-      // Stealth payload
-      if (payloadName === 'stealth_payload') {
-        if (!ownedPayloads.includes('payload_stealth')) {
-          return {
-            output: [
-              'ERROR: Stealth payload not available',
-              'Purchase stealth_payload from shop first',
-              '',
-              'Alternative: Use "inject payload" for basic operations'
-            ],
-            success: false,
-            soundEffect: 'error'
-          };
-        }
-
-        return {
-          output: [
-            '▶ Loading stealth payload...',
-            '▶ Activating evasion protocols...',
-            '▶ Deploying silent injection...',
-            '',
-            '✓ Stealth payload deployed',
-            '✓ Undetected access established',
-            '✓ Anti-forensics active'
-          ],
-          success: true,
-          soundEffect: 'success'
-        };
-      }
-
-      // Hydra handshake for Mission 2
-      if (payloadName === 'hydra_handshake') {
-        if (gameState.networkStatus !== 'CONNECTED' && gameState.networkStatus !== 'BLE_CONNECTED') {
-          return {
-            output: [
-              'ERROR: No active connection for Hydra Protocol',
-              'Connect to a Shadow device first',
-              'Use "connect Shadow Beacon" to establish BLE connection'
-            ],
-            success: false,
-            soundEffect: 'error'
-          };
-        }
-
-        // Only award credits if this command is completing a mission step
-        const shouldAwardCredits = shouldAwardCommandCredits('inject', args, true, gameState);
-        const updateGameState = shouldAwardCredits ? {
-          credits: gameState.credits + 300,
-          hydraProtocol: {
-            ...gameState.hydraProtocol,
-            discovered: true,
-            active_contacts: ['SHADOW_NODE_07']
-          }
-        } : {
-          hydraProtocol: {
-            ...gameState.hydraProtocol,
-            discovered: true,
-            active_contacts: ['SHADOW_NODE_07']
-          }
-        };
-
-        return {
-          output: [
-            '▶ HYDRA PROTOCOL INJECTION ▶',
-            '',
-            '> Loading Hydra handshake payload...',
-            '> Establishing encrypted channel...',
-            '> Negotiating Shadow protocols...',
-            '> Authenticating with Shadow nodes...',
-            '',
-            '✓ Hydra Protocol successfully initialized',
-            '✓ Shadow network access established',
-            '✓ Encrypted communication channel active',
-            '',
-            '🐍 Welcome to the Shadow Organization',
-            '📡 Encrypted messages incoming...',
-            '',
-            shouldAwardCredits ? '+300 credits earned' : 'Hydra Protocol active'
-          ],
-          success: true,
-          updateGameState,
           soundEffect: 'success'
         };
       }
@@ -1027,13 +612,8 @@ export const commands: Record<string, Command> = {
       return {
         output: [
           `ERROR: Unknown payload "${payloadName}"`,
-          '',
-          'Available options:',
-          '• inject payload (basic - always available)',
-          '• inject basic_payload (enhanced - requires purchase)',
-          '• inject stealth_payload (advanced - requires purchase)',
-          '',
-          'Use "shop" to purchase enhanced payloads'
+          'Use: inject basic_payload',
+          'Or purchase advanced payloads from shop'
         ],
         success: false,
         soundEffect: 'error'
@@ -1043,81 +623,9 @@ export const commands: Record<string, Command> = {
 
   spoof: {
     description: "Spoof device identity",
-    usage: "spoof <type> --mac <address> | spoof ble --mac <address>",
-    unlockLevel: 0, // Changed from 2 to 0 - needed for Mission 2
+    usage: "spoof <type> --mac <address>",
+    unlockLevel: 2,
     execute: (args: string[], gameState: GameState): CommandResult => {
-      if (args.length === 0) {
-        return {
-          output: [
-            'Usage: spoof <type> --mac <address>',
-            'Types: device, ble',
-            'Example: spoof ble --mac SHADOW_MAC'
-          ],
-          success: false
-        };
-      }
-
-      const deviceType = args[0];
-      
-      if (deviceType === 'ble') {
-        if (args[1] !== '--mac' || !args[2]) {
-          return {
-            output: ['Usage: spoof ble --mac <mac_address>'],
-            success: false
-          };
-        }
-
-        const macAddress = args[2];
-        
-        if (macAddress === 'SHADOW_MAC' || macAddress === 'SHADOW_MAC_001') {
-          // Only award credits if this command is completing a mission step
-          const shouldAwardCredits = shouldAwardCommandCredits('spoof', args, true, gameState);
-          const updateGameState = shouldAwardCredits ? {
-            credits: gameState.credits + 200
-          } : undefined;
-
-          return {
-            output: [
-              '▶ BLE IDENTITY SPOOFING ▶',
-              '',
-              `> Spoofing MAC address: ${macAddress}`,
-              '> Cloning Shadow Beacon identity...',
-              '> Generating fake device signatures...',
-              '> Bypassing authentication protocols...',
-              '',
-              '✓ BLE identity successfully spoofed',
-              '✓ Now appearing as trusted Shadow device',
-              '✓ Shadow Organization protocols accessible',
-              '',
-              '⚠ Spoof duration: 10 minutes',
-              '⚠ Shadow network access granted',
-              ''
-            ],
-            success: true,
-            updateGameState,
-            soundEffect: 'success'
-          };
-        }
-
-        return {
-          output: [
-            '▶ BLE IDENTITY SPOOFING ▶',
-            '',
-            `> Spoofing MAC address: ${macAddress}`,
-            '> Cloning device identity...',
-            '> Generating fake signatures...',
-            '',
-            '✓ BLE identity spoofed successfully',
-            '✓ Device now appears trusted',
-            '',
-            '⚠ Spoof active for 5 minutes'
-          ],
-          success: true,
-          soundEffect: 'success'
-        };
-      }
-
-      // Original device spoofing logic
       return {
         output: [
           '▶ Initializing identity spoofing...',
@@ -1313,90 +821,6 @@ export const commands: Record<string, Command> = {
     description: "Decrypt messages",
     usage: "decrypt [key]",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const key = args[0];
-      
-      // Shadow key decryption for Mission 2
-      if (key === 'shadow_key') {
-        if (!gameState.hydraProtocol.discovered) {
-          return {
-            output: [
-              'ERROR: Hydra Protocol not initialized',
-              'Initialize Hydra Protocol first',
-              'Use "inject hydra_handshake" to establish connection'
-            ],
-            success: false,
-            soundEffect: 'error'
-          };
-        }
-
-        // Only award credits if this command is completing a mission step
-        const shouldAwardCredits = shouldAwardCommandCredits('decrypt', args, true, gameState);
-        const updateGameState = shouldAwardCredits ? {
-          credits: gameState.credits + 400,
-          hydraProtocol: {
-            ...gameState.hydraProtocol,
-            access_level: 2,
-            encrypted_messages: [
-              {
-                id: 'shadow_msg_001',
-                from: 'SHADOW_COMMAND',
-                content: 'Welcome, new operative. You have passed the first test. More challenging missions await.',
-                encrypted_content: 'XyZ9$#mK!@vN...encrypted_shadow_message...pL8&^qR2',
-                is_decrypted: true,
-                timestamp: Date.now()
-              }
-            ]
-          }
-        } : {
-          hydraProtocol: {
-            ...gameState.hydraProtocol,
-            access_level: 2,
-            encrypted_messages: [
-              {
-                id: 'shadow_msg_001',
-                from: 'SHADOW_COMMAND',
-                content: 'Welcome, new operative. You have passed the first test. More challenging missions await.',
-                encrypted_content: 'XyZ9$#mK!@vN...encrypted_shadow_message...pL8&^qR2',
-                is_decrypted: true,
-                timestamp: Date.now()
-              }
-            ]
-          }
-        };
-
-        return {
-          output: [
-            '▶ SHADOW KEY DECRYPTION ▶',
-            '',
-            '> Applying Shadow decryption key...',
-            '> Decoding quantum-encrypted messages...',
-            '> Verifying message integrity...',
-            '',
-            '✓ Shadow messages successfully decrypted',
-            '',
-            '┌─ DECRYPTED MESSAGE ─┐',
-            '│ FROM: SHADOW_COMMAND         │',
-            '│ TO: NEW_OPERATIVE            │',
-            '│ PRIORITY: HIGH               │',
-            '│                              │',
-            '│ Welcome, new operative.      │',
-            '│ You have passed the first    │',
-            '│ test. More challenging       │',
-            '│ missions await.              │',
-            '│                              │',
-            '│ Report to Shadow Node 07     │',
-            '│ for further instructions.    │',
-            '└─────────────────────────────┘',
-            '',
-            '🎯 Mission Complete: Shadow Network Access Established',
-            shouldAwardCredits ? '+400 credits earned' : 'Shadow messages decrypted'
-          ],
-          success: true,
-          updateGameState,
-          soundEffect: 'success'
-        };
-      }
-      
       if (!gameState.hydraProtocol.discovered) {
         return {
           output: ['No encrypted data available'],
@@ -1404,6 +828,7 @@ export const commands: Record<string, Command> = {
         };
       }
 
+      const key = args[0];
       if (!key) {
         return {
           output: [
@@ -1457,7 +882,7 @@ export const commands: Record<string, Command> = {
         }
       };
     },
-    unlockLevel: 0
+    unlockLevel: 3
   },
 
   choose: {
@@ -2493,311 +1918,88 @@ export const commands: Record<string, Command> = {
 
   // Mini-game commands
   minigame: {
-    description: "Start or interact with real-time mini-games",
-    usage: "minigame <action> [game_type] [difficulty] [input]",
+    description: "Launch interactive hacking mini-games",
+    usage: "minigame [list|<game_id>]",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const action = args[0];
+      const { miniGames, initializeMiniGame } = require('./miniGames');
       
-      if (!action) {
-        const availableGames = realTimeMiniGameSystem.getAvailableGames();
-        const activeGame = realTimeMiniGameSystem.getActiveGame();
+      if (args.length === 0 || args[0] === 'list') {
+        const gameList = Object.values(miniGames).map((game: any) => 
+          `${game.id.padEnd(20)} ${game.difficulty.padEnd(8)} ${game.reward.credits}₵`
+        );
         
         return {
           output: [
-            '▶ REAL-TIME MINI-GAMES ▶',
+            '▶ AVAILABLE MINI-GAMES ▶',
             '',
-            activeGame ? `Active Game: ${realTimeMiniGameSystem.getGameStatus()}` : 'No active game',
+            '┌─ INTERACTIVE HACKING SIMULATIONS ─┐',
+            '│ ID                   DIFF     REWARD │',
+            '├────────────────────────────────────┤',
+            ...gameList.map(line => `│ ${line} │`),
+            '└────────────────────────────────────┘',
             '',
-            '┌─ AVAILABLE GAMES ─┐',
-            '│ pattern_crack     - Crack encryption patterns        │',
-            '│ signal_trace      - Navigate network grids           │',
-            '│ binary_tree       - Navigate binary tree structures  │',
-            '│ memory_sequence   - Memorize and repeat sequences    │',
-            '│ typing_challenge  - Fast and accurate code typing    │',
-            '│ code_injection    - Find and exploit vulnerabilities │',
-            '└─────────────────────────────────────────────────────┘',
+            'Usage: minigame <game_id>',
             '',
-            '┌─ COMMANDS ─┐',
-            '│ minigame start <game_type> [difficulty]  │',
-            '│ minigame input <your_input>              │',
-            '│ minigame status                          │',
-            '│ minigame cancel                          │',
-            '│ minigame history                         │',
-            '└─────────────────────────────────────────┘',
-            '',
-            'Difficulties: EASY, MEDIUM, HARD, EXPERT'
+            '🎮 Pattern Cracking: Match encryption sequences',
+            '🎮 Signal Tracing: Navigate network topology',
+            '🎮 Binary Tree: Traverse data structures',
+            ''
           ],
           success: true
         };
       }
 
-      switch (action.toLowerCase()) {
-        case 'start': {
-          const gameType = args[1];
-          const difficulty = args[2] || 'MEDIUM';
-          
-          if (!gameType) {
-            return {
-              output: [
-                'Usage: minigame start <game_type> [difficulty]',
-                'Available games: pattern_crack, signal_trace, binary_tree, memory_sequence, typing_challenge, code_injection'
-              ],
-              success: false
-            };
-          }
-
-          const game = realTimeMiniGameSystem.startGame(gameType, difficulty);
-          
-          if (!game) {
-            const activeGame = realTimeMiniGameSystem.getActiveGame();
-            if (activeGame) {
-              return {
-                output: [
-                  'A mini-game is already active!',
-                  `Current game: ${realTimeMiniGameSystem.getGameStatus()}`,
-                  'Use "minigame cancel" to stop the current game'
-                ],
-                success: false
-              };
-            } else {
-              return {
-                output: [
-                  `Invalid game type: ${gameType}`,
-                  'Available games: pattern_crack, signal_trace, binary_tree, memory_sequence, typing_challenge, code_injection'
-                ],
-                success: false
-              };
-            }
-          }
-
-          let initialMessage = '';
-          switch (game.type) {
-            case 'pattern_crack':
-              const patternData = game.gameData;
-              initialMessage = `Pattern ${patternData.currentPattern + 1}/${patternData.totalPatterns}: ${patternData.patterns[patternData.currentPattern]}`;
-              break;
-            case 'signal_trace':
-              const signalData = game.gameData;
-              initialMessage = `Navigate from (0,0) to (${signalData.targetPos.x},${signalData.targetPos.y}). Use: up/down/left/right or w/a/s/d`;
-              break;
-            case 'binary_tree':
-              const treeData = game.gameData;
-              const rootNode = treeData.nodes[treeData.currentNode];
-              initialMessage = `Find target: ${treeData.nodes[treeData.targetNode].value}. Current: ${rootNode.value} | Left: ${rootNode.left ? treeData.nodes[rootNode.left].value : 'none'} | Right: ${rootNode.right ? treeData.nodes[rootNode.right].value : 'none'}`;
-              break;
-            case 'memory_sequence':
-              const memoryData = game.gameData;
-              initialMessage = `Memorize this sequence: ${memoryData.sequence.join(' ')}. Then use "minigame input <symbol>" to repeat it.`;
-              break;
-            case 'typing_challenge':
-              const typingData = game.gameData;
-              initialMessage = `Type this code exactly:\n${typingData.text}`;
-              break;
-            case 'code_injection':
-              const codeData = game.gameData;
-              initialMessage = `Find vulnerabilities in the code:\n${codeData.targetCode}\nUse: "minigame input exploit <vulnerability>" or "minigame input scan"`;
-              break;
-          }
-
-          return {
-            output: [
-              `▶ ${game.name.toUpperCase()} STARTED ▶`,
-              `Difficulty: ${game.difficulty} | Time Limit: ${game.timeLimit}s`,
-              '',
-              game.description,
-              '',
-              initialMessage,
-              '',
-              'Use "minigame input <your_input>" to play',
-              'Use "minigame status" to check progress',
-              'Use "minigame cancel" to quit'
-            ],
-            success: true
-          };
-        }
-
-        case 'input': {
-          const input = args.slice(1).join(' ');
-          
-          if (!input) {
-            return {
-              output: ['Usage: minigame input <your_input>'],
-              success: false
-            };
-          }
-
-          // Check for timeout
-          if (realTimeMiniGameSystem.checkTimeout()) {
-            return {
-              output: [
-                '⏰ Time limit exceeded!',
-                'Mini-game automatically cancelled.'
-              ],
-              success: false
-            };
-          }
-
-          const result = realTimeMiniGameSystem.processInput(input);
-          
-          if (result.completed) {
-            const creditReward = result.message.match(/(\d+) credits/)?.[1];
-            const credits = creditReward ? parseInt(creditReward) : 0;
-            
-            return {
-              output: [
-                '▶ MINI-GAME COMPLETED ▶',
-                '',
-                result.message
-              ],
-              success: result.success,
-              updateGameState: credits > 0 ? {
-                credits: gameState.credits + credits
-              } : undefined
-            };
-          }
-
-          return {
-            output: [result.message],
-            success: result.success
-          };
-        }
-
-        case 'status': {
-          const activeGame = realTimeMiniGameSystem.getActiveGame();
-          
-          if (!activeGame) {
-            return {
-              output: ['No active mini-game.'],
-              success: false
-            };
-          }
-
-          const timeElapsed = Math.floor((Date.now() - activeGame.startTime) / 1000);
-          const timeRemaining = Math.max(0, activeGame.timeLimit - timeElapsed);
-
-          let gameSpecificInfo = '';
-          switch (activeGame.type) {
-            case 'pattern_crack':
-              const patternData = activeGame.gameData;
-              gameSpecificInfo = `Progress: ${patternData.correctSequences}/${patternData.totalPatterns} | Mistakes: ${patternData.mistakes}/${patternData.maxMistakes}`;
-              break;
-            case 'signal_trace':
-              const signalData = activeGame.gameData;
-              gameSpecificInfo = `Position: (${signalData.playerPos.x},${signalData.playerPos.y}) | Signal: ${signalData.signalStrength}% | Moves: ${signalData.movesUsed}/${signalData.maxMoves}`;
-              break;
-            case 'binary_tree':
-              const treeData = activeGame.gameData;
-              gameSpecificInfo = `Current: ${treeData.nodes[treeData.currentNode].value} | Target: ${treeData.nodes[treeData.targetNode].value} | Path length: ${treeData.path.length}`;
-              break;
-            case 'memory_sequence':
-              const memoryData = activeGame.gameData;
-              gameSpecificInfo = `Progress: ${memoryData.currentIndex}/${memoryData.sequenceLength}`;
-              break;
-            case 'typing_challenge':
-              const typingData = activeGame.gameData;
-              gameSpecificInfo = `Progress: ${typingData.userInput.length}/${typingData.text.length} | WPM: ${typingData.wpm} | Accuracy: ${typingData.accuracy}%`;
-              break;
-            case 'code_injection':
-              const codeData = activeGame.gameData;
-              gameSpecificInfo = `Exploits found: ${codeData.exploitsFound.length}/${codeData.vulnerabilities.length}`;
-              break;
-          }
-
-          return {
-            output: [
-              `▶ ${activeGame.name.toUpperCase()} STATUS ▶`,
-              '',
-              `Difficulty: ${activeGame.difficulty}`,
-              `Time remaining: ${timeRemaining}s`,
-              gameSpecificInfo,
-              '',
-              'Use "minigame input <your_input>" to continue'
-            ],
-            success: true
-          };
-        }
-
-        case 'cancel': {
-          const activeGame = realTimeMiniGameSystem.getActiveGame();
-          
-          if (!activeGame) {
-            return {
-              output: ['No active mini-game to cancel.'],
-              success: false
-            };
-          }
-
-          realTimeMiniGameSystem.cancelGame();
-          
-          return {
-            output: [
-              `${activeGame.name} cancelled.`,
-              'You can start a new mini-game anytime.'
-            ],
-            success: true
-          };
-        }
-
-        case 'history': {
-          const history = realTimeMiniGameSystem.getGameHistory();
-          
-          if (history.length === 0) {
-            return {
-              output: [
-                '▶ MINI-GAME HISTORY ▶',
-                '',
-                'No games played yet.',
-                'Start your first mini-game with "minigame start <game_type>"'
-              ],
-              success: true
-            };
-          }
-
-          const output = [
-            '▶ MINI-GAME HISTORY ▶',
-            `Total games played: ${history.length}`,
-            ''
-          ];
-
-          const recentGames = history.slice(-10).reverse();
-          recentGames.forEach((game, index) => {
-            const timeElapsed = Math.floor(game.timeElapsed / 1000);
-            const successIcon = game.success ? '✅' : '❌';
-            
-            output.push(
-              `${index + 1}. ${successIcon} ${game.gameId.split('_')[0]} | ${timeElapsed}s | ${game.score} credits`
-            );
-          });
-
-          const totalScore = history.reduce((sum, game) => sum + game.score, 0);
-          const successRate = Math.round((history.filter(g => g.success).length / history.length) * 100);
-
-          output.push(
-            '',
-            '─────────────────────────────────────',
-            `Total credits earned: ${totalScore}`,
-            `Success rate: ${successRate}%`
-          );
-
-          return {
-            output,
-            success: true
-          };
-        }
-
-        default:
-          return {
-            output: [
-              'Invalid action. Available actions:',
-              '• start <game_type> [difficulty] - Start a new mini-game',
-              '• input <your_input> - Provide input to active game',
-              '• status - Check current game status',
-              '• cancel - Cancel active game',
-              '• history - View game history'
-            ],
-            success: false
-          };
+      const gameId = args[0];
+      const game = miniGames[gameId];
+      
+      if (!game) {
+        return {
+          output: [
+            `ERROR: Unknown mini-game '${gameId}'`,
+            'Use "minigame list" to see available games'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
       }
+
+      // Initialize the mini-game
+      const miniGameState = initializeMiniGame(gameId);
+      if (!miniGameState) {
+        return {
+          output: ['ERROR: Failed to initialize mini-game'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      // Trigger mini-game interface
+      setTimeout(() => {
+        const event = new CustomEvent('startMiniGame', {
+          detail: { miniGameState }
+        });
+        window.dispatchEvent(event);
+      }, 100);
+
+      return {
+        output: [
+          `▶ LAUNCHING: ${game.title} ▶`,
+          '',
+          `Difficulty: ${game.difficulty}`,
+          `Time Limit: ${game.timeLimit}s`,
+          `Reward: ${game.reward.credits}₵`,
+          '',
+          game.description,
+          '',
+          '🎮 Mini-game interface loading...',
+          '⚡ Get ready for interactive hacking!'
+        ],
+        success: true,
+        updateGameState: {
+          miniGameState
+        },
+        soundEffect: 'success'
+      };
     },
     unlockLevel: 1
   },
@@ -3715,7 +2917,7 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      const result = purchaseSkill(skillId, gameState.skillTree);
+      const updatedSkillTree = purchaseSkill(skillId, gameState.skillTree);
       
       return {
         output: [
@@ -3732,22 +2934,13 @@ export const commands: Record<string, Command> = {
           ),
           '└─────────────────┘',
           '',
-          result.unlockedCommands.length > 0 ? [
-            '┌─ COMMANDS UNLOCKED ─┐',
-            ...result.unlockedCommands.map(cmd => 
-              `│ • ${cmd.padEnd(30)} │`
-            ),
-            '└─────────────────────┘',
-            ''
-          ].join('\n') : '',
-          `Skill points remaining: ${result.skillTree.skillPoints}`,
+          `Skill points remaining: ${updatedSkillTree.skillPoints}`,
           '',
           '⚡ New abilities unlocked! Check your enhanced capabilities.'
         ],
         success: true,
         updateGameState: {
-          skillTree: result.skillTree,
-          unlockedCommands: [...(gameState.unlockedCommands || []), ...result.unlockedCommands]
+          skillTree: updatedSkillTree
         },
         soundEffect: 'success'
       };
@@ -3923,1727 +3116,19 @@ export const commands: Record<string, Command> = {
     },
     unlockLevel: 0
   },
-
-  newsfeed: {
-    description: "Access the global news feed and world events",
-    usage: "newsfeed [category] [limit]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const category = args[0] || 'all';
-      const limit = parseInt(args[1]) || 10;
-
-      const validCategories = ['all', 'corporate', 'government', 'underground', 'technology', 'security', 'faction'];
-      
-      if (!validCategories.includes(category)) {
-        return {
-          output: [
-            'Invalid category. Available categories:',
-            '• all - All news stories',
-            '• corporate - Corporate news and business',
-            '• government - Government and policy news',
-            '• underground - Hacker and activist news',
-            '• technology - Technology breakthroughs',
-            '• security - Cybersecurity incidents',
-            '• faction - Faction-related news'
-          ],
-          success: false
-        };
-      }
-
-      const articles = newsFeedSystem.getNewsFeed(gameState, category === 'all' ? undefined : category, limit);
-      
-      if (articles.length === 0) {
-        return {
-          output: [
-            '▶ GLOBAL NEWS FEED ▶',
-            '',
-            'No news articles available.',
-            'Check back later for updates.'
-          ],
-          success: true
-        };
-      }
-
-      const output = [
-        '▶ GLOBAL NEWS FEED ▶',
-        `Category: ${category.toUpperCase()} | Showing ${articles.length} articles`,
-        ''
-      ];
-
-      articles.forEach((article, index) => {
-        const timeAgo = Math.floor((Date.now() - article.timestamp) / (1000 * 60));
-        const priorityIcon = {
-          'breaking': '🚨',
-          'high': '🔴',
-          'medium': '🟡',
-          'low': '🟢'
-        }[article.priority];
-
-        output.push(
-          `${index + 1}. ${priorityIcon} ${article.headline}`,
-          `   Source: ${article.source} | ${timeAgo}m ago`,
-          `   Category: ${article.category.toUpperCase()}`,
-          ''
-        );
-
-        // Show content for first 3 articles or if specifically requested
-        if (index < 3) {
-          const contentLines = article.content.split('\n');
-          const preview = contentLines[0].substring(0, 80) + (contentLines[0].length > 80 ? '...' : '');
-          output.push(`   ${preview}`, '');
-        }
-      });
-
-      output.push(
-        '─────────────────────────────────────',
-        'Use "newsfeed <category>" to filter news',
-        'Categories: corporate, government, underground, technology, security, faction'
-      );
-
-      return {
-        output,
-        success: true
-      };
-    },
-    unlockLevel: 0
-  },
-
-  news: {
-    description: "Read a specific news article in detail",
-    usage: "news <article_number>",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const articleNum = parseInt(args[0]);
-      
-      if (!articleNum || articleNum < 1) {
-        return {
-          output: [
-            'Usage: news <article_number>',
-            'Use "newsfeed" to see available articles'
-          ],
-          success: false
-        };
-      }
-
-      const articles = newsFeedSystem.getNewsFeed(gameState, undefined, 20);
-      const article = articles[articleNum - 1];
-
-      if (!article) {
-        return {
-          output: [
-            `Article ${articleNum} not found.`,
-            `Available articles: 1-${articles.length}`
-          ],
-          success: false
-        };
-      }
-
-      const timeAgo = Math.floor((Date.now() - article.timestamp) / (1000 * 60));
-      const priorityIcon = {
-        'breaking': '🚨 BREAKING',
-        'high': '🔴 HIGH PRIORITY',
-        'medium': '🟡 MEDIUM PRIORITY',
-        'low': '🟢 LOW PRIORITY'
-      }[article.priority];
-
-      const output = [
-        '▶ NEWS ARTICLE ▶',
-        '',
-        `${priorityIcon}`,
-        `${article.headline}`,
-        '',
-        `Source: ${article.source}`,
-        `Category: ${article.category.toUpperCase()}`,
-        `Published: ${timeAgo} minutes ago`,
-        '',
-        '─────────────────────────────────────',
-        ''
-      ];
-
-      // Split content into readable lines
-      const contentLines = article.content.split('\n');
-      contentLines.forEach(line => {
-        if (line.trim()) {
-          // Wrap long lines
-          const words = line.split(' ');
-          let currentLine = '';
-          words.forEach(word => {
-            if ((currentLine + word).length > 60) {
-              output.push(currentLine.trim());
-              currentLine = word + ' ';
-            } else {
-              currentLine += word + ' ';
-            }
-          });
-          if (currentLine.trim()) {
-            output.push(currentLine.trim());
-          }
-          output.push('');
-        }
-      });
-
-      if (article.tags.length > 0) {
-        output.push(
-          '─────────────────────────────────────',
-          `Tags: ${article.tags.join(', ')}`
-        );
-      }
-
-      if (article.playerTriggered) {
-        output.push('📍 This story may be related to your activities');
-      }
-
-      if (article.factionRelated && gameState.activeFaction === article.factionRelated) {
-        output.push('⚡ This story is related to your faction');
-      }
-
-      return {
-        output,
-        success: true
-      };
-    },
-    unlockLevel: 0
-  },
-
-  contacts: {
-    description: "View available contacts and NPCs",
-    usage: "contacts [npc_id]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      // Update NPC system and generate random messages
-      npcSystem.checkNPCUnlocks(gameState);
-      npcSystem.generateRandomMessage(gameState);
-
-      const npcId = args[0];
-      
-      if (npcId) {
-        const npc = npcSystem.getNPCById(npcId);
-        if (!npc || !npc.isUnlocked) {
-          return {
-            output: [`Contact '${npcId}' not found or not available.`],
-            success: false
-          };
-        }
-
-        const statusIcon = {
-          'online': '🟢',
-          'offline': '🔴',
-          'busy': '🟡',
-          'compromised': '🔴',
-          'unknown': '⚪'
-        }[npc.status];
-
-        const trustIcon = {
-          'hostile': '💀',
-          'suspicious': '⚠️',
-          'neutral': '⚪',
-          'friendly': '😊',
-          'trusted': '✅'
-        }[npc.trustLevel];
-
-        return {
-          output: [
-            `▶ CONTACT PROFILE: ${npc.alias.toUpperCase()} ▶`,
-            '',
-            `Real Name: ${npc.name}`,
-            `Alias: ${npc.alias}`,
-            `Type: ${npc.type.toUpperCase()}`,
-            `Status: ${statusIcon} ${npc.status.toUpperCase()}`,
-            `Trust Level: ${trustIcon} ${npc.trustLevel.toUpperCase()}`,
-            `Location: ${npc.location}`,
-            npc.faction ? `Faction: ${npc.faction}` : '',
-            '',
-            '┌─ SPECIALIZATIONS ─┐',
-            ...npc.specialization.map(spec => `│ • ${spec.replace('_', ' ').toUpperCase().padEnd(25)} │`),
-            '└───────────────────┘',
-            '',
-            '┌─ PERSONALITY ─┐',
-            `│ Style: ${npc.personality.communicationStyle.padEnd(15)} │`,
-            `│ Reliability: ${npc.personality.reliability}%${' '.repeat(10)} │`,
-            `│ Traits: ${npc.personality.traits.join(', ').substring(0, 20).padEnd(20)} │`,
-            '└───────────────┘',
-            '',
-            npc.services.length > 0 ? [
-              '┌─ AVAILABLE SERVICES ─┐',
-              ...npc.services.map(service => 
-                `│ ${service.name.substring(0, 25).padEnd(25)} │`
-              ),
-              '└─────────────────────┘',
-              '',
-              'Use "contact <npc_id> <service_id>" to purchase services'
-            ].join('\n') : 'No services available',
-            '',
-            'Use "contact <npc_id>" to interact with this contact'
-          ].filter(line => line !== ''),
-          success: true
-        };
-      }
-
-      const availableNPCs = npcSystem.getAvailableNPCs(gameState);
-      
-      if (availableNPCs.length === 0) {
-        return {
-          output: [
-            '▶ CONTACT DATABASE ▶',
-            '',
-            'No contacts available.',
-            'Complete missions and increase your reputation to unlock contacts.'
-          ],
-          success: true
-        };
-      }
-
-      const output = [
-        '▶ CONTACT DATABASE ▶',
-        `Available contacts: ${availableNPCs.length}`,
-        ''
-      ];
-
-      availableNPCs.forEach(npc => {
-        const statusIcon = {
-          'online': '🟢',
-          'offline': '🔴',
-          'busy': '🟡',
-          'compromised': '🔴',
-          'unknown': '⚪'
-        }[npc.status];
-
-        const trustIcon = {
-          'hostile': '💀',
-          'suspicious': '⚠️',
-          'neutral': '⚪',
-          'friendly': '😊',
-          'trusted': '✅'
-        }[npc.trustLevel];
-
-        output.push(
-          `${npc.id.padEnd(20)} ${statusIcon} ${trustIcon} ${npc.alias}`,
-          `  Type: ${npc.type} | Specialization: ${npc.specialization[0] || 'General'}`,
-          ''
-        );
-      });
-
-      output.push(
-        '─────────────────────────────────────',
-        'Use "contacts <npc_id>" for detailed contact info',
-        'Use "contact <npc_id>" to interact with a contact'
-      );
-
-      return {
-        output,
-        success: true
-      };
-    },
-    unlockLevel: 0
-  },
-
-  messages: {
-    description: "View encrypted messages from contacts",
-    usage: "messages [message_id]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const messageId = args[0];
-      
-      if (messageId) {
-        const allMessages = npcSystem.getAllMessages();
-        const messageIndex = parseInt(messageId) - 1;
-        const message = allMessages[messageIndex];
-
-        if (!message) {
-          return {
-            output: [
-              `Message ${messageId} not found.`,
-              `Available messages: 1-${allMessages.length}`
-            ],
-            success: false
-          };
-        }
-
-        npcSystem.markMessageAsRead(message.id);
-
-        const timeAgo = Math.floor((Date.now() - message.timestamp) / (1000 * 60));
-        const priorityIcon = {
-          'urgent': '🚨',
-          'high': '🔴',
-          'medium': '🟡',
-          'low': '🟢'
-        }[message.priority];
-
-        const output = [
-          '▶ ENCRYPTED MESSAGE ▶',
-          '',
-          `From: ${message.from}`,
-          `Subject: ${message.subject}`,
-          `Priority: ${priorityIcon} ${message.priority.toUpperCase()}`,
-          `Received: ${timeAgo} minutes ago`,
-          message.encrypted ? '🔒 ENCRYPTED MESSAGE' : '',
-          '',
-          '─────────────────────────────────────',
-          ''
-        ];
-
-        if (message.encrypted && !message.decryptionKey) {
-          output.push(
-            '🔒 This message is encrypted.',
-            'Decryption key required to read contents.',
-            'Try using advanced decryption tools or contact the sender.'
-          );
-        } else {
-          const contentLines = message.content.split('\n');
-          contentLines.forEach(line => {
-            if (line.trim()) {
-              const words = line.split(' ');
-              let currentLine = '';
-              words.forEach(word => {
-                if ((currentLine + word).length > 60) {
-                  output.push(currentLine.trim());
-                  currentLine = word + ' ';
-                } else {
-                  currentLine += word + ' ';
-                }
-              });
-              if (currentLine.trim()) {
-                output.push(currentLine.trim());
-              }
-              output.push('');
-            }
-          });
-        }
-
-        if (message.requiresResponse) {
-          output.push(
-            '─────────────────────────────────────',
-            '📧 This message requires a response.',
-            `Use "contact ${message.from.toLowerCase().replace(/[^a-z0-9]/g, '_')}" to reply`
-          );
-        }
-
-        return {
-          output,
-          success: true
-        };
-      }
-
-      const unreadMessages = npcSystem.getUnreadMessages();
-      const allMessages = npcSystem.getAllMessages();
-
-      if (allMessages.length === 0) {
-        return {
-          output: [
-            '▶ MESSAGE INBOX ▶',
-            '',
-            'No messages received.',
-            'Establish contacts to receive encrypted communications.'
-          ],
-          success: true
-        };
-      }
-
-      const output = [
-        '▶ MESSAGE INBOX ▶',
-        `Total messages: ${allMessages.length} | Unread: ${unreadMessages.length}`,
-        ''
-      ];
-
-      allMessages.slice(0, 10).forEach((message, index) => {
-        const timeAgo = Math.floor((Date.now() - message.timestamp) / (1000 * 60));
-        const priorityIcon = {
-          'urgent': '🚨',
-          'high': '🔴',
-          'medium': '🟡',
-          'low': '🟢'
-        }[message.priority];
-
-        const readIcon = message.isRead ? '📖' : '📩';
-        const encryptedIcon = message.encrypted ? '🔒' : '';
-
-        output.push(
-          `${index + 1}. ${readIcon} ${priorityIcon} ${encryptedIcon} ${message.subject}`,
-          `   From: ${message.from} | ${timeAgo}m ago`,
-          ''
-        );
-      });
-
-      if (allMessages.length > 10) {
-        output.push(`... and ${allMessages.length - 10} more messages`);
-      }
-
-      output.push(
-        '─────────────────────────────────────',
-        'Use "messages <number>" to read a specific message'
-      );
-
-      return {
-        output,
-        success: true
-      };
-    },
-    unlockLevel: 0
-  },
-
-  contact: {
-    description: "Interact with a specific contact or NPC",
-    usage: "contact <npc_id> [action] [service_id]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const npcId = args[0];
-      const action = args[1] || 'greet';
-      const serviceId = args[2];
-
-      if (!npcId) {
-        return {
-          output: [
-            'Usage: contact <npc_id> [action] [service_id]',
-            'Actions: greet, info, mission, warning, buy',
-            'Use "contacts" to see available contacts'
-          ],
-          success: false
-        };
-      }
-
-      const npc = npcSystem.getNPCById(npcId);
-      if (!npc || !npc.isUnlocked) {
-        return {
-          output: [`Contact '${npcId}' not found or not available.`],
-          success: false
-        };
-      }
-
-      if (action === 'buy' && serviceId) {
-        const result = npcSystem.purchaseNPCService(npcId, serviceId, gameState);
-        
-        if (result.success && result.cost) {
-          return {
-            output: [
-              `▶ SERVICE PURCHASED ▶`,
-              '',
-              result.message,
-              `Cost: ${result.cost} credits`,
-              '',
-              npcSystem.interactWithNPC(npcId, gameState, 'greeting')
-            ],
-            success: true,
-            updateGameState: {
-              credits: gameState.credits - result.cost
-            }
-          };
-        } else {
-          return {
-            output: [
-              `▶ PURCHASE FAILED ▶`,
-              '',
-              result.message
-            ],
-            success: false
-          };
-        }
-      }
-
-      const response = npcSystem.interactWithNPC(npcId, gameState, action);
-      
-      const output = [
-        `▶ SECURE CHANNEL: ${npc.alias.toUpperCase()} ▶`,
-        '',
-        `[${npc.alias}]: ${response}`,
-        ''
-      ];
-
-      if (action === 'greet' && npc.services.length > 0) {
-        output.push(
-          '┌─ AVAILABLE SERVICES ─┐',
-          ...npc.services.map(service => {
-            const cost = Math.floor(service.cost * npc.personality.priceModifier);
-            return `│ ${service.id.padEnd(20)} ${cost.toString().padStart(6)} credits │`;
-          }),
-          '└─────────────────────┘',
-          '',
-          'Use "contact <npc_id> buy <service_id>" to purchase services'
-        );
-      }
-
-      if (npc.faction && gameState.activeFaction === npc.faction) {
-        output.push('⚡ Faction ally - special rates may apply');
-      }
-
-      if (npc.trustLevel === 'suspicious' && gameState.playerLevel < 3) {
-        output.push('⚠️ This contact seems wary of inexperienced operatives');
-      }
-
-      return {
-        output,
-        success: true
-      };
-    },
-    unlockLevel: 0
-  },
-
-  hints: {
-    description: "Get hints for the current active mission",
-    usage: "hints",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const { getCurrentMission } = require('./missions');
-      const currentMission = getCurrentMission(gameState);
-      
-      // Check if there's an active mission
-      if (!currentMission) {
-        return {
-          output: [
-            'No active mission found.',
-            'Use "mission" command to start a new mission.',
-            ''
-          ],
-          success: false,
-          soundEffect: 'error'
-        };
-      }
-
-      // Initialize hints used counter if not exists
-      const hintsUsed = gameState.hintsUsed || 0;
-      const maxHints = 3;
-
-      if (hintsUsed >= maxHints) {
-        return {
-          output: [
-            'Maximum hints used for this session.',
-            `You have used all ${maxHints} available hints.`,
-            'Complete the mission or start a new one to reset hints.',
-            ''
-          ],
-          success: false,
-          soundEffect: 'error'
-        };
-      }
-
-      // Get mission-specific hints based on mission title or id
-      const missionKey = currentMission.title.toLowerCase().replace(/\s+/g, '_');
-      const missionHints: Record<string, string[]> = {
-        'data_breach': [
-          'Start by scanning for available networks with "scan wifi"',
-          'Connect to TARGET_NET using "connect TARGET_NET"',
-          'Use "inject payload" to deploy your basic tools'
-        ],
-        'shadow_network': [
-          'First, scan for BLE devices using "scan ble" to find the Shadow Beacon',
-          'Next, spoof the Shadow device identity with "spoof ble --mac SHADOW_MAC"',
-          'Then connect to the Shadow Beacon using "connect Shadow Beacon"',
-          'Initialize Hydra Protocol with "inject hydra_handshake"',
-          'Finally, decrypt Shadow messages with "decrypt shadow_key"'
-        ],
-        'network_infiltration': [
-          'Use "recon --network" to map the target infrastructure',
-          'Look for vulnerabilities with "scan --detailed"',
-          'Try "bypass firewall" to overcome security measures'
-        ],
-        'stealth_operation': [
-          'Use "spoof" command to hide your identity',
-          'Avoid detection by using stealth payloads',
-          'Monitor your suspicion level with "status"'
-        ],
-        'corporate_espionage': [
-          'Research the target with "recon --employees"',
-          'Look for social engineering opportunities',
-          'Use "crack" to break into secured systems'
-        ]
-      };
-
-      const currentHints = missionHints[missionKey] || [
-        'Analyze the mission objective carefully',
-        'Use "scan" to gather information about targets',
-        'Check your available tools with "help"'
-      ];
-
-      const hintIndex = hintsUsed % currentHints.length;
-      const hint = currentHints[hintIndex];
-
-      return {
-        output: [
-          `▶ MISSION HINT ${hintsUsed + 1}/${maxHints} ▶`,
-          '',
-          `Mission: ${currentMission.title}`,
-          `Objective: ${currentMission.objective}`,
-          '',
-          '💡 HINT:',
-          `${hint}`,
-          '',
-          `Hints remaining: ${maxHints - hintsUsed - 1}`,
-          ''
-        ],
-        success: true,
-        updateGameState: {
-          hintsUsed: hintsUsed + 1
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 0 // Always available
-  },
-
-  // Add after the existing spoof command
-
-  // BLE spoofing for Mission 2
-  spoof_ble: {
-    description: "Spoof BLE device identity",
-    usage: "spoof ble --mac <mac_address>",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      if (args[0] !== 'ble' || args[1] !== '--mac' || !args[2]) {
-        return {
-          output: ['Usage: spoof ble --mac <mac_address>'],
-          success: false
-        };
-      }
-
-      const macAddress = args[2];
-      
-      if (macAddress === 'SHADOW_MAC' || macAddress === 'SHADOW_MAC_001') {
-        // Only award credits if this command is completing a mission step
-        const shouldAwardCredits = shouldAwardCommandCredits('spoof', args, true, gameState);
-        const updateGameState = shouldAwardCredits ? {
-          credits: gameState.credits + 200
-        } : undefined;
-
-        return {
-          output: [
-            '▶ BLE IDENTITY SPOOFING ▶',
-            '',
-            `> Spoofing MAC address: ${macAddress}`,
-            '> Cloning Shadow Beacon identity...',
-            '> Generating fake device signatures...',
-            '> Bypassing authentication protocols...',
-            '',
-            '✓ BLE identity successfully spoofed',
-            '✓ Now appearing as trusted Shadow device',
-            '✓ Shadow Organization protocols accessible',
-            '',
-            '⚠ Spoof duration: 10 minutes',
-            '⚠ Shadow network access granted',
-            ''
-          ],
-          success: true,
-          updateGameState,
-          soundEffect: 'success'
-        };
-      }
-
-      return {
-        output: [
-          '▶ BLE IDENTITY SPOOFING ▶',
-          '',
-          `> Spoofing MAC address: ${macAddress}`,
-          '> Cloning device identity...',
-          '> Generating fake signatures...',
-          '',
-          '✓ BLE identity spoofed successfully',
-          '✓ Device now appears trusted',
-          '',
-          '⚠ Spoof active for 5 minutes'
-        ],
-        success: true,
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 2
-  },
-
-  // Hydra protocol injection for Mission 2
-  inject_hydra: {
-    description: "Inject Hydra Protocol handshake",
-    usage: "inject hydra_handshake",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      if (args[0] !== 'hydra_handshake') {
-        return {
-          output: [
-            'Usage: inject hydra_handshake',
-            'Available payloads: hydra_handshake'
-          ],
-          success: false
-        };
-      }
-
-      if (gameState.networkStatus !== 'CONNECTED' && gameState.networkStatus !== 'BLE_CONNECTED') {
-        return {
-          output: ['ERROR: No network connection', 'Connect to a WiFi network or BLE device first', ''],
-          success: false,
-          soundEffect: 'error'
-        };
-      }
-
-      // Only award credits if this command is completing a mission step
-      const shouldAwardCredits = shouldAwardCommandCredits('inject', args, true, gameState);
-      const updateGameState = shouldAwardCredits ? {
-        credits: gameState.credits + 300,
-        hydraProtocol: {
-          ...gameState.hydraProtocol,
-          discovered: true,
-          active_contacts: ['SHADOW_NODE_07']
-        }
-      } : {
-        hydraProtocol: {
-          ...gameState.hydraProtocol,
-          discovered: true,
-          active_contacts: ['SHADOW_NODE_07']
-        }
-      };
-
-      return {
-        output: [
-          '▶ HYDRA PROTOCOL INJECTION ▶',
-          '',
-          '> Loading Hydra handshake payload...',
-          '> Establishing encrypted channel...',
-          '> Negotiating Shadow protocols...',
-          '> Authenticating with Shadow nodes...',
-          '',
-          '✓ Hydra Protocol successfully initialized',
-          '✓ Shadow network access established',
-          '✓ Encrypted communication channel active',
-          '',
-          '🐍 Welcome to the Shadow Organization',
-          '📡 Encrypted messages incoming...',
-          '',
-          shouldAwardCredits ? '+300 credits earned' : 'Hydra Protocol active'
-        ],
-        success: true,
-        updateGameState,
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 3
-  },
-
-  // Shadow key decryption for Mission 2
-  decrypt_shadow: {
-    description: "Decrypt Shadow Organization messages",
-    usage: "decrypt shadow_key",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      if (args[0] !== 'shadow_key') {
-        return {
-          output: [
-            'Usage: decrypt shadow_key',
-            'Available keys: shadow_key'
-          ],
-          success: false
-        };
-      }
-
-      if (!gameState.hydraProtocol.discovered) {
-        return {
-          output: [
-            'ERROR: Hydra Protocol not initialized',
-            'Initialize Hydra Protocol first',
-            'Use "inject hydra_handshake" to establish connection'
-          ],
-          success: false,
-          soundEffect: 'error'
-        };
-      }
-
-      // Only award credits if this command is completing a mission step
-      const shouldAwardCredits = shouldAwardCommandCredits('decrypt', args, true, gameState);
-      const updateGameState = shouldAwardCredits ? {
-        credits: gameState.credits + 400,
-        hydraProtocol: {
-          ...gameState.hydraProtocol,
-          access_level: 2,
-          encrypted_messages: [
-            {
-              id: 'shadow_msg_001',
-              from: 'SHADOW_COMMAND',
-              content: 'Welcome, new operative. You have passed the first test. More challenging missions await.',
-              encrypted_content: 'XyZ9$#mK!@vN...encrypted_shadow_message...pL8&^qR2',
-              is_decrypted: true,
-              timestamp: Date.now()
-            }
-          ]
-        }
-      } : {
-        hydraProtocol: {
-          ...gameState.hydraProtocol,
-          access_level: 2,
-          encrypted_messages: [
-            {
-              id: 'shadow_msg_001',
-              from: 'SHADOW_COMMAND',
-              content: 'Welcome, new operative. You have passed the first test. More challenging missions await.',
-              encrypted_content: 'XyZ9$#mK!@vN...encrypted_shadow_message...pL8&^qR2',
-              is_decrypted: true,
-              timestamp: Date.now()
-            }
-          ]
-        }
-      };
-
-      return {
-        output: [
-          '▶ SHADOW KEY DECRYPTION ▶',
-          '',
-          '> Applying Shadow decryption key...',
-          '> Decoding quantum-encrypted messages...',
-          '> Verifying message integrity...',
-          '',
-          '✓ Shadow messages successfully decrypted',
-          '',
-          '┌─ DECRYPTED MESSAGE ─┐',
-          '│ FROM: SHADOW_COMMAND         │',
-          '│ TO: NEW_OPERATIVE            │',
-          '│ PRIORITY: HIGH               │',
-          '│                              │',
-          '│ Welcome, new operative.      │',
-          '│ You have passed the first    │',
-          '│ test. More challenging       │',
-          '│ missions await.              │',
-          '│                              │',
-          '│ Report to Shadow Node 07     │',
-          '│ for further instructions.    │',
-          '└─────────────────────────────┘',
-          '',
-          '🎯 Mission Complete: Shadow Network Access Established',
-          shouldAwardCredits ? '+400 credits earned' : 'Shadow messages decrypted'
-        ],
-        success: true,
-        updateGameState,
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 3
-  },
-
-  missions: {
-    description: "Open mission control interface",
-    usage: "missions",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      setTimeout(() => {
-        const event = new CustomEvent('showMissionInterface');
-        window.dispatchEvent(event);
-      }, 100);
-
-      return {
-        output: [
-          '▶ MISSION CONTROL INTERFACE LOADING ▶',
-          '',
-          '✓ Accessing mission database...',
-          '✓ Loading available contracts...',
-          '✓ Checking emergency alerts...',
-          '✓ Scanning for special operations...',
-          '',
-          '🎯 Mission Control interface opened',
-          '',
-          'Available features:',
-          '• Browse available missions by category and difficulty',
-          '• View detailed mission briefings and requirements',
-          '• Track active mission progress',
-          '• Review completed mission history',
-          '• Access special and emergency missions',
-          '',
-          'Select missions to view rewards, objectives, and start conditions.'
-        ],
-        success: true
-      };
-    },
-    unlockLevel: 1
-  },
-
-  // Social Engineering System Commands
-  social_engineering: {
-    description: "Open social engineering interface for target manipulation",
-    usage: "social_engineering",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      setTimeout(() => {
-        const event = new CustomEvent('openSocialEngineering');
-        window.dispatchEvent(event);
-      }, 100);
-
-      return {
-        output: [
-          '▶ SOCIAL ENGINEERING TOOLKIT LOADING ▶',
-          '',
-          '✓ Initializing target database...',
-          '✓ Loading phishing templates...',
-          '✓ Activating conversation engine...',
-          '✓ Preparing intel gathering tools...',
-          '',
-          '🕵️ Social Engineering interface opened',
-          '',
-          'Available features:',
-          '• Target identification and profiling',
-          '• Interactive conversation simulation',
-          '• Phishing campaign creation and deployment',
-          '• Intel gathering and reputation tracking',
-          '• Social manipulation tactics and strategies',
-          '',
-          'Use psychological tactics to extract information and gain access.'
-        ],
-        success: true
-      };
-    },
-    unlockLevel: 2
-  },
-
-  phish: {
-    description: "Create and deploy phishing campaigns",
-    usage: "phish [target] [template]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args[0];
-      const template = args[1] || 'urgent_security';
-
-      if (!target) {
-        return {
-          output: [
-            'Usage: phish <target> [template]',
-            '',
-            'Available templates:',
-            '• urgent_security - Security breach notification',
-            '• fake_promotion - Promotional offer',
-            '• system_update - System maintenance notice',
-            '',
-            'Example: phish john.doe@company.com urgent_security'
-          ],
-          success: false
-        };
-      }
-
-      return {
-        output: [
-          '▶ PHISHING CAMPAIGN DEPLOYMENT ▶',
-          '',
-          `> Target: ${target}`,
-          `> Template: ${template}`,
-          '> Crafting convincing message...',
-          '> Spoofing sender identity...',
-          '> Deploying campaign...',
-          '',
-          '✓ Phishing email sent successfully',
-          '',
-          '📧 Campaign Status:',
-          `• Target: ${target}`,
-          `• Template: ${template}`,
-          '• Delivery: Confirmed',
-          '• Tracking: Active',
-          '',
-          'Monitor target response in social engineering interface.',
-          'Use "social_engineering" to view campaign results.'
-        ],
-        success: true,
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 3
-  },
-
-  // Network Mapping System Commands
-  network_map: {
-    description: "Open dynamic network mapping interface",
-    usage: "network_map",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      setTimeout(() => {
-        const event = new CustomEvent('openNetworkMap');
-        window.dispatchEvent(event);
-      }, 100);
-
-      return {
-        output: [
-          '▶ NETWORK MAPPING SYSTEM LOADING ▶',
-          '',
-          '✓ Initializing network scanner...',
-          '✓ Loading topology algorithms...',
-          '✓ Activating intrusion detection...',
-          '✓ Preparing backdoor management...',
-          '',
-          '🗺️ Network Map interface opened',
-          '',
-          'Available features:',
-          '• Procedural network generation',
-          '• Real-time network topology visualization',
-          '• Node vulnerability assessment',
-          '• Backdoor installation and management',
-          '• Traceback risk monitoring',
-          '• Subnet analysis and penetration',
-          '',
-          'Navigate complex networks and establish persistent access.'
-        ],
-        success: true
-      };
-    },
-    unlockLevel: 2
-  },
-
-  generate_network: {
-    description: "Generate a new procedural network for hacking",
-    usage: "generate_network [difficulty] [size]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const difficulty = args[0] || 'medium';
-      const size = parseInt(args[1]) || 8;
-
-      if (!['easy', 'medium', 'hard', 'expert'].includes(difficulty)) {
-        return {
-          output: [
-            'Invalid difficulty level.',
-            'Available difficulties: easy, medium, hard, expert'
-          ],
-          success: false
-        };
-      }
-
-      if (size < 3 || size > 20) {
-        return {
-          output: [
-            'Network size must be between 3 and 20 nodes.'
-          ],
-          success: false
-        };
-      }
-
-      return {
-        output: [
-          '▶ NETWORK GENERATION PROTOCOL ▶',
-          '',
-          `> Difficulty: ${difficulty}`,
-          `> Target size: ${size} nodes`,
-          '> Generating network topology...',
-          '> Placing security measures...',
-          '> Installing honeypots...',
-          '> Configuring vulnerabilities...',
-          '',
-          '✓ Network generated successfully',
-          '',
-          '🌐 Network Details:',
-          `• Nodes: ${size}`,
-          `• Difficulty: ${difficulty}`,
-          '• Subnets: Auto-configured',
-          '• Security: Variable',
-          '',
-          'Use "network_map" to visualize and interact with the network.'
-        ],
-        success: true,
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 3
-  },
-
-  backdoor: {
-    description: "Install backdoor on compromised system",
-    usage: "backdoor [type] [target]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const type = args[0] || 'shell';
-      const target = args[1] || 'current_target';
-
-      const backdoorTypes = ['shell', 'tunnel', 'keylogger', 'data_exfil', 'persistence'];
-      
-      if (!backdoorTypes.includes(type)) {
-        return {
-          output: [
-            'Invalid backdoor type.',
-            'Available types:',
-            '• shell - Remote shell access',
-            '• tunnel - Encrypted tunnel',
-            '• keylogger - Keystroke capture',
-            '• data_exfil - Data exfiltration',
-            '• persistence - Persistent access'
-          ],
-          success: false
-        };
-      }
-
-      return {
-        output: [
-          '▶ BACKDOOR INSTALLATION ▶',
-          '',
-          `> Target: ${target}`,
-          `> Type: ${type}`,
-          '> Checking system permissions...',
-          '> Uploading payload...',
-          '> Establishing persistence...',
-          '> Configuring stealth mode...',
-          '',
-          '✓ Backdoor installed successfully',
-          '',
-          '🚪 Backdoor Details:',
-          `• Type: ${type}`,
-          `• Target: ${target}`,
-          '• Status: Active',
-          '• Discovery Risk: 15%',
-          '',
-          'Warning: Discovery risk increases over time.',
-          'Monitor backdoor status in network map interface.'
-        ],
-        success: true,
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 4
-  },
-
-  // Script Editor System Commands
-  script_editor: {
-    description: "Open advanced scripting and automation interface",
-    usage: "script_editor",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      setTimeout(() => {
-        const event = new CustomEvent('openScriptEditor');
-        window.dispatchEvent(event);
-      }, 100);
-
-      return {
-        output: [
-          '▶ SCRIPT EDITOR LOADING ▶',
-          '',
-          '✓ Initializing scripting engine...',
-          '✓ Loading macro library...',
-          '✓ Activating execution environment...',
-          '✓ Preparing automation tools...',
-          '',
-          '⚙️ Script Editor interface opened',
-          '',
-          'Available features:',
-          '• Advanced script creation and editing',
-          '• Macro command automation',
-          '• Conditional logic and loops',
-          '• Script execution monitoring',
-          '• Built-in function library',
-          '• Import/export script sharing',
-          '',
-          'Automate complex hacking sequences with custom scripts.'
-        ],
-        success: true
-      };
-    },
-    unlockLevel: 3
-  },
-
-  create_script: {
-    description: "Create a new automation script",
-    usage: "create_script [name] [type]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const name = args[0] || `script_${Date.now()}`;
-      const type = args[1] || 'sequence';
-
-      const scriptTypes = ['sequence', 'conditional', 'loop', 'macro'];
-      
-      if (!scriptTypes.includes(type)) {
-        return {
-          output: [
-            'Invalid script type.',
-            'Available types:',
-            '• sequence - Linear command sequence',
-            '• conditional - If/then logic',
-            '• loop - Repeating operations',
-            '• macro - Simple command aliases'
-          ],
-          success: false
-        };
-      }
-
-      return {
-        output: [
-          '▶ SCRIPT CREATION ▶',
-          '',
-          `> Name: ${name}`,
-          `> Type: ${type}`,
-          '> Initializing script template...',
-          '> Setting up execution environment...',
-          '> Configuring error handling...',
-          '',
-          '✓ Script created successfully',
-          '',
-          '📜 Script Details:',
-          `• Name: ${name}`,
-          `• Type: ${type}`,
-          '• Status: Draft',
-          '• Steps: 0',
-          '',
-          'Use script editor interface to add commands and logic.',
-          'Run "script_editor" to open the visual editor.'
-        ],
-        success: true,
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 4
-  },
-
-  macro: {
-    description: "Create or execute command macros",
-    usage: "macro [name] [commands...]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      if (args.length === 0) {
-        return {
-          output: [
-            'Usage: macro <name> [commands...]',
-            '',
-            'Examples:',
-            '• macro intrude "scan wifi" "connect TARGET_NET" "exploit"',
-            '• macro recon "ping" "nmap" "vuln_scan"',
-            '• macro cleanup "clear_logs" "remove_traces"',
-            '',
-            'To execute a macro: macro <name>',
-            'To list macros: macro list'
-          ],
-          success: false
-        };
-      }
-
-      const name = args[0];
-      
-      if (name === 'list') {
-        return {
-          output: [
-            '▶ AVAILABLE MACROS ▶',
-            '',
-            '• intrude - Full network intrusion sequence',
-            '• recon - Reconnaissance and scanning',
-            '• stealth_scan - Passive network discovery',
-            '• cleanup - Remove traces and logs',
-            '• data_exfil - Data extraction sequence',
-            '',
-            'Use "script_editor" for advanced macro management.'
-          ],
-          success: true
-        };
-      }
-
-      const commands = args.slice(1);
-      
-      if (commands.length === 0) {
-        // Execute existing macro
-        return {
-          output: [
-            `▶ EXECUTING MACRO: ${name} ▶`,
-            '',
-            '> Loading macro definition...',
-            '> Validating command sequence...',
-            '> Executing commands...',
-            '',
-            '✓ Macro execution completed',
-            '',
-            `📋 Macro "${name}" executed successfully`,
-            'Check individual command results above.'
-          ],
-          success: true,
-          soundEffect: 'success'
-        };
-      } else {
-        // Create new macro
-        return {
-          output: [
-            `▶ CREATING MACRO: ${name} ▶`,
-            '',
-            `> Commands: ${commands.join(' → ')}`,
-            '> Validating command syntax...',
-            '> Creating macro definition...',
-            '> Saving to macro library...',
-            '',
-            '✓ Macro created successfully',
-            '',
-            `📋 Macro "${name}" is now available`,
-            `Execute with: macro ${name}`
-          ],
-          success: true,
-          soundEffect: 'success'
-        };
-      }
-    },
-    unlockLevel: 3
-  },
-
-  // Focus System Commands
-  focus_status: {
-    description: "Check current focus level and mental state",
-    usage: "focus_status",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      return {
-        output: [
-          '▶ FOCUS STATUS REPORT ▶',
-          '',
-          '🧠 Mental State Analysis:',
-          '• Focus Level: 85%',
-          '• Mental Load: Moderate',
-          '• Overload Risk: Low',
-          '• Active Effects: None',
-          '',
-          '⚡ Performance Metrics:',
-          '• Command Efficiency: 95%',
-          '• Error Rate: 2%',
-          '• Reaction Time: Normal',
-          '',
-          '💊 Available Stimulants:',
-          '• Coffee (50 credits)',
-          '• Nootropics (150 credits)',
-          '• Energy Drink (75 credits)',
-          '• Meditation (Free)',
-          '',
-          'Use "stimulant <type>" to boost focus.',
-          'Focus interface is always visible in top-right corner.'
-        ],
-        success: true
-      };
-    },
-    unlockLevel: 1
-  },
-
-  stimulant: {
-    description: "Use stimulants to boost focus and performance",
-    usage: "stimulant [type]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const type = args[0];
-      
-      if (!type) {
-        return {
-          output: [
-            'Usage: stimulant <type>',
-            '',
-            'Available stimulants:',
-            '• caffeine - Coffee boost (+20 focus, 5min)',
-            '• nootropic - Smart drugs (+35 focus, 10min)',
-            '• energy_drink - Energy boost (+30 focus, 4min)',
-            '• meditation - Deep focus (+50 focus, 15min)',
-            '• break - Short rest (+25 focus, 3min)',
-            '',
-            'Note: Some stimulants have side effects.'
-          ],
-          success: false
-        };
-      }
-
-      const stimulants = {
-        caffeine: { name: 'Coffee', boost: 20, cost: 50 },
-        nootropic: { name: 'Nootropics', boost: 35, cost: 150 },
-        energy_drink: { name: 'Energy Drink', boost: 30, cost: 75 },
-        meditation: { name: 'Meditation', boost: 50, cost: 0 },
-        break: { name: 'Short Break', boost: 25, cost: 0 }
-      };
-
-      const stimulant = stimulants[type as keyof typeof stimulants];
-      
-      if (!stimulant) {
-        return {
-          output: [
-            `Unknown stimulant: ${type}`,
-            'Use "stimulant" without arguments to see available options.'
-          ],
-          success: false
-        };
-      }
-
-      if (stimulant.cost > 0 && gameState.credits < stimulant.cost) {
-        return {
-          output: [
-            `Insufficient credits for ${stimulant.name}`,
-            `Required: ${stimulant.cost} credits`,
-            `Available: ${gameState.credits} credits`
-          ],
-          success: false,
-          soundEffect: 'error'
-        };
-      }
-
-      const updateGameState = stimulant.cost > 0 ? {
-        credits: gameState.credits - stimulant.cost
-      } : undefined;
-
-      return {
-        output: [
-          `▶ USING ${stimulant.name.toUpperCase()} ▶`,
-          '',
-          '> Applying stimulant...',
-          '> Monitoring vital signs...',
-          '> Adjusting focus levels...',
-          '',
-          '✓ Stimulant applied successfully',
-          '',
-          '🧠 Effects:',
-          `• Focus boost: +${stimulant.boost} points`,
-          '• Mental clarity: Enhanced',
-          '• Reaction time: Improved',
-          '',
-          stimulant.cost > 0 ? `💰 Cost: ${stimulant.cost} credits` : '💰 Cost: Free',
-          '',
-          'Focus boost is now active. Monitor effects in focus interface.'
-        ],
-        success: true,
-        updateGameState,
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 2
-  },
-
-  // Psychological Profiling System
-  psych_profile: {
-    description: "Access psychological profiling and mental state analysis",
-    usage: "psych_profile [action]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const action = args[0] || 'view';
-      
-      switch (action) {
-        case 'view':
-        case 'status':
-          const profile = gameState.psychProfile;
-          if (!profile) {
-            return {
-              output: [
-                '▶ PSYCHOLOGICAL PROFILE ANALYSIS ▶',
-                '',
-                '⚠️ No psychological profile data found.',
-                'Your profile will be built as you make decisions',
-                'and complete missions in the game.',
-                '',
-                'Use "psych_profile interface" to initialize your profile'
-              ],
-              success: true
-            };
-          }
-          
-          const getAlignmentLabel = (alignment: number): string => {
-            if (alignment > 50) return `Lawful Good (+${alignment})`;
-            if (alignment > 20) return `Neutral Good (+${alignment})`;
-            if (alignment > -20) return `True Neutral (${alignment})`;
-            if (alignment > -50) return `Chaotic Neutral (${alignment})`;
-            return `Chaotic Evil (${alignment})`;
-          };
-          
-          const getReputationLabel = (rep: number): string => {
-            if (rep > 50) return `Trusted (+${rep})`;
-            if (rep > 20) return `Friendly (+${rep})`;
-            if (rep > -20) return `Neutral (${rep})`;
-            if (rep > -50) return `Suspicious (${rep})`;
-            return `Hostile (${rep})`;
-          };
-          
-          return {
-            output: [
-              '▶ PSYCHOLOGICAL PROFILE ANALYSIS ▶',
-              '',
-              '🧠 Core Personality Traits:',
-              `• Cunning: ${profile.cunning}% (Strategic thinking)`,
-              `• Empathy: ${profile.empathy}% (Moral consideration)`,
-              `• Aggression: ${profile.aggression}% (Force willingness)`,
-              `• Patience: ${profile.patience}% (Long-term planning)`,
-              `• Paranoia: ${profile.paranoia}% (Security consciousness)`,
-              `• Curiosity: ${profile.curiosity}% (Learning drive)`,
-              '',
-              `⚖️ Moral Alignment: ${getAlignmentLabel(profile.ethicalAlignment)}`,
-              '',
-              '📊 Reputation Standing:',
-              `• Corporate: ${getReputationLabel(profile.corporateReputation)}`,
-              `• Hacktivist: ${getReputationLabel(profile.hackivistReputation)}`,
-              `• Criminal: ${getReputationLabel(profile.criminalReputation)}`,
-              `• Government: ${getReputationLabel(profile.governmentReputation)}`,
-              '',
-              `🧩 Mental State: ${profile.mentalStability > 80 ? 'Stable' : profile.mentalStability > 60 ? 'Stressed' : profile.mentalStability > 40 ? 'Unstable' : 'Critical'} (${profile.mentalStability}%)`,
-              `💭 Moral Conflict: ${profile.moralConflict < 20 ? 'Low' : profile.moralConflict < 40 ? 'Moderate' : profile.moralConflict < 70 ? 'High' : 'Severe'} (${profile.moralConflict}%)`,
-              '',
-              `📈 Major Decisions Made: ${profile.majorDecisions.length}`,
-              `🚫 Active Consequences: ${profile.permanentConsequences.length}`,
-              '',
-              'Use "psych_profile interface" to open full analysis',
-              'Use "psych_profile decisions" to view decision history'
-            ],
-            success: true
-          };
-          
-        case 'interface':
-          // Trigger the interface opening
-          window.dispatchEvent(new CustomEvent('openPsychProfile'));
-          return {
-            output: [
-              '▶ OPENING PSYCHOLOGICAL INTERFACE ▶',
-              '',
-              '> Initializing neural analysis...',
-              '> Loading personality matrix...',
-              '> Calculating moral alignment...',
-              '> Accessing decision history...',
-              '',
-              '✓ Interface loaded successfully',
-              '',
-              '🔬 Full psychological profiling interface is now open.',
-              'Review your mental state, make decisions, and track',
-              'how your choices shape your hacker identity.'
-            ],
-            success: true,
-            soundEffect: 'connection'
-          };
-          
-        case 'decisions':
-          const decisionProfile = gameState.psychProfile;
-          if (!decisionProfile || decisionProfile.majorDecisions.length === 0) {
-            return {
-              output: [
-                '▶ DECISION HISTORY LOG ▶',
-                '',
-                '📝 No major decisions recorded yet.',
-                '',
-                'Your decision history will populate as you make',
-                'significant choices during missions and interactions.',
-                'These decisions shape your psychological profile',
-                'and influence how NPCs and factions view you.',
-                '',
-                'Use "psych_profile interface" to explore decision-making'
-              ],
-              success: true
-            };
-          }
-          
-          const recentDecisions = decisionProfile.majorDecisions
-            .sort((a, b) => b.timestamp - a.timestamp)
-            .slice(0, 5);
-          
-          const formatDate = (timestamp: number): string => {
-            return new Date(timestamp).toLocaleDateString();
-          };
-          
-          const output = [
-            '▶ DECISION HISTORY LOG ▶',
-            '',
-            '📝 Recent Major Decisions:'
-          ];
-          
-          recentDecisions.forEach((decision, index) => {
-            output.push(`• [${formatDate(decision.timestamp)}] ${decision.description}`);
-            output.push(`  → Ethical impact: ${decision.ethicalWeight > 0 ? '+' : ''}${decision.ethicalWeight}`);
-            
-            // Show trait impacts
-            const traitChanges = Object.entries(decision.traitImpacts)
-              .filter(([_, value]) => value !== 0)
-              .map(([trait, value]) => `${trait}: ${value > 0 ? '+' : ''}${value}`)
-              .join(', ');
-            
-            if (traitChanges) {
-              output.push(`  → Trait changes: ${traitChanges}`);
-            }
-            
-            if (decision.consequences.length > 0) {
-              output.push(`  → Consequences: ${decision.consequences.join(', ')}`);
-            }
-            
-            if (index < recentDecisions.length - 1) {
-              output.push('');
-            }
-          });
-          
-          output.push('');
-          output.push('⚠️ Active Consequences:');
-          
-          if (decisionProfile.permanentConsequences.length === 0) {
-            output.push('• None currently active');
-          } else {
-            decisionProfile.permanentConsequences.forEach(consequence => {
-              output.push(`• ${consequence}`);
-            });
-          }
-          
-          output.push('');
-          output.push('Use "psych_profile interface" for detailed analysis');
-          
-          return {
-            output,
-            success: true
-          };
-          
-        case 'reset':
-          if (!gameState.unlockedCommands.includes('psych_reset')) {
-            return {
-              output: [
-                'Psychological reset requires special authorization.',
-                'This command is locked until you unlock it through',
-                'specific story progression or achievements.'
-              ],
-              success: false,
-              soundEffect: 'error'
-            };
-          }
-          
-          return {
-            output: [
-              '▶ PSYCHOLOGICAL RESET PROTOCOL ▶',
-              '',
-              '⚠️ WARNING: This will reset your entire psychological profile!',
-              '',
-              '> Clearing personality traits...',
-              '> Resetting moral alignment...',
-              '> Wiping decision history...',
-              '> Neutralizing reputation scores...',
-              '',
-              '✓ Psychological reset complete',
-              '',
-              '🧠 Your mind is now a blank slate.',
-              'All previous psychological development has been erased.',
-              'Begin building your new hacker identity.'
-            ],
-            success: true,
-            updateGameState: {
-              // Reset psych profile data would go here
-              psychProfile: undefined
-            },
-            soundEffect: 'system_breach'
-          };
-          
-        default:
-          return {
-            output: [
-              'Usage: psych_profile [action]',
-              '',
-              'Available actions:',
-              '• view/status - View current psychological profile',
-              '• interface - Open full psychological analysis interface',
-              '• decisions - View decision history and consequences',
-              '• reset - Reset psychological profile (requires unlock)',
-              '',
-              'Your psychological profile tracks how your choices',
-              'shape your hacker identity and affect your reputation',
-              'with different factions and organizations.'
-            ],
-            success: false
-          };
-      }
-    },
-    unlockLevel: 2
-  },
-};
+}
 
 // Command availability checker
 export function isCommandAvailable(commandName: string, gameState: GameState): boolean {
-  // Always available commands (core system commands)
-  const alwaysAvailable = ['help', 'clear', 'status', 'shop', 'devmode', 'easter', 'reset_shop', 'tutorial', 'settings', 'multiplayer', 'leaderboard', 'man'];
-  
-  if (alwaysAvailable.includes(commandName)) {
-    return true;
-  }
-
-  // Check if command is in unlocked commands list
-  if (gameState.unlockedCommands.includes(commandName)) {
-    return true;
-  }
-
-  // Check command unlock level
   const command = commands[commandName];
   if (!command) return false;
-
-  // Commands with unlockLevel 999 are shop/faction exclusive
-  if (command.unlockLevel === 999) {
-    return gameState.unlockedCommands.includes(commandName);
-  }
-
-  // Commands with unlockLevel 0 should be available from start
-  if (command.unlockLevel === 0 || command.unlockLevel === undefined) {
-    return true;
-  }
-
-  // Level-based unlocking
-  const playerLevel = gameState.playerLevel || 1;
-  return playerLevel >= command.unlockLevel;
+  
+  if (command.unlockLevel === 0) return true; // Always available
+  
+  return gameState.hackLevel >= command.unlockLevel;
 }
 
-// Get initial unlocked commands for new players
+// Get initial unlocked commands
 export function getInitialUnlockedCommands(): string[] {
-  const initialCommands: string[] = [];
-  
-  // Add always available commands
-  initialCommands.push('help', 'clear', 'status', 'shop', 'devmode', 'easter', 'reset_shop', 'tutorial', 'settings', 'multiplayer', 'leaderboard', 'man');
-  
-  // Add level 0 commands (available from start)
-  Object.keys(commands).forEach(commandName => {
-    const command = commands[commandName];
-    if (command.unlockLevel === 0 || command.unlockLevel === undefined) {
-      if (!initialCommands.includes(commandName)) {
-        initialCommands.push(commandName);
-      }
-    }
-  });
-
-  return initialCommands;
+  return Object.keys(commands).filter(cmdName => commands[cmdName].unlockLevel === 0);
 }
