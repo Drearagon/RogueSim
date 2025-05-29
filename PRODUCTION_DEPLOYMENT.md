@@ -5,6 +5,43 @@
 - Domain name pointed to your server's IP
 - SSH access to your server
 
+## 🌐 **IONOS DNS Configuration**
+
+### **DNS Records to Set Up in IONOS Panel:**
+
+1. **A Record**: Point your domain to your Hetzner server
+   ```
+   Type: A
+   Name: @
+   Value: YOUR_HETZNER_SERVER_IP
+   TTL: 300
+   ```
+
+2. **WWW Subdomain**: 
+   ```
+   Type: A
+   Name: www
+   Value: YOUR_HETZNER_SERVER_IP
+   TTL: 300
+   ```
+
+3. **Mail Record (for uplink@roguesim.com)**:
+   ```
+   Type: MX
+   Name: @
+   Value: mx.sendgrid.net
+   Priority: 10
+   TTL: 300
+   ```
+
+### **SendGrid Domain Authentication:**
+1. Go to SendGrid Dashboard → Settings → Sender Authentication
+2. Add Domain: `roguesim.com`
+3. Add the CNAME records SendGrid provides to your IONOS DNS
+4. Verify the domain
+
+---
+
 ## 🐳 Method 1: Docker Deployment (Recommended)
 
 ### 1. Server Setup
@@ -46,21 +83,21 @@ NODE_ENV=production
 PORT=5000
 
 # Database Configuration
-DATABASE_URL=postgresql://roguesim_user:YOUR_SECURE_PASSWORD@postgres:5432/roguesim
+DATABASE_URL=postgresql://roguesim_user:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@postgres:5432/roguesim
 
 # Session Configuration
-SESSION_SECRET=your-super-secure-session-secret-minimum-32-characters-long
+SESSION_SECRET=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
 
 # Domain Configuration
-DOMAIN=yourdomain.com
-BASE_URL=https://yourdomain.com
+DOMAIN=roguesim.com
+BASE_URL=https://roguesim.com
 
 # Security
 TRUST_PROXY=true
 
-# Optional: Email Configuration
-# SENDGRID_API_KEY=your-sendgrid-api-key
-# FROM_EMAIL=noreply@yourdomain.com
+# Email Configuration
+SENDGRID_API_KEY=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
+FROM_EMAIL=uplink@roguesim.com
 EOF
 ```
 
@@ -76,7 +113,7 @@ services:
     environment:
       POSTGRES_DB: roguesim
       POSTGRES_USER: roguesim_user
-      POSTGRES_PASSWORD: YOUR_SECURE_PASSWORD
+      POSTGRES_PASSWORD: nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
@@ -91,8 +128,10 @@ services:
       - "127.0.0.1:5000:5000"
     environment:
       - NODE_ENV=production
-    env_file:
-      - .env
+      - DATABASE_URL=postgresql://roguesim_user:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@postgres:5432/roguesim
+      - SESSION_SECRET=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
+      - SENDGRID_API_KEY=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
+      - TRUST_PROXY=true
     depends_on:
       - postgres
     restart: unless-stopped
@@ -122,18 +161,30 @@ docker ps
 docker compose -f docker-compose.prod.yml logs -f
 ```
 
-### 6. Configure Nginx Reverse Proxy
+### 6. Configure Nginx (Reverse Proxy + SSL)
 ```bash
-# Create Nginx configuration
-cat > /etc/nginx/sites-available/roguesim << EOF
+# Create nginx config
+cat > /etc/nginx/sites-available/roguesim.com << EOF
 server {
     listen 80;
-    server_name yourdomain.com www.yourdomain.com;
+    server_name roguesim.com www.roguesim.com;
+    return 301 https://\$server_name\$request_uri;
+}
 
+server {
+    listen 443 ssl http2;
+    server_name roguesim.com www.roguesim.com;
+
+    # SSL Configuration (Let's Encrypt)
+    ssl_certificate /etc/letsencrypt/live/roguesim.com/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/roguesim.com/privkey.pem;
+    
     # Security headers
-    add_header X-Frame-Options DENY;
-    add_header X-Content-Type-Options nosniff;
-    add_header X-XSS-Protection "1; mode=block";
+    add_header X-Frame-Options "SAMEORIGIN" always;
+    add_header X-XSS-Protection "1; mode=block" always;
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header Referrer-Policy "no-referrer-when-downgrade" always;
+    add_header Content-Security-Policy "default-src 'self' http: https: data: blob: 'unsafe-inline'" always;
 
     # Proxy to RogueSim
     location / {
@@ -146,51 +197,36 @@ server {
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
         proxy_cache_bypass \$http_upgrade;
-
-        # WebSocket support
-        proxy_set_header Upgrade \$http_upgrade;
-        proxy_set_header Connection "upgrade";
-        
-        # Timeouts
-        proxy_connect_timeout 60s;
-        proxy_send_timeout 60s;
-        proxy_read_timeout 60s;
+        proxy_buffering off;
     }
 
-    # Gzip compression
-    gzip on;
-    gzip_vary on;
-    gzip_min_length 1024;
-    gzip_proxied any;
-    gzip_comp_level 6;
-    gzip_types
-        text/plain
-        text/css
-        text/xml
-        text/javascript
-        application/json
-        application/javascript
-        application/xml+rss
-        application/atom+xml
-        image/svg+xml;
+    # WebSocket support for multiplayer
+    location /ws {
+        proxy_pass http://127.0.0.1:5000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "Upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
 }
 EOF
 
 # Enable the site
-ln -s /etc/nginx/sites-available/roguesim /etc/nginx/sites-enabled/
-rm /etc/nginx/sites-enabled/default
-
-# Test and reload Nginx
-nginx -t
-systemctl reload nginx
+ln -s /etc/nginx/sites-available/roguesim.com /etc/nginx/sites-enabled/
+nginx -t && systemctl reload nginx
 ```
 
-### 7. Setup SSL with Let's Encrypt
+### 7. SSL Certificate (Let's Encrypt)
 ```bash
-# Get SSL certificate
-certbot --nginx -d yourdomain.com -d www.yourdomain.com
+# Install SSL certificate
+certbot --nginx -d roguesim.com -d www.roguesim.com
 
-# Auto-renewal is already configured
+# Auto-renewal (already set up by certbot)
+# Test renewal
+certbot renew --dry-run
 ```
 
 ### 8. Firewall Configuration
@@ -414,3 +450,53 @@ curl -I https://yourdomain.com
 ```
 
 Your RogueSim game will be accessible at `https://yourdomain.com` with full SSL encryption and production-grade performance! 
+
+---
+
+## 🎯 **Your Deployment Checklist for roguesim.com**
+
+### **1. IONOS Setup (Done)** ✅
+- [x] Domain: `roguesim.com` purchased
+- [x] Email: `uplink@roguesim.com` configured
+- [ ] DNS A record: Point to your Hetzner server IP
+- [ ] DNS MX record: Point to SendGrid
+
+### **2. Hetzner Server Setup**
+```bash
+# Your production-ready commands:
+git clone https://github.com/Drearagon/RogueSim.git
+cd RogueSim
+docker-compose -f docker-compose.prod.yml up -d
+```
+
+### **3. SSL & Domain Verification**
+```bash
+# After DNS propagation:
+certbot --nginx -d roguesim.com -d www.roguesim.com
+```
+
+### **4. Email Setup**
+- Configure SendGrid domain authentication for `roguesim.com`
+- Verify sender identity for `uplink@roguesim.com`
+- Test welcome emails
+
+### **5. Go Live!** 🚀
+Your RogueSim will be available at:
+- **Main Site**: https://roguesim.com
+- **Alt URL**: https://www.roguesim.com
+- **Emails From**: uplink@roguesim.com
+
+---
+
+## 🎮 **Welcome to Professional RogueSim Hosting!**
+
+Your cyberpunk hacker terminal game is now ready for the world with:
+- ✅ Professional domain (roguesim.com)
+- ✅ SSL encryption
+- ✅ Professional email (uplink@roguesim.com)
+- ✅ Production database
+- ✅ Docker containerization
+- ✅ Automatic backups
+- ✅ SendGrid email integration
+
+**Time to hack the mainframe!** 🔥 

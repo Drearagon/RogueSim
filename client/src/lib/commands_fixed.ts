@@ -3117,3 +3117,18 @@ export const commands: Record<string, Command> = {
     unlockLevel: 0
   },
 }
+
+// Command availability checker
+export function isCommandAvailable(commandName: string, gameState: GameState): boolean {
+  const command = commands[commandName];
+  if (!command) return false;
+  
+  if (command.unlockLevel === 0) return true; // Always available
+  
+  return gameState.hackLevel >= command.unlockLevel;
+}
+
+// Get initial unlocked commands
+export function getInitialUnlockedCommands(): string[] {
+  return Object.keys(commands).filter(cmdName => commands[cmdName].unlockLevel === 0);
+}

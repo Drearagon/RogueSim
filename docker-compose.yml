@@ -1,18 +1,31 @@
 version: '3.8'
 
 services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://rogueuser:${DB_PASSWORD:-nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=}@postgres:5432/roguesim
+      - SESSION_SECRET=${SESSION_SECRET:-your-super-secret-session-key-here}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15
     container_name: roguesim-postgres
     environment:
-      POSTGRES_DB: roguesim
-      POSTGRES_USER: roguesim_user
-      POSTGRES_PASSWORD: roguesim_password
-    ports:
-      - "5432:5432"
+      - POSTGRES_DB=roguesim
+      - POSTGRES_USER=rogueuser
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    ports:
+      - "5432:5432"
     restart: unless-stopped
 
   # Optional: Database management UI
@@ -20,8 +33,8 @@ services:
     image: dpage/pgadmin4:latest
     container_name: roguesim-pgadmin
     environment:
-      PGADMIN_DEFAULT_EMAIL: admin@roguesim.local
-      PGADMIN_DEFAULT_PASSWORD: admin123
+      - PGADMIN_DEFAULT_EMAIL=uplink@roguesim.com
+      - PGADMIN_DEFAULT_PASSWORD=roguesim123
     ports:
       - "8080:80"
     depends_on:
