@@ -1,9 +1,29 @@
 #!/bin/bash
 
+# RogueSim Direct Server Deployment Script
+# Assumes you are already connected to the server via SSH
+
 set -e  # Exit on any error
 
 echo "🚀 RogueSim Direct Server Deployment"
 echo "======================================"
+
+# Check for required environment variables
+if [ -z "$SENDGRID_API_KEY" ] || [ -z "$SESSION_SECRET" ] || [ -z "$DB_PASSWORD" ]; then
+    echo "❌ Missing required environment variables!"
+    echo ""
+    echo "Please set the following environment variables before running:"
+    echo "export SENDGRID_API_KEY='your-sendgrid-api-key'"
+    echo "export SESSION_SECRET='your-session-secret'"
+    echo "export DB_PASSWORD='your-database-password'"
+    echo ""
+    echo "Example:"
+    echo "export SENDGRID_API_KEY='SG.your-api-key'"
+    echo "export SESSION_SECRET='nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM='"
+    echo "export DB_PASSWORD='nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM='"
+    echo ""
+    exit 1
+fi
 
 # Update system packages
 echo "📦 Updating system packages..."
@@ -102,23 +122,23 @@ echo "⚙️ Creating production environment..."
 cat > .env.production << EOF
 NODE_ENV=production
 PORT=3000
-DATABASE_URL=postgresql://roguesim_user:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@localhost:5432/roguesim_db
+DATABASE_URL=postgresql://roguesim_user:\${DB_PASSWORD}@db:5432/roguesim_db
 FRONTEND_URL=https://roguesim.com
 CORS_ORIGIN=https://roguesim.com,https://www.roguesim.com
 
 # SendGrid Configuration
-SENDGRID_API_KEY=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
+SENDGRID_API_KEY=\${SENDGRID_API_KEY}
 SENDGRID_FROM_EMAIL=uplink@roguesim.com
 SENDGRID_FROM_NAME=RogueSim
 
 # Session Configuration
-SESSION_SECRET=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
+SESSION_SECRET=\${SESSION_SECRET}
 COOKIE_DOMAIN=roguesim.com
 
 # Database Configuration
 POSTGRES_DB=roguesim_db
 POSTGRES_USER=roguesim_user
-POSTGRES_PASSWORD=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
+POSTGRES_PASSWORD=\${DB_PASSWORD}
 EOF
 
 # Create Docker override for production
@@ -133,13 +153,13 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
-      - DATABASE_URL=postgresql://roguesim_user:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@db:5432/roguesim_db
+      - DATABASE_URL=postgresql://roguesim_user:\${DB_PASSWORD}@db:5432/roguesim_db
       - FRONTEND_URL=https://roguesim.com
       - CORS_ORIGIN=https://roguesim.com,https://www.roguesim.com
-      - SENDGRID_API_KEY=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
+      - SENDGRID_API_KEY=\${SENDGRID_API_KEY}
       - SENDGRID_FROM_EMAIL=uplink@roguesim.com
       - SENDGRID_FROM_NAME=RogueSim
-      - SESSION_SECRET=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
+      - SESSION_SECRET=\${SESSION_SECRET}
       - COOKIE_DOMAIN=roguesim.com
     ports:
       - "3000:3000"
@@ -157,7 +177,7 @@ services:
     environment:
       - POSTGRES_DB=roguesim_db
       - POSTGRES_USER=roguesim_user
-      - POSTGRES_PASSWORD=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
+      - POSTGRES_PASSWORD=\${DB_PASSWORD}
     ports:
       - "5432:5432"
 
