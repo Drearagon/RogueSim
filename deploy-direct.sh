@@ -17,10 +17,7 @@ if [ -z "$SENDGRID_API_KEY" ] || [ -z "$SESSION_SECRET" ] || [ -z "$DB_PASSWORD"
     echo "export SESSION_SECRET='your-session-secret'"
     echo "export DB_PASSWORD='your-database-password'"
     echo ""
-    echo "Example:"
-    echo "export SENDGRID_API_KEY='SG.your-api-key'"
-    echo "export SESSION_SECRET='nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM='"
-    echo "export DB_PASSWORD='nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM='"
+    echo "Then run this script again."
     echo ""
     exit 1
 fi
