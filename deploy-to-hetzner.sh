@@ -3,6 +3,18 @@
 # RogueSim Hetzner Deployment Script
 echo "🚀 Deploying RogueSim to Hetzner Server..."
 
+# Load server secrets
+echo "🔧 Loading server secrets..."
+if [ -f "./server-secrets.conf" ]; then
+    source ./server-secrets.conf
+    echo "✓ Secrets loaded from server-secrets.conf"
+else
+    echo "❌ ERROR: server-secrets.conf not found!"
+    echo "Please create server-secrets.conf from server-secrets.conf.template"
+    echo "and fill in your actual API keys and secrets."
+    exit 1
+fi
+
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -70,10 +82,10 @@ NODE_ENV=production
 PORT=5000
 
 # Database Configuration  
-DATABASE_URL=postgresql://roguesim_user:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@postgres:5432/roguesim
+DATABASE_URL=postgresql://roguesim_user:\${DB_PASSWORD}@postgres:5432/roguesim
 
 # Session Configuration
-SESSION_SECRET=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
+SESSION_SECRET=\${SESSION_SECRET}
 
 # Domain Configuration
 DOMAIN=roguesim.com
@@ -83,8 +95,8 @@ BASE_URL=https://roguesim.com
 TRUST_PROXY=true
 
 # Email Configuration
-SENDGRID_API_KEY=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
-FROM_EMAIL=uplink@roguesim.com
+SENDGRID_API_KEY=\${SENDGRID_API_KEY}
+FROM_EMAIL=\${FROM_EMAIL}
 EOF
 
     # Create production Docker Compose
@@ -113,9 +125,9 @@ services:
       - "127.0.0.1:5000:5000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://roguesim_user:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@postgres:5432/roguesim
-      - SESSION_SECRET=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
-      - SENDGRID_API_KEY=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
+      - DATABASE_URL=postgresql://roguesim_user:\${DB_PASSWORD}@postgres:5432/roguesim
+      - SESSION_SECRET=\${SESSION_SECRET}
+      - SENDGRID_API_KEY=\${SENDGRID_API_KEY}
       - TRUST_PROXY=true
     depends_on:
       - postgres

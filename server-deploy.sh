@@ -7,11 +7,20 @@ echo "Domain: roguesim.com"
 echo ""
 
 # Set environment variables
+echo "🔧 Loading server secrets..."
+if [ -f "./server-secrets.conf" ]; then
+    source ./server-secrets.conf
+    echo "✓ Secrets loaded from server-secrets.conf"
+else
+    echo "❌ ERROR: server-secrets.conf not found!"
+    echo "Please create server-secrets.conf from server-secrets.conf.template"
+    echo "and fill in your actual API keys and secrets."
+    exit 1
+fi
+
 echo "🔧 Setting environment variables..."
-export DB_PASSWORD="nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM="
-export SESSION_SECRET="your-super-secret-session-key-here"
-export SENDGRID_API_KEY="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"
-export PGADMIN_PASSWORD="roguesim123"
+# Variables are now loaded from server-secrets.conf above
+# DB_PASSWORD, SESSION_SECRET, SENDGRID_API_KEY, PGADMIN_PASSWORD are set from secrets file
 
 # Stop any existing containers
 echo "🛑 Stopping existing containers..."

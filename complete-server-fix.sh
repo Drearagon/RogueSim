@@ -73,7 +73,7 @@ services:
       - NODE_ENV=production
       - DATABASE_URL=postgresql://rogueuser:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@postgres:5432/roguesim
       - SESSION_SECRET=your-super-secret-session-key-here
-      - SENDGRID_API_KEY=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
+      - SENDGRID_API_KEY=your-sendgrid-api-key-here
     depends_on:
       - postgres
     restart: unless-stopped

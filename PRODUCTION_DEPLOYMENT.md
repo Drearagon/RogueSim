@@ -53,8 +53,8 @@ ssh root@your-server-ip
 apt update && apt upgrade -y
 
 # Install Docker and Docker Compose
-curl -fsSL https://get.docker.com -o get-docker.sh
-sh get-docker.sh
+curl -fsSL https://get.docker.com -o get-docker.sh && 
+sh get-docker.sh && 
 apt install docker-compose-plugin -y
 
 # Install Nginx for reverse proxy
@@ -83,10 +83,10 @@ NODE_ENV=production
 PORT=5000
 
 # Database Configuration
-DATABASE_URL=postgresql://roguesim_user:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@postgres:5432/roguesim
+DATABASE_URL=postgresql://roguesim_user:${DB_PASSWORD}@postgres:5432/roguesim
 
 # Session Configuration
-SESSION_SECRET=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
+SESSION_SECRET=${SESSION_SECRET}
 
 # Domain Configuration
 DOMAIN=roguesim.com
@@ -96,7 +96,7 @@ BASE_URL=https://roguesim.com
 TRUST_PROXY=true
 
 # Email Configuration
-SENDGRID_API_KEY=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
+SENDGRID_API_KEY=${SENDGRID_API_KEY}
 FROM_EMAIL=uplink@roguesim.com
 EOF
 ```
@@ -128,9 +128,9 @@ services:
       - "127.0.0.1:5000:5000"
     environment:
       - NODE_ENV=production
-      - DATABASE_URL=postgresql://roguesim_user:nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=@postgres:5432/roguesim
-      - SESSION_SECRET=nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
-      - SENDGRID_API_KEY=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
+      - DATABASE_URL=postgresql://roguesim_user:${DB_PASSWORD}@postgres:5432/roguesim
+      - SESSION_SECRET=${SESSION_SECRET}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
       - TRUST_PROXY=true
     depends_on:
       - postgres

@@ -44,3 +44,9 @@ ehthumbs.db
 # Temporary files
 .tmp/
 temp/
+
+# Security - API keys and secrets (never commit these!)
+server-secrets.conf
+.env.production
+secrets.env
+api-keys.conf
