@@ -1,3 +1,16 @@
+#!/bin/bash
+
+echo "🔧 Applying Vite.ts Fix Directly"
+echo "================================"
+
+cd /opt/roguesim/RogueSim
+
+echo "1️⃣  Backing up current server/vite.ts..."
+cp server/vite.ts server/vite.ts.backup
+
+echo ""
+echo "2️⃣  Applying the fixed vite.ts..."
+cat > server/vite.ts << 'EOF'
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
@@ -56,8 +69,8 @@ export async function setupVite(app: Express, server: Server) {
       // always reload the index.html file from disk incase it changes
       let template = await fs.promises.readFile(clientTemplate, "utf-8");
       template = template.replace(
-        `src="/src/main.tsx"`,
-        `src="/src/main.tsx?v=${nanoid()}"`,
+        \`src="/src/main.tsx"\`,
+        \`src="/src/main.tsx?v=\${nanoid()}"\`,
       );
       const page = await vite.transformIndexHtml(url, template);
       res.status(200).set({ "Content-Type": "text/html" }).end(page);
@@ -92,7 +105,7 @@ export function serveStatic(app: Express) {
     if (fs.existsSync(possiblePath) && fs.existsSync(indexFile)) {
       distPath = possiblePath;
       indexPath = indexFile;
-      log(`✅ Found client build at: ${distPath}`);
+      log(\`✅ Found client build at: \${distPath}\`);
       break;
     }
   }
@@ -102,32 +115,32 @@ export function serveStatic(app: Express) {
     log("❌ Could not find client build directory. Available paths:");
     possiblePaths.forEach(p => {
       const exists = fs.existsSync(p);
-      log(`  ${p} - ${exists ? 'EXISTS' : 'NOT FOUND'}`);
+      log(\`  \${p} - \${exists ? 'EXISTS' : 'NOT FOUND'}\`);
       if (exists) {
         try {
           const files = fs.readdirSync(p).slice(0, 5); // Show first 5 files
-          log(`    Contents: ${files.join(', ')}${files.length >= 5 ? '...' : ''}`);
+          log(\`    Contents: \${files.join(', ')}\${files.length >= 5 ? '...' : ''}\`);
         } catch (e) {
-          log(`    Could not read directory: ${(e as Error).message}`);
+          log(\`    Could not read directory: \${(e as Error).message}\`);
         }
       }
     });
     
     // Instead of crashing, serve a simple error page
     app.use("*", (_req, res) => {
-      res.status(500).send(`
+      res.status(500).send(\`
         <html>
           <head><title>RogueSim - Build Error</title></head>
           <body style="font-family: monospace; background: #000; color: #0f0; padding: 20px;">
             <h1>🚨 RogueSim Build Error</h1>
             <p>Could not find client build files.</p>
             <p>Searched in:</p>
-            <ul>${possiblePaths.map(p => `<li>${p}</li>`).join('')}</ul>
+            <ul>\${possiblePaths.map(p => \`<li>\${p}</li>\`).join('')}</ul>
             <p>Server is running but client files are missing.</p>
             <p>Try rebuilding with: <code>npm run build</code></p>
           </body>
         </html>
-      `);
+      \`);
     });
     return;
   }
@@ -140,3 +153,46 @@ export function serveStatic(app: Express) {
     res.sendFile(indexPath);
   });
 }
+EOF
+
+echo ""
+echo "3️⃣  Showing what was changed..."
+echo "New serveStatic function uses robust path discovery:"
+grep -A 5 "possiblePaths" server/vite.ts
+
+echo ""
+echo "4️⃣  Rebuilding container with the fix..."
+docker-compose down
+docker-compose build --no-cache app
+
+echo ""
+echo "5️⃣  Starting containers..."
+docker-compose up -d
+
+echo ""
+echo "6️⃣  Waiting for startup..."
+sleep 15
+
+echo ""
+echo "7️⃣  Testing the fix..."
+echo "Checking logs for path discovery messages..."
+docker logs --tail 30 roguesim-app-1 | grep -E "(Found client build|Could not find|Available paths)" || echo "No path discovery messages yet"
+
+echo ""
+echo "8️⃣  Testing response..."
+response=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
+echo "HTTP Status: $response"
+
+if [ "$response" = "200" ]; then
+    echo "✅ SUCCESS! RogueSim is now working!"
+    echo "🌐 Check your domain: http://roguesim.com"
+elif [ "$response" = "500" ]; then
+    echo "⚠️  Getting HTTP 500 - checking if it's our diagnostic page..."
+    curl -s http://localhost:3000 | grep -o '<h1>.*</h1>' 2>/dev/null || echo "Not our diagnostic page"
+else
+    echo "❌ Still not working. HTTP status: $response"
+fi
+
+echo ""
+echo "9️⃣  Latest logs:"
+docker logs --tail 15 roguesim-app-1 

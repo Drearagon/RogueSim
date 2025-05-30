@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { pool } from "./db";
 import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema } from "@shared/schema";
 import { MultiplayerWebSocketServer } from "./websocket";
-import bcrypt from "bcrypt";
+const bcrypt = require("bcrypt");
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
@@ -153,25 +153,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post('/api/auth/login', async (req, res) => {
+    // Declare email outside try block to make it accessible in catch
+    let email: string | undefined;
+    
     try {
-      const { email, password } = req.body; // email field now contains either email or hacker name
+      // Extract email/password from request body
+      const requestData = req.body;
+      email = requestData?.email; // Safely extract email
+      const password = requestData?.password;
       
       if (!email || !password) {
+        // Pass undefined or a specific string for missing credentials
+        logAuthEvent('login_error', email || 'missing_credentials', false);
         return res.status(400).json({ error: "Username/email and password are required" });
       }
       
       // Try to find user by email first, then by hacker name if email doesn't work
-      let userQuery = `SELECT id, email, hacker_name, password FROM users WHERE email = $1 OR hacker_name = $1`;
+      let userQuery = `SELECT id, email, hacker_name as "hackerName", password FROM users WHERE email = $1 OR hacker_name = $1`;
       const userResult = await pool.query(userQuery, [email]);
       const user = userResult.rows[0];
       
       if (!user) {
+        logAuthEvent('login_failed', email, false);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       // Check if password field exists and has content
       if (!user.password || user.password.length === 0) {
         console.log('No password found for user:', user.email);
+        logAuthEvent('login_failed', user.email || email, false);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
@@ -179,37 +189,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const validPassword = await bcrypt.compare(password, user.password);
       if (!validPassword) {
         authLogger.warn(`Password validation failed for user: ${user.email}`);
-        logAuthEvent('login_failed', user.email, false);
+        // Ensure user.email exists before logging, fallback to email from request
+        logAuthEvent('login_failed', user.email || email, false);
         return res.status(401).json({ error: "Invalid credentials" });
       }
 
       // Create session and add to response
       (req.session as any).userId = user.id;
-      (req.session as any).hackerName = user.hacker_name;
+      (req.session as any).hackerName = user.hackerName;
 
       sessionLogger.info(`Session created successfully for user: ${user.id.substring(0, 8)}...`);
       
       // Enhanced logging for successful authentication
-      logAuthEvent('login_success', user.email, true);
-      logUserAction(user.id, 'user_login', { email: user.email });
+      logAuthEvent('login_success', user.email || email, true);
+      logUserAction(user.id, 'user_login', { email: user.email || email });
 
       // Send user data with authentication token
       res.json({ 
         user: {
           id: user.id,
-          hackerName: user.hacker_name, // Fixed: using hacker_name from database
+          hackerName: user.hackerName, // Now using aliased column name
           email: user.email,
           authenticated: true
         },
         sessionId: req.sessionID
       });
     } catch (error) {
-      // Enhanced error logging and handling
+      // Enhanced error logging and handling with safe email access
+      const safeEmail = email && typeof email === 'string' ? email.substring(0, 3) + '***' : 'unknown';
+      
       authLogger.error("Login error occurred", { 
-        error: error.message, 
-        email: email?.substring(0, 3) + '***' 
+        error: error instanceof Error ? error.message : 'Unknown error', 
+        email: safeEmail
       });
-      logAuthEvent('login_error', email, false);
+      
+      // Safely pass email to logAuthEvent - it's now accessible and safely handled
+      logAuthEvent('login_error', email || 'unknown', false);
       res.status(500).json({ error: "Login failed due to server error" });
     }
   });
@@ -282,7 +297,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (user) {
           res.json({
             id: user.id,
-            hackerName: user.hacker_name,
+            hackerName: user.hackerName,
             email: user.email
           });
         } else {

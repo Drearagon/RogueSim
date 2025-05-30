@@ -7,26 +7,24 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install ALL dependencies (including dev dependencies needed for build)
+# Install ALL dependencies (including dev dependencies needed for runtime)
 RUN npm ci
-
-# Verify that vite is installed
-RUN echo "Checking if vite is installed..." && npm list vite || echo "Vite not found in direct dependencies"
-RUN echo "Checking node_modules..." && ls -la node_modules/.bin/ | grep vite || echo "Vite binary not found"
-RUN echo "Trying to run vite directly..." && ./node_modules/.bin/vite --version || echo "Could not run vite"
 
 # Copy source code
 COPY . .
 
-# Build the application with more verbose output
+# Build the application
 RUN echo "Starting build process..." && \
     echo "Current directory:" && pwd && \
     echo "Files in current directory:" && ls -la && \
     echo "Package.json scripts:" && cat package.json | grep -A 10 '"scripts"' && \
     npm run build
 
-# Remove dev dependencies after build
-RUN npm prune --production
+# Verify build output
+RUN echo "Build completed. Checking dist folder:" && ls -la dist/ || echo "No dist folder found"
+
+# DO NOT prune dev dependencies - keep them for runtime vite imports
+# RUN npm prune --production
 
 # Expose port
 EXPOSE 3000
