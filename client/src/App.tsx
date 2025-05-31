@@ -260,8 +260,9 @@ export default function App() {
   };
 
   const handleShowProfile = () => {
-    console.log('handleShowProfile called in App.tsx');
-    setCurrentView('profile');
+    // Profile is now handled by ResponsiveUserProfile component
+    // No longer need to change views for profile
+    console.log('Profile access handled by ResponsiveUserProfile component');
   };
 
   const handleOnboardingComplete = async () => {
@@ -347,17 +348,11 @@ export default function App() {
     return <BootScreen onBootComplete={handleBootComplete} />;
   }
 
-  if (currentView === 'profile') {
+  if (currentView === 'onboarding') {
     return (
-      <UserProfile 
-        user={effectiveUser || {
-          id: 'default_user',
-          firstName: 'Player',
-          lastName: 'User',
-          email: 'player@roguesim.dev'
-        }}
-        onClose={() => setCurrentView('game')}
-        onUpdateProfile={() => {}} // Profile updates handled by Replit Auth
+      <OnboardingTutorial 
+        onComplete={handleOnboardingComplete}
+        onSkip={handleOnboardingSkip}
       />
     );
   }

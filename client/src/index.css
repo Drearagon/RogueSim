@@ -299,3 +299,74 @@
     min-height: -webkit-fill-available;
   }
 }
+
+.full-height {
+  min-height: 100vh;
+  min-height: 100dvh; /* Dynamic viewport height for mobile */
+}
+
+/* Responsive Profile Styles */
+.profile-dropdown {
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.profile-sheet-content {
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+/* Mobile Profile Optimizations */
+@media (max-width: 768px) {
+  .profile-dropdown {
+    max-height: 70vh;
+  }
+  
+  .profile-sheet-content {
+    max-height: 85vh;
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Better touch targets for mobile */
+  .profile-action-button {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  
+  /* Prevent zoom on inputs for mobile */
+  .profile-input {
+    font-size: 16px;
+  }
+  
+  /* Mobile sheet specific styles */
+  .mobile-profile-header {
+    position: sticky;
+    top: 0;
+    background: inherit;
+    z-index: 10;
+    backdrop-filter: blur(8px);
+  }
+}
+
+/* Desktop Profile Optimizations */
+@media (min-width: 769px) {
+  .profile-dropdown {
+    min-width: 320px;
+    max-width: 400px;
+  }
+  
+  /* Better hover states for desktop */
+  .profile-action-button:hover {
+    transform: translateY(-1px);
+    transition: transform 0.2s ease;
+  }
+}
+
+/* Prevent profile from overlapping game content */
+.profile-overlay-blocker {
+  pointer-events: none;
+}
+
+.profile-overlay-blocker.active {
+  pointer-events: all;
+}

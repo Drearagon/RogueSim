@@ -62,7 +62,7 @@ A full-stack web-based cyberpunk hacking simulation game featuring terminal-styl
    
    Edit `.env` with your configuration:
    ```env
-   DATABASE_URL=postgresql://neondb_owner:npg_0MLOzij4TBSq@ep-round-firefly-a8bm2r4r-pooler.eastus2.azure.neon.tech/neondb?sslmode=require
+   DATABASE_URL=postgresql://username:password@hostname:5432/roguesim
    SESSION_SECRET=your-super-secret-session-key-at-least-32-characters-long
    NODE_ENV=development
    PORT=5000

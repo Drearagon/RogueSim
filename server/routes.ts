@@ -4,7 +4,7 @@ import { storage } from "./storage";
 import { pool } from "./db";
 import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema } from "@shared/schema";
 import { MultiplayerWebSocketServer } from "./websocket";
-const bcrypt = require("bcrypt");
+import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";

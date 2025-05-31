@@ -10,6 +10,7 @@ vite.config.ts.*
 .env.local
 .env.development
 .env.production
+.env.*
 
 # Database
 *.db
@@ -50,3 +51,10 @@ server-secrets.conf
 .env.production
 secrets.env
 api-keys.conf
+*.key
+*.pem
+*.p12
+*credentials*
+*secrets*
+*config.json
+*auth*token*
