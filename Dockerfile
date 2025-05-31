@@ -27,7 +27,7 @@ RUN echo "Build completed. Checking dist folder:" && ls -la dist/ || echo "No di
 # RUN npm prune --production
 
 # Expose port
-EXPOSE 3000
+EXPOSE 5000
 
 # Set environment to production
 ENV NODE_ENV=production
