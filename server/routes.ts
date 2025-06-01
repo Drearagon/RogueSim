@@ -23,15 +23,25 @@ if (!process.env.DATABASE_URL) {
   throw new Error("DATABASE_URL is not set. Database connection required for session management.");
 }
 
-const pgStore = connectPg(session);
-const sessionStore = new pgStore({
-  conString: process.env.DATABASE_URL,
-  createTableIfMissing: false,
-  ttl: sessionTtl,
-  tableName: "sessions",
-});
-
-console.log('Session store initialized successfully with database connection');
+// Initialize session store with error handling
+let sessionStore: any;
+try {
+  const pgStore = connectPg(session);
+  sessionStore = new pgStore({
+    conString: process.env.DATABASE_URL,
+    createTableIfMissing: false,
+    ttl: sessionTtl,
+    tableName: "sessions",
+  });
+  
+  console.log('Session store initialized successfully with database connection');
+} catch (error) {
+  console.error('❌ Failed to initialize PostgreSQL session store:', error);
+  console.log('🔄 Falling back to memory-based session store for stability');
+  
+  // Use memory store as fallback
+  sessionStore = new session.MemoryStore();
+}
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -47,7 +57,7 @@ const isAuthenticated: RequestHandler = (req: any, res, next) => {
 };
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Session middleware
+  // Session middleware with enhanced error handling
   app.use(session({
     store: sessionStore,
     secret: process.env.SESSION_SECRET || 'your-secret-key',
