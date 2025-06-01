@@ -22,16 +22,24 @@ RUN echo "Verifying @tanstack/react-query installation:" && \
 # Copy source code
 COPY . .
 
-# Build the application with verbose output
+# Build the application with verbose output and directory debugging
 RUN echo "Starting build process..." && \
     echo "Current directory:" && pwd && \
     echo "Files in current directory:" && ls -la && \
     echo "Node modules check:" && ls -la node_modules/@tanstack/ || echo "No @tanstack modules found" && \
     echo "Package.json scripts:" && cat package.json | grep -A 10 '"scripts"' && \
-    npm run build
+    echo "Running npm run build..." && \
+    npm run build && \
+    echo "Build completed successfully!"
 
-# Verify build output
-RUN echo "Build completed. Checking dist folder:" && ls -la dist/ || echo "No dist folder found"
+# Debug the build output structure
+RUN echo "=== BUILD OUTPUT DEBUGGING ===" && \
+    echo "Contents of /app:" && ls -la && \
+    echo "Contents of /app/dist:" && ls -la dist/ && \
+    echo "Contents of /app/dist/public:" && ls -la dist/public/ && \
+    echo "Checking for index.html:" && \
+    find /app -name "index.html" -type f && \
+    echo "=== END BUILD DEBUGGING ==="
 
 # DO NOT prune dev dependencies - keep them for runtime vite imports
 # RUN npm prune --production
