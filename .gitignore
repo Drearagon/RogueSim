@@ -90,14 +90,7 @@ service/
 *.service
 
 # Docker files (protect server customizations)
-Dockerfile
-Dockerfile.*
-.dockerignore
-docker-compose.yml
-docker-compose.override.yml
-docker-compose.prod.yml
-docker-compose.local.yml
-.dockerignore.local
+
 
 # Server maintenance scripts (if you create custom ones)
 backup-*

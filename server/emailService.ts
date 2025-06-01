@@ -1,13 +1,26 @@
 import { MailService } from '@sendgrid/mail';
+import { log } from './vite';
 
-const mailService = new MailService();
-const isEmailEnabled = !!process.env.SENDGRID_API_KEY;
+// Export variables that will be initialized later
+export let mailService: MailService;
+export let isEmailEnabled: boolean = false;
 
-if (isEmailEnabled) {
-  mailService.setApiKey(process.env.SENDGRID_API_KEY!);
-  console.log('📧 Email service enabled with SendGrid');
-} else {
-  console.log('📧 Email service disabled (SENDGRID_API_KEY not set)');
+export async function initEmailService(): Promise<void> {
+  try {
+    mailService = new MailService();
+    isEmailEnabled = !!process.env.SENDGRID_API_KEY;
+
+    if (isEmailEnabled) {
+      mailService.setApiKey(process.env.SENDGRID_API_KEY!);
+      log('📧 Email service enabled with SendGrid');
+    } else {
+      log('📧 Email service disabled (SENDGRID_API_KEY not set) - using dev mode');
+    }
+  } catch (error) {
+    log(`❌ Email service initialization failed: ${error}`, 'error');
+    // Don't throw error - email service is not critical for the app to function
+    isEmailEnabled = false;
+  }
 }
 
 export class EmailService {

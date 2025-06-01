@@ -1,5 +1,5 @@
 // Temporary debugging script to isolate the 405 issue
-// Run this with: node debug-routes.js
+// Run this with: npx tsx debug-routes.js
 
 import express from 'express';
 import { createServer } from 'http';
@@ -41,6 +41,7 @@ server.listen(port, () => {
 // Auto-test after 2 seconds
 setTimeout(async () => {
   try {
+    const fetch = (await import('node-fetch')).default;
     const response = await fetch(`http://localhost:${port}/`);
     console.log(`\n🔍 Test result: ${response.status} ${response.statusText}`);
     const headers = [...response.headers.entries()];

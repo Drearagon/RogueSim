@@ -69,74 +69,46 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  // Get current directory in a more robust way
-  const __filename = fileURLToPath(import.meta.url);
-  const __dirname = path.dirname(__filename);
-  
-  // Try multiple possible locations for the built client files
-  const possiblePaths = [
-    path.resolve(__dirname, "..", "dist", "public"),
-    path.resolve(__dirname, "..", "public"),
-    path.resolve(__dirname, "public"),
-    path.resolve(process.cwd(), "dist", "public"),
-    path.resolve(process.cwd(), "public"),
-    path.resolve(process.cwd(), "dist"),
-  ];
+    // Use local path for local development, Docker path only when actually in Docker
+    const isInDocker = fs.existsSync('/app'); // Simple Docker detection
+    const indexPath = isInDocker 
+        ? '/app/dist/public/index.html' 
+        : path.resolve(process.cwd(), 'dist', 'public', 'index.html');
 
-  let distPath = null;
-  let indexPath = null;
-
-  // Find the first path that exists and contains index.html
-  for (const possiblePath of possiblePaths) {
-    const indexFile = path.join(possiblePath, "index.html");
-    if (fs.existsSync(possiblePath) && fs.existsSync(indexFile)) {
-      distPath = possiblePath;
-      indexPath = indexFile;
-      log(`✅ Found client build at: ${distPath}`);
-      break;
+    // Log if the file exists (for debugging)
+    if (fs.existsSync(indexPath)) {
+        log(`DEBUG: Final check - index.html exists at ${indexPath}`);
+    } else {
+        log(`DEBUG: Critical! index.html NOT found at ${indexPath}`);
+        log(`DEBUG: Current working directory: ${process.cwd()}`);
+        log(`DEBUG: Checking if dist/public exists: ${fs.existsSync(path.resolve(process.cwd(), 'dist', 'public'))}`);
+        log(`DEBUG: Docker detected: ${isInDocker}`);
     }
-  }
 
-  if (!distPath || !indexPath) {
-    // List what we actually have in the container for debugging
-    log("❌ Could not find client build directory. Available paths:");
-    possiblePaths.forEach(p => {
-      const exists = fs.existsSync(p);
-      log(`  ${p} - ${exists ? 'EXISTS' : 'NOT FOUND'}`);
-      if (exists) {
-        try {
-          const files = fs.readdirSync(p).slice(0, 5); // Show first 5 files
-          log(`    Contents: ${files.join(', ')}${files.length >= 5 ? '...' : ''}`);
-        } catch (e) {
-          log(`    Could not read directory: ${(e as Error).message}`);
+    // This should serve index.html for ALL GET requests not handled before it
+    app.get('*', (req, res) => {
+        // If it's an API call, let other routes handle it (or return 404)
+        if (req.path.startsWith('/api') || req.path.startsWith('/sockjs-node')) {
+            log(`DEBUG: Skipping index.html for API/WebSocket path: ${req.path}`);
+            return res.status(404).json({ message: 'API Not Found or not implemented yet' });
         }
-      }
-    });
-    
-    // Instead of crashing, serve a simple error page
-    app.use("*", (_req, res) => {
-      res.status(500).send(`
-        <html>
-          <head><title>RogueSim - Build Error</title></head>
-          <body style="font-family: monospace; background: #000; color: #0f0; padding: 20px;">
-            <h1>🚨 RogueSim Build Error</h1>
-            <p>Could not find client build files.</p>
-            <p>Searched in:</p>
-            <ul>${possiblePaths.map(p => `<li>${p}</li>`).join('')}</ul>
-            <p>Server is running but client files are missing.</p>
-            <p>Try rebuilding with: <code>npm run build</code></p>
-          </body>
-        </html>
-      `);
-    });
-    return;
-  }
 
-  // Serve static files from the found directory
-  app.use(express.static(distPath));
+        // Log every time this fallback is hit
+        log(`DEBUG: Attempting to serve index.html for path: ${req.path}`, 'debug');
 
-  // Fallback to index.html for SPA routing
-  app.use("*", (_req, res) => {
-    res.sendFile(indexPath);
-  });
+        res.sendFile(indexPath, (err) => {
+            if (err) {
+                log(`DEBUG: Error serving index.html for ${req.path}: ${err.message}`, 'error');
+                res.status(500).send('<h1>Server Error: Could not load frontend.</h1>');
+            } else {
+                log(`DEBUG: Successfully served index.html for ${req.path}`, 'debug');
+            }
+        });
+    });
+
+    // Also, serve static files explicitly (usually before the catch-all)
+    // This needs the full path on the host.
+    // If you have `express.static` serving, make sure it's doing its job for the correct path.
+    // For now, let's rely just on the app.get('*') for index.html.
+    // app.use(express.static('/app/dist/public')); // If you want to put this back, ensure order.
 }
