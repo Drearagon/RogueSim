@@ -71,9 +71,11 @@ export async function setupVite(app: Express, server: Server) {
 export function serveStatic(app: Express) {
     // Use local path for local development, Docker path only when actually in Docker
     const isInDocker = fs.existsSync('/app'); // Simple Docker detection
-    const indexPath = isInDocker 
-        ? '/app/dist/public/index.html' 
-        : path.resolve(process.cwd(), 'dist', 'public', 'index.html');
+    const staticPath = isInDocker 
+        ? '/app/dist/public' 
+        : path.resolve(process.cwd(), 'dist', 'public');
+    
+    const indexPath = path.join(staticPath, 'index.html');
 
     // Log if the file exists (for debugging)
     if (fs.existsSync(indexPath)) {
@@ -81,11 +83,15 @@ export function serveStatic(app: Express) {
     } else {
         log(`DEBUG: Critical! index.html NOT found at ${indexPath}`);
         log(`DEBUG: Current working directory: ${process.cwd()}`);
-        log(`DEBUG: Checking if dist/public exists: ${fs.existsSync(path.resolve(process.cwd(), 'dist', 'public'))}`);
+        log(`DEBUG: Checking if dist/public exists: ${fs.existsSync(staticPath)}`);
         log(`DEBUG: Docker detected: ${isInDocker}`);
     }
 
-    // This should serve index.html for ALL GET requests not handled before it
+    // FIRST: Serve static files (CSS, JS, images, etc.)
+    log(`DEBUG: Setting up express.static for: ${staticPath}`);
+    app.use(express.static(staticPath));
+
+    // SECOND: Catch-all for SPA routing (only for non-asset requests)
     app.get('*', (req, res) => {
         // If it's an API call, let other routes handle it (or return 404)
         if (req.path.startsWith('/api') || req.path.startsWith('/sockjs-node')) {
@@ -94,7 +100,7 @@ export function serveStatic(app: Express) {
         }
 
         // Log every time this fallback is hit
-        log(`DEBUG: Attempting to serve index.html for path: ${req.path}`, 'debug');
+        log(`DEBUG: SPA fallback - serving index.html for path: ${req.path}`, 'debug');
 
         res.sendFile(indexPath, (err) => {
             if (err) {
@@ -105,10 +111,4 @@ export function serveStatic(app: Express) {
             }
         });
     });
-
-    // Also, serve static files explicitly (usually before the catch-all)
-    // This needs the full path on the host.
-    // If you have `express.static` serving, make sure it's doing its job for the correct path.
-    // For now, let's rely just on the app.get('*') for index.html.
-    // app.use(express.static('/app/dist/public')); // If you want to put this back, ensure order.
 }
