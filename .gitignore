@@ -89,7 +89,11 @@ systemd/
 service/
 *.service
 
-# Docker and deployment overrides
+# Docker files (protect server customizations)
+Dockerfile
+Dockerfile.*
+.dockerignore
+docker-compose.yml
 docker-compose.override.yml
 docker-compose.prod.yml
 docker-compose.local.yml
