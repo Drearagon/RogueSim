@@ -1,5 +1,5 @@
-# Use Node.js 18 Alpine for smaller image size
-FROM node:18-alpine
+# Use Node.js 20 Alpine for better compatibility and newer features
+FROM node:20-alpine
 
 # Set working directory
 WORKDIR /app
@@ -14,6 +14,9 @@ COPY package*.json ./
 RUN npm cache clean --force && \
     npm ci --verbose --no-optional || \
     (echo "npm ci failed, trying npm install..." && npm install --verbose)
+
+# Force install missing rollup dependencies for ARM64/Alpine compatibility
+RUN npm install @rollup/rollup-linux-arm64-musl @rollup/rollup-linux-x64-musl --save-optional || echo "Rollup optional dependencies install failed, continuing..."
 
 # Verify critical dependencies are installed
 RUN echo "Verifying @tanstack/react-query installation:" && \
