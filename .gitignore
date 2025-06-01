@@ -58,3 +58,45 @@ api-keys.conf
 *secrets*
 *config.json
 *auth*token*
+
+# Nginx Configuration Files (prevent overwriting server configs)
+nginx.conf
+nginx/
+/etc/nginx/
+sites-available/
+sites-enabled/
+conf.d/
+nginx-*.conf
+roguesim.conf
+roguesim-nginx.conf
+default.conf
+ssl.conf
+
+# SSL Certificates and Keys
+ssl/
+certs/
+certificates/
+*.crt
+*.cert
+*.ca-bundle
+letsencrypt/
+certbot/
+
+# Server-specific files
+/etc/
+/var/
+systemd/
+service/
+*.service
+
+# Docker and deployment overrides
+docker-compose.override.yml
+docker-compose.prod.yml
+docker-compose.local.yml
+.dockerignore.local
+
+# Server maintenance scripts (if you create custom ones)
+backup-*
+restore-*
+server-maintenance-*
+custom-*
