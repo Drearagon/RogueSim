@@ -2,9 +2,10 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { fileURLToPath } from 'url';
-import { registerRoutes } from "./routes"; // ✅ ENABLED
+// import { registerRoutes } from "./routes"; // Comment out for testing
 import { serveStatic, log } from "./vite";
 import path from "path";
+import cors from "cors"; // Ensure this is imported
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -14,38 +15,34 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// ✅ Optional middleware for request logging
-// app.use((req, res, next) => {
-//   log(`🔍 INCOMING: ${req.method} ${req.path} - User-Agent: ${req.get('User-Agent')?.substring(0, 30) || 'N/A'}`);
-//   next();
-// });
+// Place CORS middleware very early
+app.use(cors({
+    origin: process.env.CLIENT_URL || '*',
+    credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+}));
+log('DEBUG: CORS middleware configured.');
 
-(async () => {
-  try {
-    log('🚀 Starting server WITH API routes...');
-    
-    // ✅ Re-enabled route registration
-    const server = await registerRoutes(app);
-    log('✅ API routes registered successfully');
+// Serve static files (production path - copy from serveStatic logic)
+const localClientBuildPath = path.join(__dirname, '..', 'dist', 'public');
+app.use(express.static(localClientBuildPath));
+log(`DEBUG: Serving static files from: ${localClientBuildPath}`);
 
-    // ✅ Serve static files AFTER route registration
-    serveStatic(app);
-    log('📁 Static file serving configured');
+// SPA Fallback
+app.get('*', (req: Request, res: Response) => {
+    if (req.path.startsWith('/api') || req.path.startsWith('/sockjs-node')) {
+        return res.status(404).json({ message: 'API/WebSocket Not Found' });
+    }
+    log(`DEBUG: Attempting to serve index.html for GET path: ${req.path}`);
+    res.sendFile(path.join(localClientBuildPath, 'index.html'));
+});
 
-    // ✅ Keep your custom error handler
-    app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-      log(`🚨 ERROR HANDLER HIT: ${req.method} ${req.path} - Status: ${err.status || 500} - ${err.message}`, "error");
-      res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
-    });
+// No error handler for this bare-bones test
 
-    const port = parseInt(process.env.PORT || "5000", 10);
-    const host = process.env.HOST || "0.0.0.0";
-
-    server.listen(port, host, () => {
-      log(`🚀 Server WITH routes running on http://${host}:${port}`);
-    });
-  } catch (error) {
-    console.error('❌ Server startup failed:', error);
-    process.exit(1);
-  }
-})();
+const port = parseInt(process.env.PORT || "5000", 10);
+const host = process.env.HOST || "0.0.0.0";
+const server = createServer(app);
+server.listen(port, host, () => {
+    log(`🚀 DEBUG Server running on http://${host}:${port}`);
+});
