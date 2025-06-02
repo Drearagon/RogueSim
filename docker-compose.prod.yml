@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: roguesim-postgres
+    environment:
+      POSTGRES_DB: roguesim
+      POSTGRES_USER: roguesim_user
+      POSTGRES_PASSWORD: nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    restart: unless-stopped
+    networks:
+      - roguesim-network
+
+  roguesim:
+    build: .
+    container_name: roguesim-app
+    ports:
+      - "127.0.0.1:5000:5000"
+    environment:
+      - NODE_ENV=production
+    env_file:
+      - .env
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - roguesim-network
+    volumes:
+      - ./logs:/app/logs
+
+volumes:
+  postgres_data:
+
+networks:
+  roguesim-network:
+    driver: bridge
