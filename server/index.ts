@@ -3,10 +3,10 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { fileURLToPath } from 'url';
-import { registerRoutes } from "./routes";
+// import { registerRoutes } from "./routes"; // COMMENTED OUT FOR TEST B
 import { serveStatic, log } from "./vite";
 import path from "path";
-import cors from "cors";
+// import cors from "cors"; // COMMENTED OUT FOR TEST A
 
 // ES module equivalent of __dirname
 const __filename = fileURLToPath(import.meta.url);
@@ -16,24 +16,28 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
 
-// ✅ CRITICAL FIX: CORS middleware MUST be placed BEFORE API routes
-app.use(cors({
-    origin: process.env.CLIENT_URL || '*',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-}));
-log('✅ CORS middleware configured - this should fix 405 errors');
+// ❌ TEST A: CORS middleware COMMENTED OUT to test if it's the 405 source
+// app.use(cors({
+//     origin: process.env.CLIENT_URL || '*',
+//     credentials: true,
+//     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
+//     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+// }));
+// log('✅ CORS middleware configured - this should fix 405 errors');
 
 (async () => {
   try {
-    log('🚀 Starting production server with CORS fix...');
+    log('🧪 TEST B: Starting server WITHOUT registerRoutes AND without CORS...');
     
-    // ✅ Register API routes AFTER CORS
-    const server = await registerRoutes(app);
-    log('✅ API routes registered successfully');
+    // ❌ TEST B: Register API routes COMMENTED OUT
+    // const server = await registerRoutes(app);
+    // log('✅ API routes registered - testing if CORS was causing 405...');
+    
+    // ✅ TEST B: Use basic HTTP server instead
+    const server = createServer(app);
+    log('✅ Basic HTTP server created - testing if registerRoutes was causing 405...');
 
-    // ✅ Serve static files AFTER route registration
+    // ✅ Serve static files (without API routes)
     serveStatic(app);
     log('📁 Static file serving configured');
 
@@ -47,8 +51,8 @@ log('✅ CORS middleware configured - this should fix 405 errors');
     const host = process.env.HOST || "0.0.0.0";
 
     server.listen(port, host, () => {
-      log(`🚀 Production server with CORS fix running on http://${host}:${port}`);
-      log(`🎯 405 Method Not Allowed errors should now be resolved!`);
+      log(`🧪 TEST B: Server WITHOUT registerRoutes AND CORS running on http://${host}:${port}`);
+      log(`🎯 Testing if registerRoutes was the 405 source...`);
     });
   } catch (error) {
     console.error('❌ Server startup failed:', error);
