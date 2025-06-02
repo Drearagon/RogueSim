@@ -3,7 +3,7 @@ import 'dotenv/config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { fileURLToPath } from 'url';
-import { registerRoutes } from "./routes";
+// import { registerRoutes } from "./routes"; // COMMENTED OUT FOR TEST B
 import { serveStatic, log } from "./vite";
 import path from "path";
 // import cors from "cors"; // COMMENTED OUT FOR TEST A
@@ -27,13 +27,17 @@ app.use(express.urlencoded({ extended: false }));
 
 (async () => {
   try {
-    log('🧪 TEST A: Starting server WITHOUT CORS middleware...');
+    log('🧪 TEST B: Starting server WITHOUT registerRoutes AND without CORS...');
     
-    // ✅ Register API routes (keeping this for Test A)
-    const server = await registerRoutes(app);
-    log('✅ API routes registered - testing if CORS was causing 405...');
+    // ❌ TEST B: Register API routes COMMENTED OUT
+    // const server = await registerRoutes(app);
+    // log('✅ API routes registered - testing if CORS was causing 405...');
+    
+    // ✅ TEST B: Use basic HTTP server instead
+    const server = createServer(app);
+    log('✅ Basic HTTP server created - testing if registerRoutes was causing 405...');
 
-    // ✅ Serve static files AFTER route registration
+    // ✅ Serve static files (without API routes)
     serveStatic(app);
     log('📁 Static file serving configured');
 
@@ -47,8 +51,8 @@ app.use(express.urlencoded({ extended: false }));
     const host = process.env.HOST || "0.0.0.0";
 
     server.listen(port, host, () => {
-      log(`🧪 TEST A: Server WITHOUT CORS running on http://${host}:${port}`);
-      log(`🎯 Testing if CORS was the 405 source...`);
+      log(`🧪 TEST B: Server WITHOUT registerRoutes AND CORS running on http://${host}:${port}`);
+      log(`🎯 Testing if registerRoutes was the 405 source...`);
     });
   } catch (error) {
     console.error('❌ Server startup failed:', error);
