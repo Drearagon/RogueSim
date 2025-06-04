@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SkillNode, SkillTree as SkillTreeType, GameState } from '../types/game';
-import { canPurchaseSkill, purchaseSkill, getSkillsByCategory } from '../lib/skillTree';
+import { canPurchaseSkill, purchaseSkill, getSkillsByCategories } from '../lib/skillSystem';
 import { Lock, Unlock, Zap, Shield, Eye, Users, Cpu } from 'lucide-react';
 
 interface SkillTreeProps {
@@ -29,16 +29,17 @@ const categoryColors = {
 export function SkillTree({ gameState, onUpdateGameState, onClose }: SkillTreeProps) {
   const [selectedSkill, setSelectedSkill] = useState<SkillNode | null>(null);
   const [hoveredSkill, setHoveredSkill] = useState<string | null>(null);
-  const skillsByCategory = getSkillsByCategory(gameState.skillTree);
+  const skillsByCategory = getSkillsByCategories(gameState.skillTree);
 
   const handlePurchaseSkill = (skillId: string) => {
-    if (canPurchaseSkill(skillId, gameState.skillTree)) {
-      const newSkillTree = purchaseSkill(skillId, gameState.skillTree);
+    const canPurchase = canPurchaseSkill(skillId, gameState.skillTree);
+    if (canPurchase.canPurchase) {
+      const result = purchaseSkill(skillId, gameState.skillTree);
       onUpdateGameState({ 
-        skillTree: newSkillTree,
+        skillTree: result.skillTree,
         unlockedCommands: [
           ...gameState.unlockedCommands,
-          ...newSkillTree.nodes.find(n => n.id === skillId)?.unlocks || []
+          ...result.unlockedCommands
         ]
       });
       setSelectedSkill(null);

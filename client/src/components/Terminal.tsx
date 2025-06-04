@@ -1,14 +1,30 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSound } from '../hooks/useSound';
-import { commands } from '../lib/commands';
+import { commands, isCommandAvailable, getInitialUnlockedCommands } from '../lib/commands';
 import { GameState } from '../types/game';
 import { logCommand } from '../lib/gameStorage';
 import { checkEasterEgg, discoverEasterEgg, checkKonamiCode, loadDiscoveredEasterEggs, getEasterEggStats, EasterEgg } from '../lib/easterEggs';
 import { MemoryTrace } from './MemoryTrace';
+import { MissionCompleteNotification } from './MissionCompleteNotification';
+import { trackMissionProgress, checkStepCompletion } from '../lib/missionTracker';
+import { TerminalSettings } from './TerminalSettings';
 
 interface TerminalProps {
   gameState: GameState;
   onGameStateUpdate: (updates: Partial<GameState>) => void;
+}
+
+export interface TerminalSettingsType {
+  colorScheme: string;
+  primaryColor: string;
+  backgroundColor: string;
+  textColor: string;
+  fontSize: number;
+  fontFamily: string;
+  soundEnabled: boolean;
+  scanlineEffect: boolean;
+  glowEffect: boolean;
+  typingSpeed: number;
 }
 
 export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
@@ -19,7 +35,54 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [cursorVisible, setCursorVisible] = useState(true);
   const [showMemoryTrace, setShowMemoryTrace] = useState(false);
+  const [showMissionComplete, setShowMissionComplete] = useState(false);
+  const [missionCompleteData, setMissionCompleteData] = useState<{
+    missionTitle: string;
+    reward: number;
+  } | null>(null);
+  const [showSettings, setShowSettings] = useState(false);
+  const [terminalSettings, setTerminalSettings] = useState<TerminalSettingsType>({
+    colorScheme: 'classic',
+    primaryColor: '#00ff00',
+    backgroundColor: '#000000',
+    textColor: '#00ff00',
+    fontSize: 14,
+    fontFamily: 'JetBrains Mono, monospace',
+    soundEnabled: true,
+    scanlineEffect: true,
+    glowEffect: true,
+    typingSpeed: 5
+  });
   const { playKeypress, playError, playSuccess } = useSound();
+
+  // Listen for mission completion events
+  useEffect(() => {
+    const handleMissionComplete = (event: CustomEvent) => {
+      setMissionCompleteData(event.detail);
+      setShowMissionComplete(true);
+      playSuccess(); // Play success sound
+    };
+
+    const handleOpenSettings = () => {
+      setShowSettings(true);
+    };
+
+    window.addEventListener('missionComplete', handleMissionComplete as EventListener);
+    window.addEventListener('openSettings', handleOpenSettings);
+    
+    return () => {
+      window.removeEventListener('missionComplete', handleMissionComplete as EventListener);
+      window.removeEventListener('openSettings', handleOpenSettings);
+    };
+  }, [playSuccess]);
+
+  // Emit terminal settings changes to other components
+  useEffect(() => {
+    const event = new CustomEvent('terminalSettingsChanged', {
+      detail: terminalSettings
+    });
+    window.dispatchEvent(event);
+  }, [terminalSettings]);
 
   // Cursor blink effect
   useEffect(() => {
@@ -46,20 +109,41 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     ];
     setOutput(welcomeMessage);
     
-    // Ensure shop command is always available
-    if (!gameState.unlockedCommands.includes('shop')) {
+    // Ensure all initial commands are available
+    const initialCommands = getInitialUnlockedCommands();
+    const currentCommands = gameState.unlockedCommands || [];
+    const missingCommands = initialCommands.filter(cmd => !currentCommands.includes(cmd));
+    
+    if (missingCommands.length > 0) {
       onGameStateUpdate({
-        unlockedCommands: [...gameState.unlockedCommands, 'shop']
+        unlockedCommands: [...currentCommands, ...missingCommands]
       });
     }
   }, []);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom, but keep input visible
   useEffect(() => {
     if (terminalRef.current) {
-      terminalRef.current.scrollTop = terminalRef.current.scrollHeight;
+      const terminal = terminalRef.current;
+      
+      // Always scroll to bottom to keep input visible
+      requestAnimationFrame(() => {
+        terminal.scrollTop = terminal.scrollHeight;
+      });
     }
   }, [output]);
+
+  // Ensure input stays visible when user types
+  useEffect(() => {
+    if (terminalRef.current) {
+      const terminal = terminalRef.current;
+      
+      // Scroll to bottom when input changes to keep cursor visible
+      requestAnimationFrame(() => {
+        terminal.scrollTop = terminal.scrollHeight;
+      });
+    }
+  }, [currentInput]);
 
   const executeCommand = (input: string) => {
     if (!input.trim()) return;
@@ -90,19 +174,30 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       return;
     }
 
-    // Allow certain commands to bypass unlock system
-    const alwaysAvailable = ['help', 'multiplayer', 'leaderboard', 'devmode', 'easter', 'reset_shop', 'tutorial', 'settings', 'shop', 'clear', 'status'];
-    if (!gameState.unlockedCommands.includes(commandName) && !alwaysAvailable.includes(commandName)) {
-      setOutput(prev => [...prev, 'ERROR: Command locked. Complete missions to unlock.', '']);
+    if (!isCommandAvailable(commandName, gameState)) {
+      setOutput(prev => [...prev, 'ERROR: Command locked. Complete missions or purchase from shop to unlock.', '']);
       playError();
       return;
     }
 
     // Execute command
-    const result = commands[commandName].execute(args, gameState, onGameStateUpdate);
+    const result = commands[commandName].execute(args, gameState);
+    
+    // Track mission progress if command was successful
+    if (result.success && checkStepCompletion(commandName, args, result.success, gameState)) {
+      const missionUpdates = trackMissionProgress(commandName, args, result.success, gameState);
+      if (Object.keys(missionUpdates).length > 0) {
+        // Merge mission updates with any existing game state updates
+        const combinedUpdates = {
+          ...result.updateGameState,
+          ...missionUpdates
+        };
+        onGameStateUpdate(combinedUpdates);
+      }
+    }
     
     // Log command execution to database
-    logCommand(commandName, args, result.success, result.output).catch(error => {
+    logCommand(commandName, args, result.success).catch(error => {
       console.warn('Failed to log command:', error);
     });
     
@@ -115,7 +210,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     // Add output
     setOutput(prev => [...prev, ...result.output]);
 
-    // Update game state if needed
+    // Handle game state updates
     if (result.updateGameState) {
       onGameStateUpdate(result.updateGameState);
     }
@@ -125,7 +220,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       setShowMemoryTrace(true);
     }
 
-    // Play sound effect
+    // Handle sound effects
     if (result.soundEffect) {
       switch (result.soundEffect) {
         case 'success':
@@ -135,7 +230,6 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           playError();
           break;
         case 'keypress':
-        default:
           playKeypress();
           break;
       }
@@ -144,6 +238,9 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     } else {
       playError();
     }
+
+    // Add empty line for readability
+    setOutput(prev => [...prev, '']);
   }
 
   const handleEasterEggDiscovery = (easterEgg: EasterEgg) => {
@@ -260,27 +357,55 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full max-w-full bg-gradient-to-br from-black via-green-900/5 to-black relative overflow-x-hidden">
+    <div 
+      className="flex flex-col h-screen w-full relative"
+      style={{
+        backgroundColor: terminalSettings.backgroundColor,
+        fontFamily: terminalSettings.fontFamily,
+        fontSize: `${terminalSettings.fontSize}px`,
+        maxWidth: '100vw',
+        overflowX: 'hidden'
+      }}
+    >
       {/* Scanline effect */}
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-500/30 to-transparent animate-pulse" 
-             style={{ top: '50%', animation: 'scanline 2s linear infinite' }}>
+      {terminalSettings.scanlineEffect && (
+        <div className="absolute inset-0 pointer-events-none">
+          <div 
+            className="absolute w-full h-0.5 animate-pulse" 
+            style={{ 
+              top: '50%', 
+              animation: 'scanline 2s linear infinite',
+              background: `linear-gradient(to right, transparent, ${terminalSettings.primaryColor}30, transparent)`
+            }}>
+          </div>
         </div>
-      </div>
+      )}
       
       {/* Status bar */}
-      <div className="bg-green-900/20 border-b border-green-500/50 px-2 md:px-4 py-2 flex items-center justify-between text-xs md:text-sm backdrop-blur-sm flex-shrink-0">
+      <div 
+        className="border-b px-2 md:px-4 py-2 flex items-center justify-between text-xs md:text-sm backdrop-blur-sm flex-shrink-0"
+        style={{
+          backgroundColor: `${terminalSettings.backgroundColor}cc`,
+          borderColor: `${terminalSettings.primaryColor}80`,
+          color: terminalSettings.textColor
+        }}
+      >
         <div className="flex items-center space-x-2 md:space-x-4">
-          <span className="text-cyan-400 hidden md:inline">RogueSim v1.0</span>
-          <span className="text-cyan-400 md:hidden">RS</span>
-          <span className="animate-pulse text-green-500">●</span>
-          <span className="text-green-400 truncate">{gameState.networkStatus}</span>
+          <span className="hidden md:inline" style={{ color: terminalSettings.primaryColor }}>RogueSim v1.0</span>
+          <span className="md:hidden" style={{ color: terminalSettings.primaryColor }}>RS</span>
+          <span className="animate-pulse" style={{ color: terminalSettings.primaryColor }}>●</span>
+          <span className="truncate" style={{ color: terminalSettings.textColor }}>{gameState.networkStatus}</span>
         </div>
         <div className="flex items-center space-x-2 md:space-x-4">
-          <span className="text-yellow-400 hidden md:inline">{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
-          <span className="text-green-400 hidden md:inline">UNDISCLOSED</span>
+          <span className="hidden md:inline" style={{ color: '#ffb000' }}>{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+          <span className="hidden md:inline" style={{ color: terminalSettings.textColor }}>UNDISCLOSED</span>
           <button 
-            className="border border-green-500 bg-transparent text-green-500 px-2 py-1 text-xs hover:bg-green-500 hover:text-black transition-colors"
+            className="border bg-transparent px-2 py-1 text-xs hover:opacity-80 transition-colors flex-shrink-0"
+            style={{
+              borderColor: terminalSettings.primaryColor,
+              color: terminalSettings.primaryColor,
+              minWidth: '32px'
+            }}
             onClick={() => {
               const newEnabled = !gameState.soundEnabled;
               onGameStateUpdate({ soundEnabled: newEnabled });
@@ -294,31 +419,54 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       {/* Terminal content */}
       <div 
         ref={terminalRef}
-        className="flex-1 min-h-0 p-2 md:p-4 overflow-y-auto font-mono text-green-500 focus:outline-none text-xs md:text-sm"
+        className="flex-1 min-h-0 p-2 md:p-4 font-mono focus:outline-none text-xs md:text-sm terminal-scroll"
+        style={{
+          color: terminalSettings.textColor,
+          textShadow: terminalSettings.glowEffect ? `0 0 5px ${terminalSettings.primaryColor}` : 'none',
+          maxWidth: '100%',
+          overflowX: 'hidden'
+        }}
         tabIndex={0}
         onKeyDown={handleKeyDown}
         onClick={() => terminalRef.current?.focus()}
       >
-        <div className="min-h-full w-full max-w-full">
+        <div className="min-h-full w-full" style={{ maxWidth: '100%', overflowWrap: 'break-word' }}>
           {output.map((line, index) => (
-            <div key={index} className="whitespace-pre-wrap break-all w-full max-w-full overflow-hidden">
+            <div key={index} className="whitespace-pre-wrap break-all w-full" style={{ maxWidth: '100%', overflowWrap: 'break-word' }}>
               {line}
             </div>
           ))}
           
           {/* Current input line */}
-          <div className="flex items-center w-full max-w-full overflow-hidden">
-            <span className="text-green-400 flex-shrink-0">shadow@roguesim:~$ </span>
-            <span className="break-all flex-1 min-w-0">{currentInput}</span>
-            <span className={`ml-0 flex-shrink-0 ${cursorVisible ? 'opacity-100' : 'opacity-0'} bg-green-500`}>█</span>
+          <div className="flex items-center w-full" style={{ maxWidth: '100%' }}>
+            <span className="flex-shrink-0" style={{ color: terminalSettings.primaryColor }}>shadow@roguesim:~$ </span>
+            <div className="flex items-center flex-1 min-w-0">
+              <span className="break-all" style={{ overflowWrap: 'break-word' }}>{currentInput}</span>
+              <span 
+                className={`${cursorVisible ? 'opacity-100' : 'opacity-0'} transition-opacity`}
+                style={{ 
+                  backgroundColor: terminalSettings.primaryColor,
+                  width: '2px',
+                  height: '1.2em',
+                  display: 'inline-block',
+                  marginLeft: '1px'
+                }}
+              >|</span>
+            </div>
           </div>
         </div>
       </div>
       
       {/* Mobile input area */}
-      <div className="md:hidden bg-black/90 border-t border-green-500/50 p-3 flex-shrink-0">
+      <div 
+        className="md:hidden border-t p-3 flex-shrink-0"
+        style={{
+          backgroundColor: `${terminalSettings.backgroundColor}e6`,
+          borderColor: `${terminalSettings.primaryColor}80`
+        }}
+      >
         <div className="flex items-center space-x-2">
-          <span className="text-green-400 text-sm">$</span>
+          <span className="text-sm" style={{ color: terminalSettings.primaryColor }}>$</span>
           <input
             type="text"
             value={currentInput}
@@ -330,7 +478,11 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
                 e.preventDefault();
               }
             }}
-            className="flex-1 bg-transparent border border-green-500/50 text-green-500 p-2 text-sm font-mono focus:outline-none focus:border-green-400 min-w-0"
+            className="flex-1 bg-transparent border text-sm font-mono focus:outline-none min-w-0"
+            style={{
+              borderColor: `${terminalSettings.primaryColor}80`,
+              color: terminalSettings.textColor
+            }}
             placeholder="Type command here..."
             autoComplete="off"
             autoCapitalize="off"
@@ -342,7 +494,11 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
               executeCommand(currentInput);
               setCurrentInput('');
             }}
-            className="bg-green-500 text-black px-3 py-2 text-sm font-bold hover:bg-green-400 transition-colors flex-shrink-0"
+            className="px-3 py-2 text-sm font-bold hover:opacity-80 transition-colors flex-shrink-0"
+            style={{
+              backgroundColor: terminalSettings.primaryColor,
+              color: terminalSettings.backgroundColor
+            }}
           >
             EXEC
           </button>
@@ -354,7 +510,11 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
             <button
               key={cmd}
               onClick={() => setCurrentInput(cmd)}
-              className="border border-green-500/50 bg-transparent text-green-500 px-2 py-1 text-xs hover:bg-green-500 hover:text-black transition-colors"
+              className="border bg-transparent px-2 py-1 text-xs hover:opacity-80 transition-colors"
+              style={{
+                borderColor: `${terminalSettings.primaryColor}80`,
+                color: terminalSettings.primaryColor
+              }}
             >
               {cmd}
             </button>
@@ -362,14 +522,31 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
         </div>
       </div>
       
-      {/* Command hints - Hidden on mobile to save space */}
-      <div className="absolute bottom-4 left-4 bg-black/80 border border-green-500/50 p-2 rounded backdrop-blur-sm opacity-75 hover:opacity-100 transition-opacity hidden md:block">
-        <div className="text-xs space-y-1">
-          <div className="text-cyan-400">Quick Commands:</div>
-          <div className="grid grid-cols-3 gap-2 text-green-400">
-            <span className="cursor-pointer hover:text-green-300" onClick={() => setCurrentInput('help')}>help</span>
-            <span className="cursor-pointer hover:text-green-300" onClick={() => setCurrentInput('scan wifi')}>scan wifi</span>
-            <span className="cursor-pointer hover:text-green-300" onClick={() => setCurrentInput('status')}>status</span>
+      {/* Command hints - Positioned to avoid blocking UI elements */}
+      <div 
+        className="absolute top-40 right-1 border p-1 rounded backdrop-blur-sm opacity-50 hover:opacity-80 transition-opacity hidden md:block z-20 max-w-24"
+        style={{
+          backgroundColor: `${terminalSettings.backgroundColor}ee`,
+          borderColor: `${terminalSettings.primaryColor}40`
+        }}
+      >
+        <div className="text-xs space-y-0.5">
+          <div style={{ color: '#00ffff', fontSize: '9px' }}>Quick:</div>
+          <div className="grid grid-cols-1 gap-0.5">
+            {['help', 'status'].map((cmd) => (
+              <span 
+                key={cmd}
+                className="cursor-pointer hover:opacity-80 px-1 py-0.5 border rounded text-center transition-opacity"
+                style={{
+                  color: terminalSettings.textColor,
+                  borderColor: `${terminalSettings.primaryColor}30`,
+                  fontSize: '9px'
+                }}
+                onClick={() => setCurrentInput(cmd)}
+              >
+                {cmd}
+              </span>
+            ))}
           </div>
         </div>
       </div>
@@ -379,6 +556,26 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
         <MemoryTrace 
           gameState={gameState}
           onClose={() => setShowMemoryTrace(false)}
+        />
+      )}
+
+      {/* Mission Complete Notification */}
+      {showMissionComplete && missionCompleteData && (
+        <MissionCompleteNotification
+          isVisible={showMissionComplete}
+          missionTitle={missionCompleteData.missionTitle}
+          reward={missionCompleteData.reward}
+          onClose={() => setShowMissionComplete(false)}
+        />
+      )}
+
+      {/* Terminal Settings */}
+      {showSettings && (
+        <TerminalSettings
+          isOpen={showSettings}
+          onClose={() => setShowSettings(false)}
+          settings={terminalSettings}
+          onSettingsChange={setTerminalSettings}
         />
       )}
     </div>

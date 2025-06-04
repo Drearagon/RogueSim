@@ -4,3 +4,96 @@ dist
 server/public
 vite.config.ts.*
 *.tar.gz
+
+# Environment files
+.env
+.env.local
+.env.development
+.env.production
+.env.*
+
+# Database
+*.db
+*.sqlite
+
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+
+# Temporary files
+.tmp/
+temp/
+
+# Security - API keys and secrets (never commit these!)
+server-secrets.conf
+.env.production
+secrets.env
+api-keys.conf
+*.key
+*.pem
+*.p12
+*credentials*
+*secrets*
+*config.json
+*auth*token*
+
+# Nginx Configuration Files (prevent overwriting server configs)
+nginx.conf
+nginx/
+/etc/nginx/
+sites-available/
+sites-enabled/
+conf.d/
+nginx-*.conf
+roguesim.conf
+roguesim-nginx.conf
+default.conf
+ssl.conf
+
+# SSL Certificates and Keys
+ssl/
+certs/
+certificates/
+*.crt
+*.cert
+*.ca-bundle
+letsencrypt/
+certbot/
+
+# Server-specific files
+/etc/
+/var/
+systemd/
+service/
+*.service
+
+# Docker files (protect server customizations)
+
+
+# Server maintenance scripts (if you create custom ones)
+backup-*
+restore-*
+server-maintenance-*
+custom-*

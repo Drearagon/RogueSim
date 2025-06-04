@@ -5,6 +5,7 @@ import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
+import { fileURLToPath } from 'url';
 
 const viteLogger = createLogger();
 
@@ -23,7 +24,7 @@ export async function setupVite(app: Express, server: Server) {
   const serverOptions = {
     middlewareMode: true,
     hmr: { server },
-    allowedHosts: true,
+    allowedHosts: true as const,
   };
 
   const vite = await createViteServer({
@@ -68,18 +69,46 @@ export async function setupVite(app: Express, server: Server) {
 }
 
 export function serveStatic(app: Express) {
-  const distPath = path.resolve(import.meta.dirname, "public");
+    // Use local path for local development, Docker path only when actually in Docker
+    const isInDocker = fs.existsSync('/app'); // Simple Docker detection
+    const staticPath = isInDocker 
+        ? '/app/dist/public' 
+        : path.resolve(process.cwd(), 'dist', 'public');
+    
+    const indexPath = path.join(staticPath, 'index.html');
 
-  if (!fs.existsSync(distPath)) {
-    throw new Error(
-      `Could not find the build directory: ${distPath}, make sure to build the client first`,
-    );
-  }
+    // Log if the file exists (for debugging)
+    if (fs.existsSync(indexPath)) {
+        log(`DEBUG: Final check - index.html exists at ${indexPath}`);
+    } else {
+        log(`DEBUG: Critical! index.html NOT found at ${indexPath}`);
+        log(`DEBUG: Current working directory: ${process.cwd()}`);
+        log(`DEBUG: Checking if dist/public exists: ${fs.existsSync(staticPath)}`);
+        log(`DEBUG: Docker detected: ${isInDocker}`);
+    }
 
-  app.use(express.static(distPath));
+    // FIRST: Serve static files (CSS, JS, images, etc.)
+    log(`DEBUG: Setting up express.static for: ${staticPath}`);
+    app.use(express.static(staticPath));
 
-  // fall through to index.html if the file doesn't exist
-  app.use("*", (_req, res) => {
-    res.sendFile(path.resolve(distPath, "index.html"));
-  });
+    // SECOND: Catch-all for SPA routing (only for non-asset requests)
+    app.get('*', (req, res) => {
+        // If it's an API call, let other routes handle it (or return 404)
+        if (req.path.startsWith('/api') || req.path.startsWith('/sockjs-node')) {
+            log(`DEBUG: Skipping index.html for API/WebSocket path: ${req.path}`);
+            return res.status(404).json({ message: 'API Not Found or not implemented yet' });
+        }
+
+        // Log every time this fallback is hit
+        log(`DEBUG: SPA fallback - serving index.html for path: ${req.path}`, 'debug');
+
+        res.sendFile(indexPath, (err) => {
+            if (err) {
+                log(`DEBUG: Error serving index.html for ${req.path}: ${err.message}`, 'error');
+                res.status(500).send('<h1>Server Error: Could not load frontend.</h1>');
+            } else {
+                log(`DEBUG: Successfully served index.html for ${req.path}`, 'debug');
+            }
+        });
+    });
 }

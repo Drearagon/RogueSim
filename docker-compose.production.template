@@ -1,0 +1,66 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    # Remove external port exposure since nginx will proxy to this container
+    # If you need direct access for debugging, use: ports: ["3000:5000"]
+    expose:
+      - "5000"
+    environment:
+      - NODE_ENV=production
+      - DATABASE_URL=postgresql://rogueuser:${DB_PASSWORD:-nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=}@postgres:5432/roguesim
+      - SESSION_SECRET=${SESSION_SECRET:-your-super-secret-session-key-here}
+      - SENDGRID_API_KEY=${SENDGRID_API_KEY}
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - roguesim-network
+
+  postgres:
+    image: postgres:15
+    container_name: roguesim-postgres
+    environment:
+      - POSTGRES_DB=roguesim
+      - POSTGRES_USER=rogueuser
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-nZrdLEehQFVTZ9ogVZXxmfpKOe68thkQTtwuVXaokQM=}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    # Only expose postgres port if needed for external access
+    # ports:
+    #   - "5432:5432"
+    expose:
+      - "5432"
+    restart: unless-stopped
+    networks:
+      - roguesim-network
+
+  # Optional: Database management UI
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: roguesim-pgadmin
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=uplink@roguesim.com
+      - PGADMIN_DEFAULT_PASSWORD=roguesim123
+    ports:
+      - "8080:80"  # Keep this for admin access
+    depends_on:
+      - postgres
+    restart: unless-stopped
+    networks:
+      - roguesim-network
+
+networks:
+  roguesim-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+
+# Production Notes:
+# 1. App container exposes port 5000 internally only
+# 2. Nginx should proxy to http://roguesim-app-1:5000
+# 3. Database is not exposed externally for security
+# 4. Copy this to docker-compose.yml on your server 

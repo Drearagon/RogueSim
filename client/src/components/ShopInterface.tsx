@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { GameState } from '../types/game';
-import { purchaseSkill, canPurchaseSkill } from '../lib/skillTree';
+import { purchaseSkill, canPurchaseSkill, skillCommandUnlocks } from '../lib/skillSystem';
 import { HARDWARE_ITEMS, SOFTWARE_ITEMS, BLACKMARKET_ITEMS } from '../lib/shop/items';
 import { 
   ShoppingCart, 
@@ -39,6 +39,16 @@ interface ShopItem {
 
 const hardwareItems: ShopItem[] = [
   {
+    id: 'esp32_dev',
+    name: 'ESP32 Dev Board',
+    description: 'Advanced IoT hacking capabilities',
+    price: 300,
+    category: 'hardware',
+    unlocks: ['iot_hack'],
+    icon: Cpu,
+    rarity: 'common' as const
+  },
+  {
     id: 'wifi_adapter',
     name: 'High-Gain WiFi Adapter',
     description: 'Extended range wireless scanning capabilities',
@@ -46,7 +56,7 @@ const hardwareItems: ShopItem[] = [
     category: 'hardware',
     unlocks: ['extended_scan'],
     icon: Shield,
-    rarity: 'common'
+    rarity: 'common' as const
   },
   {
     id: 'usb_killer',
@@ -56,19 +66,9 @@ const hardwareItems: ShopItem[] = [
     category: 'hardware',
     unlocks: ['usb_attack'],
     icon: Zap,
-    rarity: 'rare'
-  },
-  {
-    id: 'esp32_dev',
-    name: 'ESP32 Dev Board',
-    description: 'Advanced IoT hacking capabilities',
-    price: 300,
-    category: 'hardware',
-    unlocks: ['iot_hack'],
-    icon: Cpu,
-    rarity: 'common'
+    rarity: 'rare' as const
   }
-];
+].sort((a, b) => a.price - b.price);
 
 const softwareItems: ShopItem[] = [
   {
@@ -79,7 +79,7 @@ const softwareItems: ShopItem[] = [
     category: 'software',
     payload: 'payload_basic',
     icon: Eye,
-    rarity: 'common'
+    rarity: 'common' as const
   },
   {
     id: 'stealth_payload',
@@ -89,7 +89,7 @@ const softwareItems: ShopItem[] = [
     category: 'software',
     payload: 'payload_stealth',
     icon: Shield,
-    rarity: 'rare'
+    rarity: 'rare' as const
   },
   {
     id: 'data_extractor',
@@ -99,9 +99,9 @@ const softwareItems: ShopItem[] = [
     category: 'software',
     payload: 'payload_extract',
     icon: Zap,
-    rarity: 'rare'
+    rarity: 'rare' as const
   }
-];
+].sort((a, b) => a.price - b.price);
 
 const blackMarketItems: ShopItem[] = [
   {
@@ -112,7 +112,7 @@ const blackMarketItems: ShopItem[] = [
     category: 'exploit',
     unlocks: ['zero_day_attack'],
     icon: Skull,
-    rarity: 'legendary'
+    rarity: 'legendary' as const
   },
   {
     id: 'corp_database',
@@ -122,7 +122,7 @@ const blackMarketItems: ShopItem[] = [
     category: 'intel',
     unlocks: ['corp_access'],
     icon: Lock,
-    rarity: 'legendary'
+    rarity: 'legendary' as const
   },
   {
     id: 'gov_backdoor',
@@ -132,9 +132,9 @@ const blackMarketItems: ShopItem[] = [
     category: 'exploit',
     unlocks: ['gov_access'],
     icon: Users,
-    rarity: 'legendary'
+    rarity: 'legendary' as const
   }
-];
+].sort((a, b) => a.price - b.price);
 
 export function ShopInterface({ gameState, onUpdateGameState, onClose }: ShopInterfaceProps) {
   const [activeTab, setActiveTab] = useState<ShopTab>('software');
@@ -175,6 +175,20 @@ export function ShopInterface({ gameState, onUpdateGameState, onClose }: ShopInt
       case 'rare': return 'border-blue-500/30 bg-blue-900/10';
       case 'legendary': return 'border-purple-500/30 bg-purple-900/10';
       default: return 'border-gray-500/30 bg-gray-900/10';
+    }
+  };
+
+  const handleSkillPurchase = (skillId: string) => {
+    const canPurchase = canPurchaseSkill(skillId, gameState.skillTree);
+    if (canPurchase.canPurchase) {
+      const result = purchaseSkill(skillId, gameState.skillTree);
+      onUpdateGameState({ 
+        skillTree: result.skillTree,
+        unlockedCommands: [
+          ...gameState.unlockedCommands,
+          ...result.unlockedCommands
+        ]
+      });
     }
   };
 
@@ -407,13 +421,14 @@ interface SkillsTabContentProps {
 
 function SkillsTabContent({ gameState, onUpdateGameState }: SkillsTabContentProps) {
   const handleSkillPurchase = (skillId: string) => {
-    if (canPurchaseSkill(skillId, gameState.skillTree)) {
-      const newSkillTree = purchaseSkill(skillId, gameState.skillTree);
+    const canPurchase = canPurchaseSkill(skillId, gameState.skillTree);
+    if (canPurchase.canPurchase) {
+      const result = purchaseSkill(skillId, gameState.skillTree);
       onUpdateGameState({ 
-        skillTree: newSkillTree,
+        skillTree: result.skillTree,
         unlockedCommands: [
           ...gameState.unlockedCommands,
-          ...newSkillTree.nodes.find(n => n.id === skillId)?.unlocks || []
+          ...result.unlockedCommands
         ]
       });
     }
@@ -433,39 +448,81 @@ function SkillsTabContent({ gameState, onUpdateGameState }: SkillsTabContentProp
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {gameState.skillTree.nodes
-          .filter(skill => skill.unlocked && !skill.purchased)
+          .filter(skill => skill.unlocked)
           .map((skill) => {
             const canPurchase = canPurchaseSkill(skill.id, gameState.skillTree);
+            const isPurchased = skill.purchased;
             
             return (
               <motion.div
                 key={skill.id}
                 whileHover={{ scale: 1.02 }}
                 className={`p-4 rounded-lg border-2 transition-all ${
-                  canPurchase 
-                    ? 'border-green-500/50 bg-green-900/20 cursor-pointer' 
+                  isPurchased
+                    ? 'border-green-400/50 bg-green-900/20'
+                    : canPurchase.canPurchase
+                    ? 'border-green-500/50 bg-green-900/20 cursor-pointer'
                     : 'border-gray-600/30 bg-gray-900/20'
                 }`}
-                onClick={() => canPurchase && handleSkillPurchase(skill.id)}
+                onClick={() => canPurchase.canPurchase && handleSkillPurchase(skill.id)}
               >
-                <h4 className="font-semibold text-green-300 mb-2">{skill.name}</h4>
+                <div className="flex items-center gap-3 mb-2">
+                  <h4 className={`font-semibold ${isPurchased ? 'text-green-400' : 'text-green-300'}`}>
+                    {skill.name}
+                  </h4>
+                  {isPurchased && <Unlock className="w-5 h-5 text-green-400" />}
+                </div>
+                
                 <p className="text-sm text-green-300/70 mb-3">{skill.description}</p>
                 
+                {isPurchased && (
+                  <div className="mb-3 p-2 bg-green-900/30 rounded border border-green-400/30">
+                    <p className="text-xs text-green-400 font-medium">
+                      ✓ SKILL ACQUIRED - Level {skill.currentLevel}/{skill.maxLevel}
+                    </p>
+                  </div>
+                )}
+                
                 <div className="flex justify-between items-center">
-                  <span className={`font-bold ${canPurchase ? 'text-green-400' : 'text-gray-400'}`}>
+                  <span className={`font-bold ${
+                    isPurchased 
+                      ? 'text-green-400' 
+                      : canPurchase.canPurchase 
+                      ? 'text-green-400' 
+                      : 'text-gray-400'
+                  }`}>
                     {skill.cost} SP
                   </span>
                   
-                  {canPurchase && (
+                  {canPurchase.canPurchase && (
                     <button className="px-3 py-1 bg-green-600 hover:bg-green-500 text-white rounded text-sm font-medium transition-colors">
-                      Upgrade
+                      {isPurchased ? 'Upgrade' : 'Purchase'}
                     </button>
+                  )}
+                  
+                  {!canPurchase.canPurchase && (
+                    <span className="text-xs text-red-400">
+                      {canPurchase.reason}
+                    </span>
                   )}
                 </div>
 
+                {skill.bonuses && skill.bonuses.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-700">
+                    <p className="text-xs text-green-400/70 mb-1">Bonuses:</p>
+                    <div className="space-y-1">
+                      {skill.bonuses.map((bonus, index) => (
+                        <span key={index} className="text-xs px-2 py-1 bg-blue-900/30 text-blue-400 rounded block">
+                          {bonus.description}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {skill.unlocks.length > 0 && (
                   <div className="mt-3 pt-3 border-t border-gray-700">
-                    <p className="text-xs text-green-400/70 mb-1">Unlocks:</p>
+                    <p className="text-xs text-green-400/70 mb-1">Unlocks Skills:</p>
                     <div className="flex flex-wrap gap-1">
                       {skill.unlocks.map((unlock) => (
                         <span key={unlock} className="text-xs px-2 py-1 bg-green-900/30 text-green-400 rounded">
@@ -475,10 +532,29 @@ function SkillsTabContent({ gameState, onUpdateGameState }: SkillsTabContentProp
                     </div>
                   </div>
                 )}
+
+                {skillCommandUnlocks[skill.id] && skillCommandUnlocks[skill.id].length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-gray-700">
+                    <p className="text-xs text-purple-400/70 mb-1">Unlocks Commands:</p>
+                    <div className="flex flex-wrap gap-1">
+                      {skillCommandUnlocks[skill.id].map((command) => (
+                        <span key={command} className="text-xs px-2 py-1 bg-purple-900/30 text-purple-400 rounded">
+                          {command}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </motion.div>
             );
           })}
       </div>
+      
+      {gameState.skillTree.nodes.filter(skill => skill.unlocked).length === 0 && (
+        <div className="text-center py-8">
+          <p className="text-green-300/60">No skills available yet. Complete missions to unlock skills!</p>
+        </div>
+      )}
     </motion.div>
   );
 }

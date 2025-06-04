@@ -1,11 +1,27 @@
 import { MailService } from '@sendgrid/mail';
+import { log } from './vite';
 
-if (!process.env.SENDGRID_API_KEY) {
-  throw new Error("SENDGRID_API_KEY environment variable must be set");
+// Export variables that will be initialized later
+export let mailService: MailService;
+export let isEmailEnabled: boolean = false;
+
+export async function initEmailService(): Promise<void> {
+  try {
+    mailService = new MailService();
+    isEmailEnabled = !!process.env.SENDGRID_API_KEY;
+
+    if (isEmailEnabled) {
+      mailService.setApiKey(process.env.SENDGRID_API_KEY!);
+      log('📧 Email service enabled with SendGrid');
+    } else {
+      log('📧 Email service disabled (SENDGRID_API_KEY not set) - using dev mode');
+    }
+  } catch (error) {
+    log(`❌ Email service initialization failed: ${error}`, 'error');
+    // Don't throw error - email service is not critical for the app to function
+    isEmailEnabled = false;
+  }
 }
-
-const mailService = new MailService();
-mailService.setApiKey(process.env.SENDGRID_API_KEY);
 
 export class EmailService {
   static generateVerificationCode(): string {
@@ -14,6 +30,11 @@ export class EmailService {
   }
 
   static async sendVerificationEmail(email: string, hackerName: string, verificationCode: string): Promise<boolean> {
+    if (!isEmailEnabled) {
+      console.log(`📧 [DEV] Verification email for ${hackerName} (${email}): ${verificationCode}`);
+      return true;
+    }
+
     const hackerEmailTemplate = `
 <!DOCTYPE html>
 <html>
@@ -208,6 +229,11 @@ Stay anonymous. Stay secure. Stay in the shadows.
   }
 
   static async sendWelcomeEmail(email: string, hackerName: string): Promise<boolean> {
+    if (!isEmailEnabled) {
+      console.log(`📧 [DEV] Welcome email for ${hackerName} (${email}): Account activated successfully!`);
+      return true;
+    }
+
     const welcomeTemplate = `
 <!DOCTYPE html>
 <html>
