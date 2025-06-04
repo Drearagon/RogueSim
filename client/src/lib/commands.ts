@@ -3123,6 +3123,15 @@ export function isCommandAvailable(commandName: string, gameState: GameState): b
   const command = commands[commandName];
   if (!command) return false;
   
+  // Essential commands that should always be available from the start
+  const essentialCommands = [
+    'help', 'clear', 'status', 'shop', 'tutorial', 'settings', 'reset_shop',
+    'man', 'scan', 'connect', 'inject', 'trace', 'reboot', 'spoof', 'bypass',
+    'easter', 'frequency', 'discovered', 'multiplayer', 'leaderboard', 'profile',
+    'missions', 'factions', 'skills', 'skill_list', 'skill_info', 'skill_bonuses'
+  ];
+  
+  if (essentialCommands.includes(commandName)) return true;
   if (command.unlockLevel === 0) return true; // Always available
   
   return gameState.hackLevel >= command.unlockLevel;
