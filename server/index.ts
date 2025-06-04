@@ -29,13 +29,24 @@ log('✅ FINAL: CORS middleware configured - 405 errors should be resolved');
   try {
     log('🚀 FINAL: Production server with proper CORS + API routes...');
     
-    // ✅ FINAL: Register API routes AFTER CORS
+    // Initialize database first
+    const { initDatabase } = await import('./db.js');
+    await initDatabase();
+    log('✅ Database initialized successfully');
+    
+    // ✅ FINAL: Register API routes AFTER CORS and database init
     const server = await registerRoutes(app);
     log('✅ FINAL: API routes registered successfully');
 
-    // ✅ FINAL: Serve static files AFTER route registration
-    serveStatic(app);
-    log('📁 FINAL: Static file serving configured');
+    // ✅ FINAL: Setup development or production serving
+    if (process.env.NODE_ENV === 'development') {
+      const { setupVite } = await import('./vite.js');
+      await setupVite(app, server);
+      log('📁 FINAL: Vite development server configured');
+    } else {
+      serveStatic(app);
+      log('📁 FINAL: Static file serving configured');
+    }
 
     // ✅ FINAL: Error handler LAST
     app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
