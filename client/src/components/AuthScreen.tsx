@@ -84,12 +84,29 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
       const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
       
       if (isLogin) {
-        // Login logic
-        const userKey = `${formData.hackerName}_${formData.email}`;
-        const storedUser = existingUsers[userKey];
+        // Login logic - allow login with either hacker name OR email
+        let storedUser = null;
         
-        if (!storedUser || storedUser.password !== formData.password) {
-          setError('Invalid credentials. Please check your hacker name, email, and password.');
+        // Check if input is email format
+        const isEmailInput = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.hackerName || formData.email);
+        
+        if (isEmailInput) {
+          // Login with email - search all users for matching email
+          const inputEmail = formData.hackerName || formData.email;
+          storedUser = Object.values(existingUsers).find((user: any) => 
+            user.email === inputEmail && user.password === formData.password
+          );
+        } else {
+          // Login with hacker name - need both hacker name and email
+          const userKey = `${formData.hackerName}_${formData.email}`;
+          storedUser = existingUsers[userKey];
+          if (storedUser && storedUser.password !== formData.password) {
+            storedUser = null;
+          }
+        }
+        
+        if (!storedUser) {
+          setError('Invalid credentials. Please check your username/email and password.');
           setIsLoading(false);
           return;
         }
