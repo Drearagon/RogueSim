@@ -80,42 +80,76 @@ export function AuthScreen({ onAuthSuccess }: AuthScreenProps) {
         }
       }
 
-      const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register';
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({
-          hackerName: formData.hackerName,
-          email: formData.email,
-          password: formData.password
-        })
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        // Store authentication data in localStorage for persistence
+      // Use localStorage-based authentication for independent deployment
+      const existingUsers = JSON.parse(localStorage.getItem('registeredUsers') || '{}');
+      
+      if (isLogin) {
+        // Login logic
+        const userKey = `${formData.hackerName}_${formData.email}`;
+        const storedUser = existingUsers[userKey];
+        
+        if (!storedUser || storedUser.password !== formData.password) {
+          setError('Invalid credentials. Please check your hacker name, email, and password.');
+          setIsLoading(false);
+          return;
+        }
+        
+        // Successful login
+        const userData = {
+          id: storedUser.id,
+          hackerName: storedUser.hackerName,
+          email: storedUser.email,
+          profileImageUrl: `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${storedUser.hackerName}`,
+          createdAt: storedUser.createdAt
+        };
+        
         localStorage.setItem('authenticated', 'true');
-        localStorage.setItem('user', JSON.stringify(data.user));
+        localStorage.setItem('user', JSON.stringify(userData));
         
         // Trigger auth success callback immediately
-        onAuthSuccess(data.user);
+        onAuthSuccess(userData);
       } else {
-        // Provide specific error messages based on response
-        if (response.status === 401) {
-          setError('Invalid credentials. Please check your username/email and password.');
-        } else if (response.status === 409) {
-          setError('Account already exists. Please use a different email address.');
-        } else if (response.status === 400) {
-          setError(data.error || 'Please fill in all required fields correctly.');
-        } else {
-          setError(data.error || 'Authentication failed. Please try again.');
+        // Registration logic
+        const userKey = `${formData.hackerName}_${formData.email}`;
+        
+        // Check if user already exists
+        if (existingUsers[userKey]) {
+          setError('Account already exists with this hacker name and email combination.');
+          setIsLoading(false);
+          return;
         }
+        
+        // Create new user
+        const newUser = {
+          id: `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+          hackerName: formData.hackerName,
+          email: formData.email,
+          password: formData.password,
+          createdAt: new Date().toISOString()
+        };
+        
+        // Store user in localStorage
+        existingUsers[userKey] = newUser;
+        localStorage.setItem('registeredUsers', JSON.stringify(existingUsers));
+        
+        // Create user data for session
+        const userData = {
+          id: newUser.id,
+          hackerName: newUser.hackerName,
+          email: newUser.email,
+          profileImageUrl: `https://api.dicebear.com/7.x/cyberpunk/svg?seed=${newUser.hackerName}`,
+          createdAt: newUser.createdAt
+        };
+        
+        localStorage.setItem('authenticated', 'true');
+        localStorage.setItem('user', JSON.stringify(userData));
+        
+        // Trigger auth success callback
+        onAuthSuccess(userData);
       }
     } catch (error) {
       console.error('Authentication error:', error);
-      setError('Network connection failed. Please check your internet connection and try again.');
+      setError('Authentication failed. Please try again.');
     }
 
     setIsLoading(false);
