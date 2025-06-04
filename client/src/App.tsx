@@ -24,7 +24,7 @@ import { GameState, Mission } from './types/game';
 export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
   const { setEnabled } = useSound();
-  // Use localStorage-based authentication instead of problematic useAuth hook
+  // Use simple localStorage-based authentication for independent deployment
   const [user, setUser] = useState<any>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [authLoading, setAuthLoading] = useState(true);
@@ -33,9 +33,13 @@ export default function App() {
   // Check authentication state on app load
   useEffect(() => {
     const checkAuth = () => {
-      // Clear any existing localStorage auth data to force proper login
-      localStorage.removeItem('authenticated');
-      localStorage.removeItem('user');
+      const savedUser = localStorage.getItem('user');
+      const savedAuth = localStorage.getItem('authenticated');
+      
+      if (savedUser && savedAuth === 'true') {
+        setUser(JSON.parse(savedUser));
+        setIsAuthenticated(true);
+      }
       setAuthLoading(false);
     };
     
@@ -249,9 +253,9 @@ export default function App() {
     setNeedsOnboarding(false);
     setCurrentView('auth');
     
-    // Clear any stored auth data
-    localStorage.removeItem('authenticated');
+    // Clear localStorage
     localStorage.removeItem('user');
+    localStorage.removeItem('authenticated');
     
     // Try to call the logout API, but don't depend on it
     fetch('/api/logout', { method: 'POST' }).catch(() => {
