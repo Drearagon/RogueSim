@@ -85,6 +85,7 @@ export const playerStats = pgTable("player_stats", {
   id: serial("id").primaryKey(),
   userId: varchar("user_id").notNull().unique(),
   totalPlayTime: integer("total_play_time").notNull().default(0), // in minutes
+  totalMissions: integer("total_missions").notNull().default(0),
   favoriteCommands: text("favorite_commands").array().default([]),
   achievementsUnlocked: text("achievements_unlocked").array().default([]),
   multiplayerWins: integer("multiplayer_wins").notNull().default(0),
@@ -96,6 +97,7 @@ export const playerStats = pgTable("player_stats", {
 export const missionHistory = pgTable("mission_history", {
   id: serial("id").primaryKey(),
   sessionId: text("session_id").notNull(),
+  userId: varchar("user_id"),
   missionId: integer("mission_id").notNull(),
   title: text("title").notNull(),
   objective: text("objective").notNull(),
@@ -110,6 +112,7 @@ export const missionHistory = pgTable("mission_history", {
 export const commandLogs = pgTable("command_logs", {
   id: serial("id").primaryKey(),
   sessionId: text("session_id").notNull(),
+  userId: varchar("user_id"),
   command: text("command").notNull(),
   args: text("args").array().default([]),
   success: boolean("success").notNull(),
