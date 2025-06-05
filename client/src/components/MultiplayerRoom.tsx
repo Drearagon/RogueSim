@@ -200,10 +200,11 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         ws.close();
       }
 
-      await apiRequest({
-        url: `/api/rooms/${currentRoom.id}/leave`,
-        method: 'POST'
-      });
+      // Use localStorage for offline room management
+      const roomKey = `room_${currentRoom.id}_members`;
+      const members = JSON.parse(localStorage.getItem(roomKey) || '[]');
+      const updatedMembers = members.filter((m: any) => m.userId !== currentUser?.id);
+      localStorage.setItem(roomKey, JSON.stringify(updatedMembers));
 
       setCurrentRoom(null);
       setRoomMembers([]);
