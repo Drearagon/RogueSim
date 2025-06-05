@@ -53,35 +53,32 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
 
   useEffect(() => {
     if (currentRoom && currentUser) {
-      // Initialize WebSocket connection
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}`;
-      const websocket = new WebSocket(wsUrl);
+      // Simulate WebSocket for offline operation
+      const simulateWebSocket = () => {
+        // Load existing chat messages from localStorage for this room
+        const existingMessages = JSON.parse(localStorage.getItem(`room_${currentRoom.id}_messages`) || '[]');
+        setChatMessages(existingMessages);
 
-      websocket.onopen = () => {
-        // Authenticate with WebSocket
-        websocket.send(JSON.stringify({
-          type: 'authenticate',
-          payload: { userId: currentUser.id, hackerName: currentUser.username || 'Unknown' }
-        }));
-
-        // Join room
-        websocket.send(JSON.stringify({
-          type: 'join_room',
-          payload: { roomId: currentRoom.id }
-        }));
+        // Simulate room members for offline mode
+        const roomKey = `room_${currentRoom.id}_members`;
+        const existingMembers = JSON.parse(localStorage.getItem(roomKey) || '[]');
+        if (existingMembers.length === 0) {
+          const initialMembers = [{
+            id: 1,
+            roomId: currentRoom.id,
+            userId: currentUser.id,
+            role: 'host' as const,
+            isActive: true,
+            joinedAt: new Date().toISOString()
+          }];
+          localStorage.setItem(roomKey, JSON.stringify(initialMembers));
+          setRoomMembers(initialMembers);
+        } else {
+          setRoomMembers(existingMembers);
+        }
       };
 
-      websocket.onmessage = (event) => {
-        const message = JSON.parse(event.data);
-        handleWebSocketMessage(message);
-      };
-
-      setWs(websocket);
-
-      return () => {
-        websocket.close();
-      };
+      simulateWebSocket();
     }
   }, [currentRoom, currentUser]);
 
@@ -165,38 +162,33 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
       return;
     }
 
-    try {
-      const response = await apiRequest({
-        url: `/api/rooms/join/${roomCode.toUpperCase()}`,
-        method: 'POST'
-      });
+    // Simulate room joining for offline operation
+    const roomData = {
+      id: Math.floor(Math.random() * 1000),
+      name: `Room ${roomCode.toUpperCase()}`,
+      roomCode: roomCode.toUpperCase(),
+      hostUserId: currentUser?.id || 'offline_user',
+      gameMode: 'cooperative',
+      maxPlayers: 4,
+      currentPlayers: 1,
+      isActive: true
+    };
 
-      setCurrentRoom(response.room);
-      setActiveTab('room');
-      toast({
-        title: "Joined Room",
-        description: `Successfully joined "${response.room.name}"`,
-      });
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to join room. Check the room code.",
-        variant: "destructive"
-      });
-    }
+    setCurrentRoom(roomData);
+    setActiveTab('room');
+    toast({
+      title: "Joined Room",
+      description: `Successfully joined "${roomData.name}"`,
+    });
   };
 
   const fetchRoomMembers = async () => {
     if (!currentRoom) return;
 
-    try {
-      const members = await apiRequest({
-        url: `/api/rooms/${currentRoom.id}/members`
-      });
-      setRoomMembers(members);
-    } catch (error) {
-      console.error('Failed to fetch room members:', error);
-    }
+    // Use localStorage for offline room member management
+    const roomKey = `room_${currentRoom.id}_members`;
+    const members = JSON.parse(localStorage.getItem(roomKey) || '[]');
+    setRoomMembers(members);
   };
 
   const leaveRoom = async () => {
@@ -227,22 +219,22 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   };
 
   const sendChatMessage = () => {
-    if (!chatInput.trim() || !ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!chatInput.trim() || !currentRoom) return;
 
-    try {
-      ws.send(JSON.stringify({
-        type: 'room_chat',
-        payload: { message: chatInput }
-      }));
-      setChatInput('');
-    } catch (error) {
-      console.error('Failed to send chat message:', error);
-      toast({
-        title: "Chat Error",
-        description: "Failed to send message. Connection may be unstable.",
-        variant: "destructive"
-      });
-    }
+    const newMessage = {
+      user: currentUser?.username || 'Anonymous',
+      message: chatInput.trim(),
+      time: new Date().toLocaleTimeString()
+    };
+
+    // Update local chat state
+    const updatedMessages = [...chatMessages, newMessage];
+    setChatMessages(updatedMessages);
+
+    // Persist to localStorage for room persistence
+    localStorage.setItem(`room_${currentRoom.id}_messages`, JSON.stringify(updatedMessages));
+
+    setChatInput('');
   };
 
   const copyRoomCode = () => {

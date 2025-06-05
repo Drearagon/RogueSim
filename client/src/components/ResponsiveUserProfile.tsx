@@ -156,17 +156,18 @@ export function ResponsiveUserProfile({
           setIsDesktopDropdownOpen(!isDesktopDropdownOpen);
         }
       }}
-      className="p-3 h-auto backdrop-blur-sm hover:opacity-90 transition-opacity"
+      className="p-1 h-auto backdrop-blur-sm hover:opacity-90 transition-opacity border bg-transparent text-xs"
       variant="outline"
       style={{
         backgroundColor: `${terminalSettings.backgroundColor}cc`,
         borderColor: `${terminalSettings.primaryColor}80`,
-        color: terminalSettings.textColor
+        color: terminalSettings.textColor,
+        minWidth: '80px'
       }}
     >
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         <Avatar 
-          className="w-8 h-8 border"
+          className="w-6 h-6 border"
           style={{ borderColor: terminalSettings.primaryColor }}
         >
           <AvatarImage src={user.avatar} />
@@ -180,24 +181,21 @@ export function ResponsiveUserProfile({
             {user.username.slice(0, 2).toUpperCase()}
           </AvatarFallback>
         </Avatar>
-        <div className="text-left">
+        <div className="text-left hidden md:block">
           <div 
-            className="font-mono text-sm font-bold"
+            className="font-mono text-xs font-bold"
             style={{ color: terminalSettings.primaryColor }}
           >
             {user.username}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
             <Badge className={`${getReputationColor(user.reputation)} text-white font-mono text-xs px-1 py-0`}>
-              LVL {user.level}
+              L{user.level}
             </Badge>
-            <span className="text-yellow-400 font-mono text-xs">
-              {user.credits?.toLocaleString() || '0'}₡
-            </span>
           </div>
         </div>
         <ChevronDown 
-          className={`w-4 h-4 transition-transform ${isDesktopDropdownOpen ? 'rotate-180' : ''}`}
+          className={`w-3 h-3 transition-transform ${isDesktopDropdownOpen ? 'rotate-180' : ''}`}
           style={{ color: terminalSettings.primaryColor }}
         />
       </div>
@@ -558,37 +556,37 @@ export function ResponsiveUserProfile({
   );
 
   return (
-    <div className="absolute top-4 right-4 md:right-32" style={{ zIndex: 9999 }}>
-      <div className="relative" ref={dropdownRef}>
-        {/* Mobile Sheet */}
-        <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
-          <SheetTrigger asChild>
-            <div style={{ display: 'none' }} />
-          </SheetTrigger>
-          <SheetContent 
-            side="right" 
-            className="w-full sm:w-96"
-            style={{
-              backgroundColor: terminalSettings.backgroundColor,
-              borderColor: terminalSettings.primaryColor,
-              color: terminalSettings.textColor
-            }}
-          >
-            <SheetHeader>
-              <SheetTitle 
-                className="font-mono"
-                style={{ color: terminalSettings.primaryColor }}
-              >
-                User Profile
-              </SheetTitle>
-            </SheetHeader>
-            <div className="mt-6">
-              <FullProfileContent />
-            </div>
-          </SheetContent>
-        </Sheet>
+    <>
+      {/* Mobile Sheet */}
+      <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
+        <SheetTrigger asChild>
+          <div style={{ display: 'none' }} />
+        </SheetTrigger>
+        <SheetContent 
+          side="right" 
+          className="w-full sm:w-96"
+          style={{
+            backgroundColor: terminalSettings.backgroundColor,
+            borderColor: terminalSettings.primaryColor,
+            color: terminalSettings.textColor
+          }}
+        >
+          <SheetHeader>
+            <SheetTitle 
+              className="font-mono"
+              style={{ color: terminalSettings.primaryColor }}
+            >
+              User Profile
+            </SheetTitle>
+          </SheetHeader>
+          <div className="mt-6">
+            <FullProfileContent />
+          </div>
+        </SheetContent>
+      </Sheet>
 
-        {/* User Header Button */}
+      {/* User Header Button - now just the button without absolute positioning */}
+      <div className="relative" ref={dropdownRef}>
         <UserHeaderButton />
 
         {/* Desktop Dropdown */}
@@ -603,6 +601,6 @@ export function ResponsiveUserProfile({
           onClick={() => setIsDesktopDropdownOpen(false)}
         />
       )}
-    </div>
+    </>
   );
 } 

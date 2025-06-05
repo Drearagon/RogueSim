@@ -4,7 +4,6 @@ import { GameInterface } from './components/GameInterface';
 import { MultiplayerRoom } from './components/MultiplayerRoom';
 import { Leaderboard } from './components/Leaderboard';
 import { UserProfile } from './components/UserProfile';
-import { UserHeader } from './components/UserHeader';
 import { MatrixRain } from './components/MatrixRain';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { Landing } from './pages/Landing';
@@ -406,26 +405,6 @@ export default function App() {
 
   return (
     <div className="relative">
-      <UserHeader 
-        user={{
-          username: effectiveUser?.hackerName || 'Anonymous_Hacker',
-          avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
-          reputation: gameState.reputation,
-          level: gameState.playerLevel,
-          credits: gameState.credits,
-          specialization: 'Network Infiltration'
-        }}
-        gameState={{
-          completedMissions: gameState.completedMissions,
-          currentMission: gameState.currentMission,
-          activeFaction: gameState.activeFaction,
-          skillTree: {
-            skillPoints: gameState.skillTree.skillPoints
-          }
-        }}
-        onShowProfile={handleShowProfile}
-        onLogout={handleLogout}
-      />
       <GameInterface 
         gameState={gameState} 
         onGameStateUpdate={updateGameState}

@@ -51,6 +51,10 @@ export interface GameState {
   emergencyMissions: Mission[];
   // Psychological Profile System
   psychProfile?: PsychProfile;
+  // Multiplayer properties
+  playerId?: string;
+  showTeamInterface?: boolean;
+  showMissionMap?: boolean;
 }
 
 export interface UIState {
@@ -239,8 +243,9 @@ export interface BranchChoice {
 export interface Command {
   description: string;
   usage: string;
-  execute: (args: string[], gameState: GameState) => CommandResult;
+  category?: string;
   unlockLevel?: number;
+  execute: (args: string[], gameState: GameState) => CommandResult;
 }
 
 export interface CommandResult {

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSound } from '../hooks/useSound';
 import { commands, isCommandAvailable, getInitialUnlockedCommands } from '../lib/commands';
 import { GameState } from '../types/game';
@@ -8,6 +8,9 @@ import { MemoryTrace } from './MemoryTrace';
 import { MissionCompleteNotification } from './MissionCompleteNotification';
 import { trackMissionProgress, checkStepCompletion } from '../lib/missionTracker';
 import { TerminalSettings } from './TerminalSettings';
+import { ResponsiveUserProfile } from './ResponsiveUserProfile';
+import { focusSystem } from '../lib/focusSystem';
+import { Brain, ChevronDown, ChevronUp, Coffee, Heart, Zap, Pause, AlertTriangle } from 'lucide-react';
 
 interface TerminalProps {
   gameState: GameState;
@@ -41,6 +44,9 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     reward: number;
   } | null>(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [showFocusDropdown, setShowFocusDropdown] = useState(false);
+  const [focusState, setFocusState] = useState(focusSystem.getState());
+  const focusDropdownRef = useRef<HTMLDivElement>(null);
   const [terminalSettings, setTerminalSettings] = useState<TerminalSettingsType>({
     colorScheme: 'classic',
     primaryColor: '#00ff00',
@@ -67,12 +73,20 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       setShowSettings(true);
     };
 
+    const handleAddTerminalOutput = (event: CustomEvent) => {
+      const { output: newOutput } = event.detail;
+      setOutput(prev => [...prev, ...newOutput]);
+      playSuccess(); // Play success sound for mission start
+    };
+
     window.addEventListener('missionComplete', handleMissionComplete as EventListener);
     window.addEventListener('openSettings', handleOpenSettings);
+    window.addEventListener('addTerminalOutput', handleAddTerminalOutput as EventListener);
     
     return () => {
       window.removeEventListener('missionComplete', handleMissionComplete as EventListener);
       window.removeEventListener('openSettings', handleOpenSettings);
+      window.removeEventListener('addTerminalOutput', handleAddTerminalOutput as EventListener);
     };
   }, [playSuccess]);
 
@@ -83,6 +97,28 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     });
     window.dispatchEvent(event);
   }, [terminalSettings]);
+
+  // Update focus state periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setFocusState(focusSystem.getState());
+    }, 1000);
+    return () => clearInterval(interval);
+  }, []);
+
+  // Close focus dropdown when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (focusDropdownRef.current && !focusDropdownRef.current.contains(event.target as Node)) {
+        setShowFocusDropdown(false);
+      }
+    }
+
+    if (showFocusDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [showFocusDropdown]);
 
   // Cursor blink effect
   useEffect(() => {
@@ -395,24 +431,147 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           <span className="md:hidden" style={{ color: terminalSettings.primaryColor }}>RS</span>
           <span className="animate-pulse" style={{ color: terminalSettings.primaryColor }}>●</span>
           <span className="truncate" style={{ color: terminalSettings.textColor }}>{gameState.networkStatus}</span>
-        </div>
-        <div className="flex items-center space-x-2 md:space-x-4">
-          <span className="hidden md:inline" style={{ color: '#ffb000' }}>{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
-          <span className="hidden md:inline" style={{ color: terminalSettings.textColor }}>UNDISCLOSED</span>
-          <button 
-            className="border bg-transparent px-2 py-1 text-xs hover:opacity-80 transition-colors flex-shrink-0"
-            style={{
-              borderColor: terminalSettings.primaryColor,
-              color: terminalSettings.primaryColor,
-              minWidth: '32px'
+          <ResponsiveUserProfile
+            user={{
+              username: 'CyberOp_' + (gameState.playerLevel || 1),
+              avatar: '/default-avatar.png',
+              reputation: gameState.reputation || 'Rookie',
+              level: gameState.playerLevel || 1,
+              credits: gameState.credits || 0,
+              specialization: 'Network Infiltration'
             }}
-            onClick={() => {
-              const newEnabled = !gameState.soundEnabled;
-              onGameStateUpdate({ soundEnabled: newEnabled });
+            gameState={{
+              completedMissions: gameState.completedMissions || 0,
+              currentMission: gameState.currentMission || 0,
+              activeFaction: gameState.activeFaction || 'None',
+              skillTree: {
+                skillPoints: gameState.skillTree?.skillPoints || 0
+              }
             }}
-          >
-            {gameState.soundEnabled ? '🔊' : '🔇'}
-          </button>
+            onUpdateProfile={(updates) => {
+              console.log('Profile updated:', updates);
+              // Could integrate with gameState updates here if needed
+            }}
+            onLogout={() => {
+              console.log('Logout triggered from terminal profile');
+              // Could trigger logout logic here
+            }}
+            terminalSettings={{
+              primaryColor: terminalSettings.primaryColor,
+              backgroundColor: terminalSettings.backgroundColor,
+              textColor: terminalSettings.textColor
+            }}
+          />
+          {/* Enhanced Focus Display */}
+          <div className="relative" ref={focusDropdownRef}>
+            <div 
+              className="flex items-center gap-2 px-3 py-1 rounded text-xs cursor-pointer hover:opacity-80 transition-opacity"
+              style={{
+                backgroundColor: `${terminalSettings.backgroundColor}80`,
+                borderColor: `${terminalSettings.primaryColor}60`,
+                border: `1px solid ${terminalSettings.primaryColor}60`,
+                minWidth: '80px'
+              }}
+              onClick={() => setShowFocusDropdown(!showFocusDropdown)}
+            >
+              <Brain className="w-4 h-4" style={{ color: terminalSettings.primaryColor }} />
+              <div className="flex-1 h-1.5 bg-black/40 rounded-full overflow-hidden min-w-[40px]">
+                <div 
+                  className="h-full transition-all duration-300 rounded-full"
+                  style={{ 
+                    width: `${focusSystem.getFocusPercentage()}%`,
+                    backgroundColor: focusSystem.getFocusPercentage() > 60 ? terminalSettings.primaryColor : '#f59e0b'
+                  }}
+                />
+              </div>
+              <span 
+                className="font-mono text-xs"
+                style={{ color: terminalSettings.textColor }}
+              >
+                {Math.round(focusSystem.getFocusPercentage())}%
+              </span>
+              {focusState.isOverloaded && (
+                <AlertTriangle className="w-3 h-3 text-red-400" />
+              )}
+              {showFocusDropdown ? (
+                <ChevronUp className="w-3 h-3" style={{ color: terminalSettings.primaryColor }} />
+              ) : (
+                <ChevronDown className="w-3 h-3" style={{ color: terminalSettings.primaryColor }} />
+              )}
+            </div>
+
+            {/* Focus Dropdown */}
+            {showFocusDropdown && (
+              <div 
+                className="absolute top-full left-0 mt-2 p-3 bg-black/90 backdrop-blur-sm rounded-lg shadow-2xl z-50 border min-w-[200px]"
+                style={{ 
+                  borderColor: `${terminalSettings.primaryColor}50`,
+                  boxShadow: `0 0 20px ${terminalSettings.primaryColor}20`
+                }}
+              >
+                <div className="space-y-2">
+                  <div className="text-xs" style={{ color: terminalSettings.primaryColor }}>
+                    Focus: {focusState.current}/{focusState.maximum}
+                  </div>
+                  
+                  {focusState.isOverloaded && (
+                    <div className="text-xs text-red-400 mb-2">
+                      ⚠️ Mental Overload Active
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-1">
+                    <button
+                      className="text-xs px-2 py-1 border rounded hover:opacity-80"
+                      style={{
+                        borderColor: `${terminalSettings.primaryColor}40`,
+                        color: terminalSettings.textColor
+                      }}
+                      onClick={() => {
+                        focusSystem.useStimulant('caffeine');
+                        setShowFocusDropdown(false);
+                      }}
+                    >
+                      <Coffee className="w-3 h-3 inline mr-1" />
+                      Coffee
+                    </button>
+                    <button
+                      className="text-xs px-2 py-1 border rounded hover:opacity-80"
+                      style={{
+                        borderColor: `${terminalSettings.primaryColor}40`,
+                        color: terminalSettings.textColor
+                      }}
+                      onClick={() => {
+                        focusSystem.useStimulant('meditation');
+                        setShowFocusDropdown(false);
+                      }}
+                    >
+                      <Heart className="w-3 h-3 inline mr-1" />
+                      Meditate
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div className="flex items-center space-x-2 md:space-x-4">
+            <span className="hidden md:inline" style={{ color: '#ffb000' }}>{new Date().toLocaleTimeString('en-US', { hour12: false })}</span>
+            <span className="hidden md:inline" style={{ color: terminalSettings.textColor }}>UNDISCLOSED</span>
+            <button 
+              className="border bg-transparent px-2 py-1 text-xs hover:opacity-80 transition-colors flex-shrink-0"
+              style={{
+                borderColor: terminalSettings.primaryColor,
+                color: terminalSettings.primaryColor,
+                minWidth: '32px'
+              }}
+              onClick={() => {
+                const newEnabled = !gameState.soundEnabled;
+                onGameStateUpdate({ soundEnabled: newEnabled });
+              }}
+            >
+              {gameState.soundEnabled ? '🔊' : '🔇'}
+            </button>
+          </div>
         </div>
       </div>
       

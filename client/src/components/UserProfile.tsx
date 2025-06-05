@@ -100,8 +100,25 @@ export function UserProfile({ user, onClose, onUpdateProfile }: UserProfileProps
   });
 
   const handleSaveProfile = () => {
+    // Update localStorage directly for immediate persistence
+    const userData = JSON.parse(localStorage.getItem('user') || '{}');
+    const updatedUser = {
+      ...userData,
+      ...editForm,
+      bio: editForm.bio,
+      hackerName: editForm.hackerName
+    };
+    localStorage.setItem('user', JSON.stringify(updatedUser));
+    
     onUpdateProfile(editForm);
     setIsEditing(false);
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setEditForm(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
 
   const getRarityColor = (rarity: string) => {
@@ -169,16 +186,18 @@ export function UserProfile({ user, onClose, onUpdateProfile }: UserProfileProps
                   <div className="space-y-3 w-full">
                     <Input
                       value={editForm.hackerName}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, hackerName: e.target.value }))}
+                      onChange={(e) => handleInputChange('hackerName', e.target.value)}
                       className="bg-black border-green-400 text-green-400 font-mono"
                       placeholder="Hacker Name"
+                      autoComplete="off"
                     />
                     <textarea
                       value={editForm.bio}
-                      onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                      onChange={(e) => handleInputChange('bio', e.target.value)}
                       className="w-full p-2 bg-black border border-green-400 text-green-400 font-mono rounded resize-none"
                       placeholder="Bio..."
                       rows={3}
+                      autoComplete="off"
                     />
                     <Button
                       onClick={handleSaveProfile}
