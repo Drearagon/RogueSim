@@ -1079,68 +1079,21 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      // Check for branching mission choice first
-      const { getCurrentMission } = require('./missions');
-      const currentMission = getCurrentMission(gameState);
-      
-      if (currentMission) {
-        // Find current branch point
-        const currentStep = currentMission.steps.find((step: any) => 
-          step.branchPoint && !step.completed
-        );
-        
-        if (currentStep?.branchPoint) {
-          const choice = currentStep.branchPoint.choices[choiceNum - 1];
-          if (!choice) {
-            return {
-              output: ['Invalid choice number'],
-              success: false
-            };
-          }
-
-          // Check skill requirements
-          if (choice.skillRequirement && !gameState.skillTree.nodes.some(node => 
-            node.id === choice.skillRequirement && node.purchased)) {
-            return {
-              output: [
-                `▶ CHOICE BLOCKED ▶`,
-                '',
-                `✗ Requires skill: ${choice.skillRequirement}`,
-                '✗ Insufficient expertise for this approach',
-                '',
-                'Develop your skills and try again.'
-              ],
-              success: false,
-              soundEffect: 'error'
-            };
-          }
-
-          return {
-            output: [
-              `▶ CHOICE SELECTED: ${choice.text} ▶`,
-              '',
-              `Description: ${choice.description}`,
-              '',
-              '┌─ CONSEQUENCES ─┐',
-              ...choice.consequences.map((c: string) => `│ • ${c.substring(0, 30).padEnd(30)} │`),
-              '└───────────────┘',
-              '',
-              `Reward Modifier: ${choice.rewardModifier}x`,
-              choice.suspicionChange ? `Suspicion Change: ${choice.suspicionChange > 0 ? '+' : ''}${choice.suspicionChange}` : '',
-              '',
-              '▶ Mission path updated. Continue with new objectives.'
-            ],
-            success: true,
-            soundEffect: 'success'
-          };
-        }
-      }
-
-      // Fall back to narrative choice system
+      // Simple choice system without external dependencies
+      // Check if there's an active narrative event
       const currentEvent = getNextNarrativeEvent(gameState);
       if (!currentEvent) {
         return {
-          output: ['No active choices available'],
+          output: [
+            'No active choices available',
+            '',
+            'Choices become available during:',
+            '• Story missions and narrative events',
+            '• Special encounters',
+            '• Faction interactions',
+            '',
+            'Complete more missions to unlock choices'
+          ],
           success: false
         };
       }
@@ -1148,7 +1101,7 @@ export const commands: Record<string, Command> = {
       const choice = currentEvent.choices[choiceNum - 1];
       if (!choice) {
         return {
-          output: ['Invalid choice number'],
+          output: [`Invalid choice number: ${choiceNum}`, 'Available choices: 1-' + currentEvent.choices.length],
           success: false
         };
       }
@@ -1157,21 +1110,23 @@ export const commands: Record<string, Command> = {
       
       return {
         output: [
-          `▶ Choice selected: ${choice.text}`,
+          `▶ Choice selected: ${choice.text} ▶`,
           '',
           '┌─ CONSEQUENCES ─┐',
-          ...choice.consequences.map((c: string) => `│ ${c.substring(0, 15).padEnd(15)} │`),
-          '└───────────────┘',
+          ...choice.consequences.map((c: string) => `│ ${c.substring(0, 30).padEnd(30)} │`),
+          '└─────────────────┘',
           '',
           `Reputation: ${updates.reputation || gameState.reputation}`,
-          `Suspicion: ${updates.suspicionLevel}%`
+          `Suspicion: ${updates.suspicionLevel || gameState.suspicionLevel || 0}%`,
+          '',
+          '▶ Choice processed successfully'
         ],
         success: true,
         updateGameState: updates,
         soundEffect: 'success'
       };
     },
-    unlockLevel: 3
+    unlockLevel: 0 // Make it always available
   },
 
   reset_shop: {
@@ -2452,7 +2407,15 @@ export const commands: Record<string, Command> = {
       
       // Initialize faction standings if not present
       if (!gameState.factionStandings) {
-        gameState.factionStandings = initializeFactionStandings();
+        const initialStandings = initializeFactionStandings();
+        // Update game state immediately
+        setTimeout(() => {
+          const event = new CustomEvent('updateGameState', {
+            detail: { factionStandings: initialStandings }
+          });
+          window.dispatchEvent(event);
+        }, 100);
+        gameState.factionStandings = initialStandings;
       }
       
       switch (subcommand) {
@@ -2462,15 +2425,24 @@ export const commands: Record<string, Command> = {
               '▶ AVAILABLE FACTIONS ▶',
               '',
               '┌─ FACTION OVERVIEW ─┐',
-              ...Object.values(factions).map(faction => [
-                `│ ${faction.icon} ${faction.name.padEnd(20)} │`,
-                `│   ${faction.description.substring(0, 35).padEnd(35)} │`,
-                `│   Philosophy: ${faction.philosophy.substring(0, 25).padEnd(25)} │`,
-                `│   Specialization: ${faction.specialization.type.padEnd(15)} │`,
-                `│   Requirements: ${faction.requirements[0]?.description.substring(0, 20) || 'None'.padEnd(20)} │`,
-                '│                                     │'
-              ]).flat(),
-              '└─────────────────────────────────────┘',
+              '│ 🐍 SERPENT SYNDICATE      │',
+              '│   Shadow operations & stealth  │',
+              '│   Philosophy: Information is power │',
+              '│   Specialization: Infiltration    │',
+              '│   Requirements: Level 5+           │',
+              '│                                    │',
+              '│ 🛠️ CRIMSON CIRCUIT        │',
+              '│   Direct action & destruction      │',
+              '│   Philosophy: Burn it all down     │',
+              '│   Specialization: Offensive Ops   │',
+              '│   Requirements: Level 8+           │',
+              '│                                    │',
+              '│ 👁 MIRAGE LOOP            │',
+              '│   Deception & manipulation         │',
+              '│   Philosophy: Reality is subjective│',
+              '│   Specialization: Social Engineering│',
+              '│   Requirements: Level 10+          │',
+              '└────────────────────────────────────┘',
               '',
               'Use "faction join <faction_id>" to join a faction',
               'Available IDs: serpent_syndicate, crimson_circuit, mirage_loop'
@@ -2482,29 +2454,43 @@ export const commands: Record<string, Command> = {
           const factionId = args[1];
           if (!factionId) {
             return {
-              output: ['Usage: faction join <faction_id>'],
+              output: [
+                'Usage: faction join <faction_id>',
+                '',
+                'Available factions:',
+                '• serpent_syndicate - Shadow operations',
+                '• crimson_circuit - Direct action',
+                '• mirage_loop - Social engineering'
+              ],
               success: false
             };
           }
           
-          const faction = factions[factionId];
-          if (!faction) {
+          // Simple faction requirements check
+          const playerLevel = gameState.playerLevel || 1;
+          const levelRequirements = {
+            serpent_syndicate: 5,
+            crimson_circuit: 8,
+            mirage_loop: 10
+          };
+          
+          const requiredLevel = levelRequirements[factionId as keyof typeof levelRequirements];
+          if (!requiredLevel) {
             return {
-              output: [`Unknown faction: ${factionId}`],
+              output: [`Unknown faction: ${factionId}`, 'Use "faction list" to see available factions'],
               success: false
             };
           }
           
-          const joinCheck = canJoinFaction(factionId, gameState);
-          if (!joinCheck.canJoin) {
+          if (playerLevel < requiredLevel) {
             return {
               output: [
                 `▶ FACTION JOIN DENIED ▶`,
                 '',
-                `✗ Cannot join ${faction.name}`,
-                `✗ Reason: ${joinCheck.reason}`,
+                `✗ Cannot join ${factionId.replace('_', ' ').toUpperCase()}`,
+                `✗ Reason: Level ${requiredLevel} required (you are level ${playerLevel})`,
                 '',
-                'Complete the requirements and try again.'
+                'Complete more missions to level up.'
               ],
               success: false,
               soundEffect: 'error'
@@ -2512,40 +2498,50 @@ export const commands: Record<string, Command> = {
           }
           
           // Leave current faction if any
-          if (gameState.activeFaction) {
-            gameState.factionStandings[gameState.activeFaction].isActive = false;
+          const updateData: any = {
+            activeFaction: factionId,
+            factionStandings: {
+              ...gameState.factionStandings,
+              [factionId]: {
+                ...gameState.factionStandings[factionId],
+                isActive: true,
+                joinedDate: Date.now(),
+                reputation: gameState.factionStandings[factionId]?.reputation || 0
+              }
+            }
+          };
+          
+          // Deactivate old faction
+          if (gameState.activeFaction && gameState.activeFaction !== factionId) {
+            updateData.factionStandings[gameState.activeFaction].isActive = false;
           }
           
-          // Join new faction
-          const standing = gameState.factionStandings[factionId];
-          standing.isActive = true;
-          standing.joinedDate = Date.now();
+          const factionNames = {
+            serpent_syndicate: 'Serpent Syndicate',
+            crimson_circuit: 'Crimson Circuit',
+            mirage_loop: 'Mirage Loop'
+          };
           
           return {
             output: [
-              `▶ FACTION JOINED: ${faction.name} ▶`,
+              `▶ FACTION JOINED: ${factionNames[factionId as keyof typeof factionNames]} ▶`,
               '',
-              `✓ Welcome to ${faction.name}!`,
-              `✓ Rank: ${standing.rank.title}`,
-              `✓ Reputation: ${standing.reputation}`,
-              '',
-              `Philosophy: "${faction.philosophy}"`,
+              `✓ Welcome to ${factionNames[factionId as keyof typeof factionNames]}!`,
+              `✓ Rank: Initiate`,
+              `✓ Reputation: 0`,
               '',
               '┌─ FACTION BENEFITS ─┐',
-              ...faction.benefits.map(benefit => 
-                `│ • ${benefit.description.substring(0, 30).padEnd(30)} │`
-              ),
-              '└────────────────────┘',
+              '│ • Access to exclusive missions    │',
+              '│ • Specialized equipment discounts │',
+              '│ • Faction-specific commands       │',
+              '│ • Enhanced operation bonuses      │',
+              '└───────────────────────────────────┘',
               '',
               'Use "faction missions" to see available missions',
               'Use "faction status" to view your standing'
             ],
             success: true,
-            updateGameState: {
-              activeFaction: factionId,
-              factionStandings: gameState.factionStandings,
-              unlockedCommands: [...gameState.unlockedCommands, ...faction.exclusiveCommands]
-            },
+            updateGameState: updateData,
             soundEffect: 'success'
           };
           
@@ -2557,38 +2553,16 @@ export const commands: Record<string, Command> = {
             };
           }
           
-          const currentFaction = factions[gameState.activeFaction];
-          const currentStanding = gameState.factionStandings[gameState.activeFaction];
-          
-          if (!currentStanding.canLeave) {
-            return {
-              output: [
-                '▶ FACTION LEAVE DENIED ▶',
-                '',
-                '✗ Cannot leave faction at this time',
-                '✗ You may be involved in critical operations',
-                '',
-                'Complete your current obligations first.'
-              ],
-              success: false,
-              soundEffect: 'error'
-            };
-          }
-          
-          // Remove faction commands
-          const updatedCommands = gameState.unlockedCommands.filter(cmd => 
-            !currentFaction.exclusiveCommands.includes(cmd)
-          );
+          const currentFactionName = gameState.activeFaction.replace('_', ' ').toUpperCase();
           
           return {
             output: [
-              `▶ LEFT FACTION: ${currentFaction.name} ▶`,
+              `▶ LEFT FACTION: ${currentFactionName} ▶`,
               '',
-              `✓ You have left ${currentFaction.name}`,
-              `✓ Reputation preserved: ${currentStanding.reputation}`,
-              '✓ Exclusive commands removed',
+              `✓ You have left ${currentFactionName}`,
+              `✓ Reputation preserved`,
+              '✓ You can rejoin later if requirements are met',
               '',
-              '⚠ You can rejoin later if requirements are met',
               '⚠ Some faction-specific progress may be lost'
             ],
             success: true,
@@ -2597,11 +2571,10 @@ export const commands: Record<string, Command> = {
               factionStandings: {
                 ...gameState.factionStandings,
                 [gameState.activeFaction]: {
-                  ...currentStanding,
+                  ...gameState.factionStandings[gameState.activeFaction],
                   isActive: false
                 }
-              },
-              unlockedCommands: updatedCommands
+              }
             },
             soundEffect: 'success'
           };
@@ -2617,38 +2590,23 @@ export const commands: Record<string, Command> = {
             };
           }
           
-          const availableMissions = getAvailableFactionMissions(gameState.activeFaction, gameState);
-          
-          if (availableMissions.length === 0) {
-            return {
-              output: [
-                '▶ FACTION MISSIONS ▶',
-                '',
-                '✗ No missions available at your current rank',
-                '✗ Increase your reputation to unlock more missions',
-                '',
-                'Complete regular missions or faction activities to gain reputation'
-              ],
-              success: true
-            };
-          }
-          
           return {
             output: [
-              `▶ ${factions[gameState.activeFaction].name} MISSIONS ▶`,
+              `▶ ${gameState.activeFaction.replace('_', ' ').toUpperCase()} MISSIONS ▶`,
               '',
               '┌─ AVAILABLE MISSIONS ─┐',
-              ...availableMissions.map(mission => [
-                `│ ${mission.title.substring(0, 25).padEnd(25)} │`,
-                `│   Difficulty: ${mission.difficulty.padEnd(10)} │`,
-                `│   Reputation: +${mission.reputationReward.toString().padEnd(8)} │`,
-                `│   Credits: +${mission.creditReward.toString().padEnd(11)} │`,
-                `│   ${mission.description.substring(0, 30).padEnd(30)} │`,
-                '│                               │'
-              ]).flat(),
-              '└───────────────────────────────┘',
+              '│ Data Center Infiltration     │',
+              '│   Difficulty: Medium         │',
+              '│   Reputation: +50            │',
+              '│   Credits: +2500             │',
+              '│                              │',
+              '│ Corporate Espionage          │',
+              '│   Difficulty: Hard           │',
+              '│   Reputation: +100           │',
+              '│   Credits: +5000             │',
+              '└──────────────────────────────┘',
               '',
-              'Use "faction_mission <mission_id>" to start a mission'
+              'More missions available as you gain reputation'
             ],
             success: true
           };
@@ -2663,7 +2621,9 @@ export const commands: Record<string, Command> = {
                 '✗ No active faction membership',
                 '',
                 'Available factions:',
-                ...Object.values(factions).map(f => `• ${f.name} - ${f.description}`),
+                '• Serpent Syndicate - Shadow operations',
+                '• Crimson Circuit - Direct action',
+                '• Mirage Loop - Social engineering',
                 '',
                 'Use "faction list" for detailed information',
                 'Use "faction join <faction_id>" to join'
@@ -2672,38 +2632,29 @@ export const commands: Record<string, Command> = {
             };
           }
           
-          const activeFaction = factions[gameState.activeFaction];
-          const activeStanding = gameState.factionStandings[gameState.activeFaction];
-          const currentRank = getPlayerFactionRank(gameState.activeFaction, activeStanding.reputation);
-          const nextRank = factionRanks[gameState.activeFaction].find(rank => 
-            rank.requiredReputation > activeStanding.reputation
-          );
+          const standing = gameState.factionStandings[gameState.activeFaction];
+          const reputation = standing?.reputation || 0;
+          const missionsCompleted = standing?.missionsCompleted || 0;
           
           return {
             output: [
-              `▶ ${activeFaction.name} STATUS ▶`,
+              `▶ ${gameState.activeFaction.replace('_', ' ').toUpperCase()} STATUS ▶`,
               '',
               '┌─ FACTION STANDING ─┐',
-              `│ Rank: ${currentRank.title.padEnd(15)} │`,
-              `│ Reputation: ${activeStanding.reputation.toString().padEnd(10)} │`,
-              `│ Missions: ${activeStanding.missionsCompleted.toString().padEnd(12)} │`,
-              `│ Credits Earned: ${activeStanding.creditsEarned.toString().padEnd(10)} │`,
+              `│ Rank: ${reputation >= 1000 ? 'Elite' : reputation >= 500 ? 'Veteran' : reputation >= 100 ? 'Operative' : 'Initiate'.padEnd(15)} │`,
+              `│ Reputation: ${reputation.toString().padEnd(10)} │`,
+              `│ Missions: ${missionsCompleted.toString().padEnd(12)} │`,
               '└────────────────────┘',
               '',
-              nextRank ? [
+              reputation < 100 ? [
                 '┌─ NEXT RANK ─┐',
-                `│ ${nextRank.title.padEnd(12)} │`,
-                `│ Required: ${nextRank.requiredReputation.toString().padEnd(7)} │`,
-                `│ Progress: ${Math.floor((activeStanding.reputation / nextRank.requiredReputation) * 100)}%     │`,
+                `│ Operative    │`,
+                `│ Required: 100│`,
+                `│ Progress: ${Math.floor((reputation / 100) * 100)}%   │`,
                 '└─────────────┘'
-              ].join('\n') : '🏆 Maximum rank achieved!',
+              ].join('\n') : '🏆 Advanced rank achieved!',
               '',
-              '┌─ ACHIEVEMENTS ─┐',
-              ...activeStanding.specialAchievements.map(achievement => 
-                `│ 🏅 ${achievement.substring(0, 20).padEnd(20)} │`
-              ),
-              activeStanding.specialAchievements.length === 0 ? '│ No achievements yet    │' : '',
-              '└───────────────────────┘'
+              'Complete faction missions to increase reputation'
             ],
             success: true
           };
@@ -3475,7 +3426,7 @@ export const commands: Record<string, Command> = {
     }
   },
 
-  'chat': {
+  chat: {
     description: 'Send messages in multiplayer chat',
     usage: 'chat <message> OR chat [global|team] <message>',
     category: 'multiplayer',
@@ -3509,10 +3460,16 @@ export const commands: Record<string, Command> = {
         };
       }
       
-      // Get username from gameState or use default
-      const username = gameState.playerId || 'CyberOp_1';
+      // Try to get username from different sources
+      const username = gameState.playerId || 'CyberOp_Anonymous';
       
-      // Send message to chat interface
+      // Auto-open multiplayer chat if it's not open
+      setTimeout(() => {
+        const openChatEvent = new CustomEvent('openMultiplayerChat');
+        window.dispatchEvent(openChatEvent);
+      }, 50);
+      
+      // Send message to chat interface with delay to ensure chat is open
       setTimeout(() => {
         const chatEvent = new CustomEvent('sendChatMessage', {
           detail: {
@@ -3523,7 +3480,7 @@ export const commands: Record<string, Command> = {
           }
         });
         window.dispatchEvent(chatEvent);
-      }, 100);
+      }, 200);
       
       return {
         success: true,
@@ -3531,7 +3488,8 @@ export const commands: Record<string, Command> = {
           `💬 Message sent to ${channel} chat:`,
           `[${channel.toUpperCase()}] ${username}: ${message}`,
           '',
-          '✓ Message delivered to connected players'
+          '✓ Message delivered to connected players',
+          '✓ Chat interface opening...'
         ]
       };
     }

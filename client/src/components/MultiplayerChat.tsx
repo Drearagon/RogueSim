@@ -93,7 +93,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const currentUser = user as any;
+  const currentUser = user as { id?: string; username?: string } | null;
 
   useEffect(() => {
     // Initialize WebSocket connection for real-time chat
@@ -108,8 +108,8 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
           websocket.send(JSON.stringify({
             type: 'join_global_chat',
             payload: {
-              userId: user?.id || user?.hackerName || 'guest_' + Date.now(),
-              username: user?.hackerName || user?.username || 'Guest',
+              userId: gameState.playerId || currentUser?.id || 'guest_' + Date.now(),
+              username: gameState.playerId || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
               level: gameState.playerLevel || 1
             }
           }));
@@ -157,7 +157,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
       
       const newMessage: ChatMessage = {
         id: Date.now().toString(),
-        userId: user?.id || 'player_1',
+        userId: currentUser?.id || 'player_1',
         username: username,
         message: message,
         timestamp: new Date(timestamp).toISOString(),
@@ -174,7 +174,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
           payload: {
             message: message,
             channel: channel,
-            userId: user?.id || 'player_1',
+            userId: currentUser?.id || 'player_1',
             username: username
           }
         };
@@ -236,8 +236,8 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
-      userId: user?.id || 'player_1',
-      username: user?.username || 'CyberOp_' + (gameState.playerLevel || 1),
+      userId: currentUser?.id || 'player_1',
+      username: gameState.playerId || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
       message: currentInput.trim(),
       timestamp: new Date().toISOString(),
       type: activeChannel === 'team' ? 'team' : 'chat'
@@ -253,8 +253,8 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
         payload: {
           message: currentInput.trim(),
           channel: activeChannel,
-          userId: user?.id || 'player_1',
-          username: user?.username || 'CyberOp_' + (gameState.playerLevel || 1)
+          userId: currentUser?.id || 'player_1',
+          username: gameState.playerId || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1)
         }
       };
       ws.send(JSON.stringify(message));
