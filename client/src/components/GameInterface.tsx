@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Terminal } from './Terminal';
 import { MissionPanel } from './MissionPanel';
 import { MatrixRain } from './MatrixRain';
@@ -18,15 +18,24 @@ import { socialEngineeringSystem } from '@/lib/socialEngineering';
 import { dynamicNetworkSystem } from '@/lib/dynamicNetworkSystem';
 import { focusSystem } from '@/lib/focusSystem';
 import { scriptingSystem } from '@/lib/scriptingSystem';
+import { MultiplayerChat } from './MultiplayerChat';
+import { TeamSystem } from './TeamSystem';
+import { MissionMap } from './MissionMap';
+import { Users, MapPin } from 'lucide-react';
 
 interface GameInterfaceProps {
   gameState: GameState;
   onGameStateUpdate: (updates: Partial<GameState>) => void;
-  onShowMultiplayer?: () => void;
-  onShowLeaderboard?: () => void;
+  onShowMultiplayer: () => void;
+  onShowLeaderboard: () => void;
 }
 
-export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer, onShowLeaderboard }: GameInterfaceProps) {
+export function GameInterface({
+  gameState,
+  onGameStateUpdate,
+  onShowMultiplayer,
+  onShowLeaderboard
+}: GameInterfaceProps) {
   const currentMission = getCurrentMission(gameState);
   const [showSkillTree, setShowSkillTree] = useState(false);
   const [showShop, setShowShop] = useState(false);
@@ -40,6 +49,15 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
     missionTitle: string;
     reward: number;
   } | null>(null);
+  const [showTeamPanel, setShowTeamPanel] = useState(false);
+  const [showMissionMap, setShowMissionMap] = useState(false);
+  const [selectedMission, setSelectedMission] = useState<any>(null);
+  const [currentTeam, setCurrentTeam] = useState<any>(null);
+  const [terminalSettings, setTerminalSettings] = useState({
+    primaryColor: '#00ff00',
+    backgroundColor: '#000000',
+    textColor: '#00ff00'
+  });
 
   // Initialize default psych profile if not exists
   const defaultPsychProfile = {
@@ -82,6 +100,8 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
     const handleOpenScriptEditor = () => setShowScriptEditor(true);
     const handleOpenRogueNet = () => setShowRogueNet(true);
     const handleOpenPsychProfile = () => setShowPsychProfile(true);
+    const handleOpenTeamInterface = () => setShowTeamPanel(true);
+    const handleOpenMissionMap = () => setShowMissionMap(true);
     
     window.addEventListener('openEnhancedShop', handleOpenShop);
     window.addEventListener('openSocialEngineering', handleOpenSocialEngineering);
@@ -89,6 +109,8 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
     window.addEventListener('openScriptEditor', handleOpenScriptEditor);
     window.addEventListener('openRogueNet', handleOpenRogueNet);
     window.addEventListener('openPsychProfile', handleOpenPsychProfile);
+    window.addEventListener('openTeamInterface', handleOpenTeamInterface);
+    window.addEventListener('openMissionMap', handleOpenMissionMap);
     
     return () => {
       window.removeEventListener('openEnhancedShop', handleOpenShop);
@@ -97,6 +119,20 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
       window.removeEventListener('openScriptEditor', handleOpenScriptEditor);
       window.removeEventListener('openRogueNet', handleOpenRogueNet);
       window.removeEventListener('openPsychProfile', handleOpenPsychProfile);
+      window.removeEventListener('openTeamInterface', handleOpenTeamInterface);
+      window.removeEventListener('openMissionMap', handleOpenMissionMap);
+    };
+  }, []);
+
+  // Listen for terminal settings changes
+  useEffect(() => {
+    const handleSettingsChange = (event: CustomEvent) => {
+      setTerminalSettings(event.detail);
+    };
+
+    window.addEventListener('terminalSettingsChanged', handleSettingsChange as EventListener);
+    return () => {
+      window.removeEventListener('terminalSettingsChanged', handleSettingsChange as EventListener);
     };
   }, []);
 
@@ -114,6 +150,160 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
     };
   }, []);
 
+  const handleStartTeamMission = (missionId: string, team: any) => {
+    console.log('Starting team mission:', missionId, 'with team:', team);
+    setSelectedMission(missionId);
+    // Implement team mission logic here
+  };
+
+  const handleSelectMission = (mission: any) => {
+    setSelectedMission(mission);
+  };
+
+  const handleStartMission = (missionId: string) => {
+    console.log('Starting mission:', missionId);
+    
+    // Close the mission map
+    setShowMissionMap(false);
+    
+    // Find the mission node from mission map
+    const selectedMissionNode = selectedMission;
+    
+    // Convert mission map node to proper Mission object
+    const missionData: any = {
+      id: missionId,
+      title: selectedMissionNode?.name || missionId.toUpperCase().replace('_', ' '),
+      description: selectedMissionNode?.description || 'Classified mission operation',
+      briefing: selectedMissionNode?.description || 'Mission briefing classified',
+      objective: selectedMissionNode?.description || 'Complete assigned objectives',
+      difficulty: selectedMissionNode?.difficulty?.toUpperCase() || 'MEDIUM',
+      category: 'INFILTRATION',
+      type: 'STANDARD',
+      requiredLevel: selectedMissionNode?.requiredLevel || 1,
+      creditReward: selectedMissionNode?.rewards?.credits || 1000,
+      experienceReward: selectedMissionNode?.rewards?.experience || 500,
+      isRepeatable: false,
+      status: 'ACTIVE',
+      reward: selectedMissionNode?.rewards?.credits || 1000,
+      dynamicReward: selectedMissionNode?.rewards?.credits || 1000,
+      timeLimit: selectedMissionNode?.estimatedTime ? 
+        (parseInt(selectedMissionNode.estimatedTime.split('-')[0]) * 60) : undefined,
+      intel: [
+        `Mission Type: ${selectedMissionNode?.type?.toUpperCase() || 'SOLO'}`,
+        `Difficulty: ${selectedMissionNode?.difficulty?.toUpperCase() || 'MEDIUM'}`,
+        `Estimated Time: ${selectedMissionNode?.estimatedTime || '30-45 min'}`,
+        `Required Level: ${selectedMissionNode?.requiredLevel || 1}`,
+        ...(selectedMissionNode?.roleRequirements?.map((role: any) => 
+          `• ${role.role.toUpperCase()}: ${role.description}`) || []),
+        ...(selectedMissionNode?.rewards?.specialItems?.map((item: string) => 
+          `• Special Reward: ${item}`) || [])
+      ],
+      objectives: selectedMissionNode?.roleRequirements?.map((role: any, index: number) => ({
+        id: `obj_${index}`,
+        description: role.description,
+        type: 'COMMAND',
+        completed: false,
+        optional: false
+      })) || [
+        {
+          id: 'obj_1',
+          description: 'Establish secure connection to target',
+          type: 'COMMAND',
+          completed: false,
+          optional: false
+        },
+        {
+          id: 'obj_2', 
+          description: 'Infiltrate target systems',
+          type: 'COMMAND',
+          completed: false,
+          optional: false
+        },
+        {
+          id: 'obj_3',
+          description: 'Extract required data',
+          type: 'COMMAND', 
+          completed: false,
+          optional: false
+        },
+        {
+          id: 'obj_4',
+          description: 'Exfiltrate without detection',
+          type: 'STEALTH',
+          completed: false,
+          optional: false
+        }
+      ],
+      steps: selectedMissionNode?.roleRequirements?.map((role: any, index: number) => ({
+        id: `step_${index}`,
+        command: role.role === 'hacker' ? 'exploit' : 
+                role.role === 'social_engineer' ? 'social' : 
+                role.role === 'analyst' ? 'analyze' : 'scan',
+        completed: false,
+        description: role.description,
+        hint: `Use ${role.role} specialization commands`
+      })) || [
+        {
+          id: 'connect',
+          command: 'connect',
+          completed: false,
+          description: 'Establish connection to target network',
+          hint: 'Use connect command with target IP'
+        },
+        {
+          id: 'scan',
+          command: 'scan',
+          completed: false,
+          description: 'Scan for vulnerabilities',
+          hint: 'Use scan --deep for comprehensive analysis'
+        },
+        {
+          id: 'exploit',
+          command: 'exploit',
+          completed: false,
+          description: 'Exploit discovered vulnerabilities',
+          hint: 'Target the weakest service first'
+        },
+        {
+          id: 'extract',
+          command: 'download',
+          completed: false,
+          description: 'Extract mission critical data',
+          hint: 'Look for sensitive file directories'
+        }
+      ]
+    };
+    
+    // Add a terminal message about mission start
+    setTimeout(() => {
+      const event = new CustomEvent('addTerminalOutput', {
+        detail: {
+          output: [
+            `▶ MISSION DEPLOYMENT INITIATED ▶`,
+            '',
+            `✓ Mission "${missionData.title}" selected`,
+            `✓ Establishing secure connection...`,
+            `✓ Preparing infiltration tools...`,
+            `✓ Mission briefing downloaded`,
+            '',
+            `🎯 Mission is now active!`,
+            `Check the mission panel for detailed objectives.`,
+            ''
+          ]
+        }
+      });
+      window.dispatchEvent(event);
+    }, 500);
+    
+    // Update game state to reflect active mission with proper mission data
+    onGameStateUpdate({
+      activeMission: missionData,
+      networkStatus: "🔴 MISSION ACTIVE",
+      // Don't update currentMission number as that's for story missions
+      // but provide the active mission data for the panel
+    });
+  };
+
   return (
     <div className="min-h-screen w-full flex flex-col bg-black text-green-500 relative" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>
       <MatrixRain />
@@ -124,16 +314,11 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
           className="absolute w-full h-0.5 bg-gradient-to-r from-transparent via-green-500/20 to-transparent scanline-animation"
         />
       </div>
-
-      {/* Focus Interface - Always visible in top right */}
-      <div className="fixed top-4 right-4 z-30">
-        <FocusInterface />
-      </div>
       
       {/* Mobile-first layout: Terminal on top, mission panel as collapsible bottom */}
       <div className="flex-1 min-h-0 md:ml-80" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>
         <Terminal 
-          gameState={gameState} 
+          gameState={gameState}
           onGameStateUpdate={(updates) => {
             // Check for interface triggers
             if (updates.narrativeChoices) {
@@ -174,6 +359,12 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
                 updates.narrativeChoices = updates.narrativeChoices.filter(choice => choice !== 'open_psych_profile');
               }
             }
+            if (updates.showTeamInterface) {
+              setShowTeamPanel(true);
+            }
+            if (updates.showMissionMap) {
+              setShowMissionMap(true);
+            }
             onGameStateUpdate(updates);
           }}
         />
@@ -185,8 +376,11 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
       </div>
       
       {/* Desktop: Mission panel on side */}
-      <div className="hidden md:block md:fixed md:left-0 md:top-0 md:h-full md:z-20">
-        <MissionPanel gameState={gameState} currentMission={currentMission} />
+      <div className="fixed left-0 top-0 w-80 h-full hidden md:block z-20" style={{ maxHeight: '100vh' }}>
+        <MissionPanel 
+          gameState={gameState}
+          currentMission={currentMission}
+        />
       </div>
       
       {/* Skill Tree Interface */}
@@ -265,6 +459,99 @@ export function GameInterface({ gameState, onGameStateUpdate, onShowMultiplayer,
           onClose={() => setShowMissionComplete(false)}
         />
       )}
+
+      {/* Enhanced Multiplayer Chat */}
+      <MultiplayerChat 
+        gameState={gameState}
+        terminalSettings={terminalSettings}
+      />
+
+      {/* Team Panel Overlay */}
+      {showTeamPanel && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+          <div className="w-full max-w-2xl max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-mono" style={{ color: terminalSettings.primaryColor }}>
+                Team Management
+              </h2>
+              <button
+                onClick={() => setShowTeamPanel(false)}
+                className="px-4 py-2 border rounded hover:opacity-80 transition-opacity"
+                style={{
+                  borderColor: terminalSettings.primaryColor,
+                  color: terminalSettings.primaryColor
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <TeamSystem
+              gameState={gameState}
+              currentUserId={gameState.playerId || 'player_1'}
+              terminalSettings={terminalSettings}
+              onStartTeamMission={handleStartTeamMission}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* Mission Map Overlay */}
+      {showMissionMap && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+          <div className="w-full max-w-6xl h-[90vh]">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-mono" style={{ color: terminalSettings.primaryColor }}>
+                Mission Network
+              </h2>
+              <button
+                onClick={() => setShowMissionMap(false)}
+                className="px-4 py-2 border rounded hover:opacity-80 transition-opacity"
+                style={{
+                  borderColor: terminalSettings.primaryColor,
+                  color: terminalSettings.primaryColor
+                }}
+              >
+                Close
+              </button>
+            </div>
+            <MissionMap
+              gameState={gameState}
+              currentTeam={currentTeam}
+              terminalSettings={terminalSettings}
+              onSelectMission={handleSelectMission}
+              onStartMission={handleStartMission}
+            />
+          </div>
+        </div>
+      )}
+      
+      {/* Mobile mission panel toggle */}
+      <div className="md:hidden fixed bottom-4 right-4 z-30">
+        <button
+          onClick={() => setShowTeamPanel(true)}
+          className="bg-black/80 backdrop-blur-sm border rounded-full p-3 hover:opacity-80 transition-opacity"
+          style={{
+            borderColor: terminalSettings.primaryColor,
+            color: terminalSettings.primaryColor
+          }}
+        >
+          <Users className="w-6 h-6" />
+        </button>
+      </div>
+
+      {/* Mobile mission map toggle */}
+      <div className="md:hidden fixed bottom-20 right-4 z-30">
+        <button
+          onClick={() => setShowMissionMap(true)}
+          className="bg-black/80 backdrop-blur-sm border rounded-full p-3 hover:opacity-80 transition-opacity"
+          style={{
+            borderColor: terminalSettings.primaryColor,
+            color: terminalSettings.primaryColor
+          }}
+        >
+          <MapPin className="w-6 h-6" />
+        </button>
+      </div>
     </div>
   );
 }

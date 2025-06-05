@@ -22,9 +22,18 @@ interface TerminalSettings {
 }
 
 export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
-  // Get mission with current progress applied
-  const missionWithProgress = getMissionWithProgress(gameState);
-  const missionProgress = missionWithProgress ? calculateMissionProgress(gameState) : 0;
+  // Prioritize activeMission from gameState (mission map missions) over story missions
+  const activeMissionFromGameState = gameState.activeMission;
+  const storyMissionWithProgress = getMissionWithProgress(gameState);
+  
+  // Use mission map mission if available, otherwise fall back to story mission
+  const missionWithProgress = activeMissionFromGameState || storyMissionWithProgress || currentMission;
+  
+  // Calculate progress differently for mission map missions vs story missions
+  const missionProgress = activeMissionFromGameState ? 
+    0 : // Mission map missions start at 0% until we implement their progress tracking
+    (missionWithProgress ? calculateMissionProgress(gameState) : 0);
+    
   const [timeLeft, setTimeLeft] = useState<number | null>(null);
   const [terminalSettings, setTerminalSettings] = useState<TerminalSettings>({
     colorScheme: 'classic',
@@ -52,8 +61,8 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
     };
   }, []);
 
-  // Find current branch point if any
-  const currentBranchPoint = missionWithProgress?.steps.find(step => 
+  // Find current branch point if any (for old-style missions)
+  const currentBranchPoint = (missionWithProgress as any)?.steps?.find((step: any) => 
     step.branchPoint && !step.completed
   )?.branchPoint;
 
@@ -129,13 +138,13 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
         
         <div className="text-xs mb-3" style={{ color: `${terminalSettings.textColor}cc` }}>
           <div className="mb-1">
-            <span style={{ color: terminalSettings.primaryColor }}>OBJECTIVE:</span> {missionWithProgress.objective}
+            <span style={{ color: terminalSettings.primaryColor }}>OBJECTIVE:</span> {(missionWithProgress as any).objective || (missionWithProgress as any).description || 'Mission objective'}
           </div>
           <div className="mb-1">
             <span style={{ color: terminalSettings.primaryColor }}>DIFFICULTY:</span> {missionWithProgress.difficulty}
           </div>
           <div className="mb-1">
-            <span style={{ color: terminalSettings.primaryColor }}>REWARD:</span> {missionWithProgress.dynamicReward || missionWithProgress.reward}₵
+            <span style={{ color: terminalSettings.primaryColor }}>REWARD:</span> {(missionWithProgress as any).dynamicReward || (missionWithProgress as any).reward || (missionWithProgress as any).creditReward}₵
           </div>
           {missionWithProgress.timeLimit && (
             <div className="mb-1 flex items-center gap-1">
@@ -170,7 +179,7 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
             </div>
             
             <div className="space-y-2">
-              {currentBranchPoint.choices.map((choice, index) => (
+              {currentBranchPoint.choices.map((choice: any, index: number) => (
                 <div 
                   key={choice.id} 
                   className="p-2 border rounded text-xs"
@@ -196,7 +205,7 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
                     </div>
                   )}
                   <div className="text-xs text-gray-400">
-                    {choice.consequences.slice(0, 2).map((consequence, i) => (
+                    {choice.consequences.slice(0, 2).map((consequence: string, i: number) => (
                       <div key={i}>• {consequence}</div>
                     ))}
                   </div>
@@ -235,7 +244,7 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
           >
             MISSION STEPS:
           </div>
-          {missionWithProgress.steps.map((step, index) => (
+          {((missionWithProgress as any).steps || []).map((step: any, index: number) => (
             <div key={step.id || index} className="flex items-start gap-2 text-xs">
               <span 
                 className="mt-0.5"
@@ -257,7 +266,7 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
         </div>
 
         {/* Intel Section */}
-        {missionWithProgress.intel && missionWithProgress.intel.length > 0 && (
+        {(missionWithProgress as any).intel && (missionWithProgress as any).intel.length > 0 && (
           <div 
             className="mt-4 pt-3 border-t"
             style={{ borderColor: `${terminalSettings.primaryColor}50` }}
@@ -269,7 +278,7 @@ export function MissionPanel({ gameState, currentMission }: MissionPanelProps) {
               INTEL:
             </div>
             <div className="space-y-1">
-              {missionWithProgress.intel.map((intel, index) => (
+              {(missionWithProgress as any).intel.map((intel: string, index: number) => (
                 <div key={index} className="text-xs" style={{ color: '#cccccc' }}>
                   {intel}
                 </div>
