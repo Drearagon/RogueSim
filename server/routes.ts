@@ -695,8 +695,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         const httpServer = createServer(app);
 
-        // WebSocket server will be initialized later to avoid conflicts
-        // const wsServer = new MultiplayerWebSocketServer(httpServer);
+        // Initialize WebSocket server for real multiplayer functionality
+        const { MultiplayerWebSocketServer } = await import('./websocket');
+        const wsServer = new MultiplayerWebSocketServer(httpServer);
+        
+        // Make WebSocket server available to other routes
+        app.locals.wsServer = wsServer;
 
         return httpServer;
     } catch (error) {

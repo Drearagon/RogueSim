@@ -185,10 +185,13 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   const fetchRoomMembers = async () => {
     if (!currentRoom) return;
 
-    // Use localStorage for offline room member management
-    const roomKey = `room_${currentRoom.id}_members`;
-    const members = JSON.parse(localStorage.getItem(roomKey) || '[]');
-    setRoomMembers(members);
+    try {
+      const response = await fetch(`/api/rooms/${currentRoom.id}/members`);
+      const members = await response.json();
+      setRoomMembers(members);
+    } catch (error) {
+      console.error('Failed to fetch room members:', error);
+    }
   };
 
   const leaveRoom = async () => {
@@ -200,11 +203,17 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         ws.close();
       }
 
-      // Use localStorage for offline room management
-      const roomKey = `room_${currentRoom.id}_members`;
-      const members = JSON.parse(localStorage.getItem(roomKey) || '[]');
-      const updatedMembers = members.filter((m: any) => m.userId !== currentUser?.id);
-      localStorage.setItem(roomKey, JSON.stringify(updatedMembers));
+      const response = await fetch(`/api/rooms/${currentRoom.id}/leave`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ userId: currentUser?.id })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to leave room');
+      }
 
       setCurrentRoom(null);
       setRoomMembers([]);
