@@ -3496,3 +3496,7 @@ export const commands: Record<string, Command> = {
   },
 
 };
+
+export function getInitialUnlockedCommands(): string[] {
+  return ["help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings"];
+}
