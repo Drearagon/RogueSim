@@ -3495,10 +3495,97 @@ export const commands: Record<string, Command> = {
     }
   },
 
+  login: {
+    description: 'Access user authentication and account management',
+    usage: 'login [username] [password] | login status | login logout',
+    category: 'system',
+    execute: (args: string[], gameState: GameState) => {
+      const action = args[0]?.toLowerCase();
+      
+      if (action === 'status') {
+        return {
+          success: true,
+          output: [
+            '🔐 AUTHENTICATION STATUS',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'Current Session: Active',
+            'User: Authenticated',
+            'Backend Connection: Connected',
+            'Data Sync: Enabled',
+            '',
+            'Use "login logout" to end session',
+            'Game progress is automatically saved to server',
+            ''
+          ]
+        };
+      }
+      
+      if (action === 'logout') {
+        // Trigger logout through the game interface
+        setTimeout(() => {
+          const event = new CustomEvent('userLogout');
+          window.dispatchEvent(event);
+        }, 100);
+        
+        return {
+          success: true,
+          output: [
+            '👋 LOGGING OUT...',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            '✓ Saving current progress...',
+            '✓ Closing active connections...',
+            '✓ Clearing session data...',
+            '',
+            'You will be redirected to the login screen.',
+            ''
+          ]
+        };
+      }
+      
+      if (args.length >= 2) {
+        const username = args[0];
+        const password = args[1];
+        
+        return {
+          success: false,
+          output: [
+            '⚠️  SECURITY WARNING',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'Do not enter credentials in the terminal!',
+            'Use the secure login interface instead.',
+            '',
+            'Credentials entered in terminal are visible',
+            'and may be logged in command history.',
+            '',
+            'Please use the web interface for authentication.',
+            ''
+          ]
+        };
+      }
+      
+      return {
+        success: true,
+        output: [
+          '🔐 USER AUTHENTICATION',
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          'Authentication is handled through the web interface.',
+          '',
+          'Available commands:',
+          '• login status    - Check authentication status',  
+          '• login logout    - End current session',
+          '',
+          'Your game progress is automatically saved when',
+          'you are logged in to your account.',
+          ''
+        ]
+      };
+    }
+  },
+
 };
 
 export function getInitialUnlockedCommands(): string[] {
-  return ["help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings"];
+  return ["help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings", "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login"];
 }
 
 // Command availability checker

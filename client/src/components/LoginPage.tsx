@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User, Lock, Mail, Eye, EyeOff, Terminal, Shield } from 'lucide-react';
 import { MatrixRain } from './MatrixRain';
-import { loginUser, createUserAccount } from '@/lib/userStorage';
+import { loginUser, registerUser } from '@/lib/userStorage';
 
 interface LoginPageProps {
   onLoginSuccess: (user: any) => void;
@@ -53,16 +53,14 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
     try {
       if (isLogin) {
-        // Attempt to login with stored account data
-        setTimeout(() => {
-          const user = loginUser(email, password);
-          if (user) {
-            onLoginSuccess(user);
-          } else {
-            alert('Account not found. Please register first.');
-          }
-          setLoading(false);
-        }, 1000);
+        // Attempt to login with backend API
+        const user = await loginUser(email, password);
+        if (user) {
+          onLoginSuccess(user);
+        } else {
+          alert('Invalid credentials. Please check your email and password.');
+        }
+        setLoading(false);
       } else {
         // Proceed to setup for new users
         if (password !== confirmPassword) {
@@ -80,7 +78,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     }
   };
 
-  const handleSetupComplete = () => {
+  const handleSetupComplete = async () => {
     if (!username.trim()) {
       alert('Please enter a username');
       return;
@@ -88,8 +86,25 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
 
     setLoading(true);
     
-    // Navigate to Replit authentication
-    window.location.href = '/api/login';
+    try {
+      // Register user with backend API
+      const user = await registerUser({
+        hackerName: username,
+        email: email,
+        password: password
+      });
+      
+      if (user) {
+        onLoginSuccess(user);
+      } else {
+        alert('Registration failed. Please try again.');
+      }
+    } catch (error) {
+      console.error('Registration error:', error);
+      alert('Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (currentStep === 'setup') {
