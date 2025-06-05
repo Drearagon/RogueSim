@@ -53,34 +53,87 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
 
   useEffect(() => {
     if (currentRoom && currentUser) {
-      // Simulate WebSocket for offline operation
-      const simulateWebSocket = () => {
-        // Load existing chat messages from localStorage for this room
-        const existingMessages = JSON.parse(localStorage.getItem(`room_${currentRoom.id}_messages`) || '[]');
-        setChatMessages(existingMessages);
-
-        // Simulate room members for offline mode
-        const roomKey = `room_${currentRoom.id}_members`;
-        const existingMembers = JSON.parse(localStorage.getItem(roomKey) || '[]');
-        if (existingMembers.length === 0) {
-          const initialMembers = [{
-            id: 1,
-            roomId: currentRoom.id,
-            userId: currentUser.id,
-            role: 'host' as const,
-            isActive: true,
-            joinedAt: new Date().toISOString()
-          }];
-          localStorage.setItem(roomKey, JSON.stringify(initialMembers));
-          setRoomMembers(initialMembers);
-        } else {
-          setRoomMembers(existingMembers);
+      // Connect to real WebSocket server
+      const connectWebSocket = () => {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        
+        try {
+          const websocket = new WebSocket(wsUrl);
+          
+          websocket.onopen = () => {
+            console.log('Connected to WebSocket server');
+            
+            // Authenticate with the server
+            websocket.send(JSON.stringify({
+              type: 'authenticate',
+              payload: {
+                userId: currentUser.id,
+                hackerName: currentUser.username
+              }
+            }));
+            
+            // Join the current room
+            websocket.send(JSON.stringify({
+              type: 'join_room',
+              payload: {
+                roomId: currentRoom.id
+              }
+            }));
+          };
+          
+          websocket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            switch (data.type) {
+              case 'chat_message':
+                setChatMessages(prev => [...prev, {
+                  user: data.payload.username,
+                  message: data.payload.message,
+                  time: new Date(data.payload.timestamp).toLocaleTimeString()
+                }]);
+                break;
+              
+              case 'player_joined':
+                toast({
+                  title: "Player Joined",
+                  description: `${data.payload.hackerName} joined the room`,
+                });
+                fetchRoomMembers();
+                break;
+              
+              case 'player_left':
+                toast({
+                  title: "Player Left",
+                  description: `${data.payload.hackerName} left the room`,
+                });
+                fetchRoomMembers();
+                break;
+            }
+          };
+          
+          websocket.onclose = () => {
+            console.log('WebSocket connection closed');
+            // Attempt to reconnect after 5 seconds
+            setTimeout(connectWebSocket, 5000);
+          };
+          
+          setWs(websocket);
+        } catch (error) {
+          console.error('Failed to connect to WebSocket:', error);
         }
       };
 
-      simulateWebSocket();
+      connectWebSocket();
+      fetchRoomMembers();
     }
-  }, [currentRoom, currentUser]);
+
+    return () => {
+      if (ws) {
+        ws.close();
+      }
+    };
+  }, [currentRoom, currentUser, toast]);
 
   const handleWebSocketMessage = (message: any) => {
     switch (message.type) {
@@ -231,18 +284,26 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   const sendChatMessage = () => {
     if (!chatInput.trim() || !currentRoom) return;
 
-    const newMessage = {
-      user: currentUser?.username || 'Anonymous',
-      message: chatInput.trim(),
-      time: new Date().toLocaleTimeString()
-    };
-
-    // Update local chat state
-    const updatedMessages = [...chatMessages, newMessage];
-    setChatMessages(updatedMessages);
-
-    // Persist to localStorage for room persistence
-    localStorage.setItem(`room_${currentRoom.id}_messages`, JSON.stringify(updatedMessages));
+    // Send message via WebSocket if connected, otherwise store locally
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'send_message',
+        payload: {
+          message: chatInput.trim(),
+          channel: 'global',
+          userId: currentUser?.id,
+          username: currentUser?.username || 'Anonymous'
+        }
+      }));
+    } else {
+      // Fallback to local storage if WebSocket not available
+      const newMessage = {
+        user: currentUser?.username || 'Anonymous',
+        message: chatInput.trim(),
+        time: new Date().toLocaleTimeString()
+      };
+      setChatMessages(prev => [...prev, newMessage]);
+    }
 
     setChatInput('');
   };
