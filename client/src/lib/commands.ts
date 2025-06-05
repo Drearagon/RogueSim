@@ -3495,4 +3495,4 @@ export const commands: Record<string, Command> = {
     }
   },
 
-  // New Multiplayer Commands
+};
