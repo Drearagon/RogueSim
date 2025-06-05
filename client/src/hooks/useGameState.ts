@@ -94,10 +94,23 @@ export function useGameState() {
   const updateGameState = useCallback((updates: Partial<GameState>) => {
     setGameState(prev => {
       const newState = { ...prev, ...updates };
-      // Save asynchronously without blocking UI
-      saveGameState(newState).catch(error => {
-        console.warn('Failed to save game state:', error);
-      });
+      
+      // Immediate synchronous save for critical updates like skill purchases
+      try {
+        saveGameState(newState);
+        
+        // Log skill tree updates for debugging
+        if (updates.skillTree) {
+          console.log('Skill tree state updated:', {
+            skillPoints: newState.skillTree.skillPoints,
+            totalSkills: newState.skillTree.totalSkillsUnlocked,
+            nodes: newState.skillTree.nodes.filter(n => n.purchased).length
+          });
+        }
+      } catch (error) {
+        console.error('Critical: Failed to save game state:', error);
+      }
+      
       return newState;
     });
   }, []);
