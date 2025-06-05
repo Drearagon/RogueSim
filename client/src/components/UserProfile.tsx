@@ -110,6 +110,11 @@ export function UserProfile({ user, onClose, onUpdateProfile }: UserProfileProps
     };
     localStorage.setItem('user', JSON.stringify(updatedUser));
     
+    // Also update game state to ensure username persistence
+    const gameState = JSON.parse(localStorage.getItem('gameState') || '{}');
+    gameState.username = editForm.hackerName;
+    localStorage.setItem('gameState', JSON.stringify(gameState));
+    
     onUpdateProfile(editForm);
     setIsEditing(false);
   };
