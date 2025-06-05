@@ -3500,3 +3500,22 @@ export const commands: Record<string, Command> = {
 export function getInitialUnlockedCommands(): string[] {
   return ["help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings"];
 }
+
+// Command availability checker
+export function isCommandAvailable(commandName: string, gameState: GameState): boolean {
+  const command = commands[commandName];
+  if (!command) return false;
+  
+  // Check if command is in unlocked commands list
+  if (gameState.unlockedCommands && !gameState.unlockedCommands.includes(commandName)) {
+    return false;
+  }
+  
+  // Always allow basic commands regardless of unlock level
+  const basicCommands = ["help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings"];
+  if (basicCommands.includes(commandName)) {
+    return true;
+  }
+  
+  return true; // All other commands are available if in unlocked list
+}
