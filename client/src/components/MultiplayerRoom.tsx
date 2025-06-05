@@ -5,10 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Users, MessageSquare, Trophy, Settings, Copy, User, Crown } from 'lucide-react';
+import { Users, MessageSquare, Trophy, Settings, Copy, User, Crown, Target, Map } from 'lucide-react';
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
+import { CollaborativeMissionPlanner } from './CollaborativeMissionPlanner';
+import { RealTimeSync } from './RealTimeSync';
 
 interface Room {
   id: number;
@@ -50,6 +52,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   const [chatMessages, setChatMessages] = useState<Array<{ user: string; message: string; time: string }>>([]);
   const [chatInput, setChatInput] = useState('');
   const [ws, setWs] = useState<WebSocket | null>(null);
+  const [showMissionPlanner, setShowMissionPlanner] = useState(false);
 
   useEffect(() => {
     if (currentRoom && currentUser) {
@@ -352,6 +355,14 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
             <div className="flex gap-2">
               <Button 
                 variant="outline" 
+                onClick={() => setShowMissionPlanner(true)}
+                className="border-blue-400 text-blue-400 hover:bg-blue-400 hover:text-black"
+              >
+                <Target className="h-4 w-4 mr-2" />
+                MISSION PLANNER
+              </Button>
+              <Button 
+                variant="outline" 
                 onClick={startMultiplayerGame}
                 disabled={roomMembers.length < 2}
                 className="border-green-400 text-green-400 hover:bg-green-400 hover:text-black"
@@ -440,6 +451,29 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
             </Card>
           </div>
         </div>
+
+        {/* Mission Planner Modal */}
+        {showMissionPlanner && (
+          <CollaborativeMissionPlanner
+            roomId={currentRoom.id}
+            currentUser={{
+              id: currentUser?.id || 'anonymous',
+              username: currentUser?.username || 'Anonymous'
+            }}
+            websocket={ws || undefined}
+            onClose={() => setShowMissionPlanner(false)}
+          />
+        )}
+
+        {/* Real-time Sync Status */}
+        <RealTimeSync
+          websocket={ws || undefined}
+          roomId={currentRoom.id}
+          currentUser={{
+            id: currentUser?.id || 'anonymous',
+            username: currentUser?.username || 'Anonymous'
+          }}
+        />
       </div>
     );
   }
