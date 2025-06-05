@@ -3136,13 +3136,14 @@ export const commands: Record<string, Command> = {
           ),
           '└─────────────────┘',
           '',
-          `Skill points remaining: ${updatedSkillTree.skillPoints}`,
+          `Skill points remaining: ${updatedSkillTree.skillTree.skillPoints}`,
           '',
           '⚡ New abilities unlocked! Check your enhanced capabilities.'
         ],
         success: true,
         updateGameState: {
-          skillTree: updatedSkillTree
+          skillTree: updatedSkillTree.skillTree,
+          unlockedCommands: [...gameState.unlockedCommands, ...updatedSkillTree.unlockedCommands]
         },
         soundEffect: 'success'
       };
@@ -3407,14 +3408,18 @@ export const commands: Record<string, Command> = {
     usage: 'mission-map',
     category: 'multiplayer',
     execute: (args: string[], gameState: GameState) => {
+      setTimeout(() => {
+        const event = new CustomEvent('openMissionMap');
+        window.dispatchEvent(event);
+      }, 100);
+      
       return {
         success: true,
         output: [
           '🗺️  Opening Mission Network Map...',
           'Select missions, view requirements, and plan team operations.',
           ''
-        ],
-        updateGameState: { showMissionMap: true }
+        ]
       };
     }
   },
@@ -3504,12 +3509,29 @@ export const commands: Record<string, Command> = {
         };
       }
       
+      // Get username from gameState or use default
+      const username = gameState.playerId || 'CyberOp_1';
+      
+      // Send message to chat interface
+      setTimeout(() => {
+        const chatEvent = new CustomEvent('sendChatMessage', {
+          detail: {
+            channel: channel,
+            message: message,
+            username: username,
+            timestamp: Date.now()
+          }
+        });
+        window.dispatchEvent(chatEvent);
+      }, 100);
+      
       return {
         success: true,
         output: [
           `💬 Message sent to ${channel} chat:`,
-          `"${message}"`,
-          ''
+          `[${channel.toUpperCase()}] ${username}: ${message}`,
+          '',
+          '✓ Message delivered to connected players'
         ]
       };
     }

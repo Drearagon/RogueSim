@@ -93,6 +93,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting');
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
+  const currentUser = user as any;
 
   useEffect(() => {
     // Initialize WebSocket connection for real-time chat
@@ -107,8 +108,8 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
           websocket.send(JSON.stringify({
             type: 'join_global_chat',
             payload: {
-              userId: user?.id || 'guest_' + Date.now(),
-              username: user?.username || 'Guest',
+              userId: user?.id || user?.hackerName || 'guest_' + Date.now(),
+              username: user?.hackerName || user?.username || 'Guest',
               level: gameState.playerLevel || 1
             }
           }));
@@ -151,11 +152,50 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
       setIsMinimized(false);
     };
 
+    const handleSendChatMessage = (event: CustomEvent) => {
+      const { channel, message, username, timestamp } = event.detail;
+      
+      const newMessage: ChatMessage = {
+        id: Date.now().toString(),
+        userId: user?.id || 'player_1',
+        username: username,
+        message: message,
+        timestamp: new Date(timestamp).toISOString(),
+        type: channel === 'team' ? 'team' : 'chat'
+      };
+
+      // Add message locally
+      setMessages(prev => [...prev, newMessage]);
+
+      // Try to send via WebSocket if connected
+      if (ws && connectionStatus === 'connected') {
+        const wsMessage = {
+          type: 'send_message',
+          payload: {
+            message: message,
+            channel: channel,
+            userId: user?.id || 'player_1',
+            username: username
+          }
+        };
+        ws.send(JSON.stringify(wsMessage));
+      }
+
+      // Auto-open chat if closed
+      if (!isOpen) {
+        setIsOpen(true);
+        setIsMinimized(false);
+      }
+    };
+
     window.addEventListener('openMultiplayerChat', handleOpenMultiplayerChat);
+    window.addEventListener('sendChatMessage', handleSendChatMessage as EventListener);
+    
     return () => {
       window.removeEventListener('openMultiplayerChat', handleOpenMultiplayerChat);
+      window.removeEventListener('sendChatMessage', handleSendChatMessage as EventListener);
     };
-  }, []);
+  }, [isOpen, ws, connectionStatus, user]);
 
   const handleWebSocketMessage = (data: any) => {
     switch (data.type) {
