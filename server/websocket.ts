@@ -14,8 +14,13 @@ export class MultiplayerWebSocketServer {
   private userSockets: Map<string, GameWebSocket> = new Map();
 
   constructor(server: Server) {
-    this.wss = new WebSocketServer({ server });
+    this.wss = new WebSocketServer({ 
+      server, 
+      path: '/ws',
+      perMessageDeflate: false 
+    });
     this.setupWebSocketHandlers();
+    console.log('WebSocket server initialized on /ws path');
   }
 
   private setupWebSocketHandlers() {
@@ -55,6 +60,7 @@ export class MultiplayerWebSocketServer {
         break;
       
       case 'room_chat':
+      case 'send_message':
         await this.handleRoomChat(ws, payload);
         break;
       
