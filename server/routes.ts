@@ -180,36 +180,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         app.post('/api/auth/login', async (req, res) => {
-            let email: string | undefined;
+            let identifier: string | undefined;
 
             try {
                 const requestData = req.body;
-                email = requestData?.email;
+                identifier = requestData?.email; // Can be email or hackername
                 const password = requestData?.password;
 
-                if (!email || !password) {
-                    logAuthEvent('login_error', email || 'missing_credentials', false);
+                if (!identifier || !password) {
+                    logAuthEvent('login_error', identifier || 'missing_credentials', false);
                     return res.status(400).json({ error: "Username/email and password are required" });
                 }
 
-                // Use storage method for login
-                const user = await storage.getUserByEmail(email); // Use storage.getUserByEmail
+                // Try to find user by email first, then by hackername
+                let user = await storage.getUserByEmail(identifier);
+                if (!user) {
+                    user = await storage.getUserByHackerName(identifier);
+                }
 
                 if (!user) {
-                    logAuthEvent('login_failed', email, false);
+                    logAuthEvent('login_failed', identifier, false);
                     return res.status(401).json({ error: "Invalid credentials" });
                 }
 
                 if (!user.password || user.password.length === 0) {
                     console.log('No password found for user:', user.email);
-                    logAuthEvent('login_failed', user.email || email, false);
+                    logAuthEvent('login_failed', user.email || identifier, false);
                     return res.status(401).json({ error: "Invalid credentials" });
                 }
 
                 const validPassword = await bcrypt.compare(password, user.password);
                 if (!validPassword) {
                     // authLogger.warn(`Password validation failed for user: ${user.email}`); // Ensure authLogger is defined
-                    logAuthEvent('login_failed', user.email || email, false);
+                    logAuthEvent('login_failed', user.email || identifier, false);
                     return res.status(401).json({ error: "Invalid credentials" });
                 }
 
@@ -218,8 +221,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 // sessionLogger.info(`Session created successfully for user: ${user.id.substring(0, 8)}...`); // Ensure sessionLogger is defined
 
-                logAuthEvent('login_success', user.email || email, true);
-                logUserAction(user.id, 'user_login', { email: user.email || email });
+                logAuthEvent('login_success', user.email || identifier, true);
+                logUserAction(user.id, 'user_login', { email: user.email || identifier });
 
                 res.json({
                     user: {
@@ -232,12 +235,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     sessionId: req.sessionID
                 });
             } catch (error) {
-                const safeEmail = email && typeof email === 'string' ? email.substring(0, 3) + '***' : 'unknown';
+                const safeIdentifier = identifier && typeof identifier === 'string' ? identifier.substring(0, 3) + '***' : 'unknown';
                 // authLogger.error("Login error occurred", {
                 //     error: error instanceof Error ? error.message : 'Unknown error',
-                //     email: safeEmail
+                //     identifier: safeIdentifier
                 // });
-                logAuthEvent('login_error', email || 'unknown', false);
+                logAuthEvent('login_error', identifier || 'unknown', false);
                 res.status(500).json({ error: "Login failed due to server error" });
             }
         });
@@ -249,6 +252,115 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 }
                 res.json({ message: "Logged out successfully" });
             });
+        });
+
+        // Send verification code to email
+        app.post('/api/auth/send-verification', async (req, res) => {
+            try {
+                const { email } = req.body;
+
+                if (!email) {
+                    return res.status(400).json({ error: "Email is required" });
+                }
+
+                // Generate 6-digit verification code
+                const code = Math.floor(100000 + Math.random() * 900000).toString();
+                const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+                // Store verification code
+                await storage.createVerificationCode(email, code, expiresAt);
+
+                // Send email (placeholder - you would integrate with an email service)
+                console.log(`📧 Verification code for ${email}: ${code}`);
+                console.log(`Code expires at: ${expiresAt.toISOString()}`);
+
+                // In a real implementation, you would send this via email service like SendGrid, AWS SES, etc.
+                // await EmailService.sendVerificationCode(email, code);
+
+                res.json({ message: "Verification code sent to email" });
+            } catch (error) {
+                console.error("Error sending verification code:", error);
+                res.status(500).json({ error: "Failed to send verification code" });
+            }
+        });
+
+        // User profile update with security for hackername changes
+        app.post('/api/user/update-profile', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.userId;
+                const { hackerName, bio, profileImageUrl, currentPassword } = req.body;
+
+                if (!userId) {
+                    return res.status(401).json({ error: "User not authenticated" });
+                }
+
+                const currentUser = await storage.getUserById(userId);
+                if (!currentUser) {
+                    return res.status(404).json({ error: "User not found" });
+                }
+
+                // If hackername is being changed, require password verification
+                if (hackerName && hackerName !== currentUser.hackerName) {
+                    if (!currentPassword) {
+                        return res.status(400).json({ error: "Password required to change hackername" });
+                    }
+
+                    const validPassword = await bcrypt.compare(currentPassword, currentUser.password);
+                    if (!validPassword) {
+                        return res.status(401).json({ error: "Invalid password" });
+                    }
+
+                    // Check if new hackername is already taken
+                    const existingUser = await storage.getUserByHackerName(hackerName);
+                    if (existingUser && existingUser.id !== userId) {
+                        return res.status(409).json({ error: "Hackername already taken" });
+                    }
+
+                    // Log hackername change for security
+                    logUserAction(userId, 'hackername_change', {
+                        oldHackerName: currentUser.hackerName,
+                        newHackerName: hackerName,
+                        timestamp: new Date().toISOString()
+                    });
+                }
+
+                // Update user profile
+                const updatedUser = await storage.updateUser(userId, {
+                    hackerName: hackerName || currentUser.hackerName,
+                    bio: bio !== undefined ? bio : currentUser.bio,
+                    profileImageUrl: profileImageUrl !== undefined ? profileImageUrl : currentUser.profileImageUrl
+                });
+
+                res.json({
+                    id: updatedUser.id,
+                    hackerName: updatedUser.hackerName,
+                    email: updatedUser.email,
+                    bio: updatedUser.bio,
+                    profileImageUrl: updatedUser.profileImageUrl
+                });
+            } catch (error) {
+                console.error("Profile update error:", error);
+                res.status(500).json({ error: "Profile update failed" });
+            }
+        });
+
+        // Log user activity for connection tracking
+        app.post('/api/user/log-activity', async (req, res) => {
+            try {
+                const { username, action, timestamp, userAgent } = req.body;
+                const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
+
+                // Log activity to console (in production, you'd log to a proper logging service)
+                console.log(`🔄 [${timestamp}] ${action.toUpperCase()}: ${username} | IP: ${clientIp} | UA: ${userAgent?.substring(0, 50)}...`);
+
+                // You could also store this in a database for analytics
+                // await storage.logUserActivity(username, action, timestamp, clientIp, userAgent);
+
+                res.json({ message: "Activity logged" });
+            } catch (error) {
+                console.error("Error logging activity:", error);
+                res.status(500).json({ error: "Failed to log activity" });
+            }
         });
 
         // Set username for first-time users

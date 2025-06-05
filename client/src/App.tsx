@@ -116,17 +116,20 @@ export default function App() {
     const handleShowLeaderboard = () => setCurrentView('leaderboard');
     const handleShowProfile = () => setCurrentView('profile');
     const handleShowFactionInterface = () => setShowFactionInterface(true);
+    const handleUserLogout = () => handleLogout();
 
     window.addEventListener('showMultiplayer', handleShowMultiplayer);
     window.addEventListener('showLeaderboard', handleShowLeaderboard);
     window.addEventListener('showProfile', handleShowProfile);
     window.addEventListener('showFactionInterface', handleShowFactionInterface);
+    window.addEventListener('userLogout', handleUserLogout);
 
     return () => {
       window.removeEventListener('showMultiplayer', handleShowMultiplayer);
       window.removeEventListener('showLeaderboard', handleShowLeaderboard);
       window.removeEventListener('showProfile', handleShowProfile);
       window.removeEventListener('showFactionInterface', handleShowFactionInterface);
+      window.removeEventListener('userLogout', handleUserLogout);
     };
   }, []);
 
@@ -243,8 +246,17 @@ export default function App() {
     setCurrentView('game');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     console.log('handleLogout called in App.tsx');
+    
+    try {
+      // Use the enhanced logout function
+      const { logoutUser } = await import('./lib/userStorage');
+      await logoutUser();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
     // Clear authentication state
     setUser(null);
     setIsAuthenticated(false);
@@ -255,11 +267,6 @@ export default function App() {
     // Clear localStorage
     localStorage.removeItem('user');
     localStorage.removeItem('authenticated');
-    
-    // Try to call the logout API, but don't depend on it
-    fetch('/api/logout', { method: 'POST' }).catch(() => {
-      // Ignore errors - we've already cleared local state
-    });
   };
 
   const handleShowProfile = () => {

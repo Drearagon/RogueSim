@@ -18,42 +18,109 @@ interface AuthResponse {
 // Current user cache
 let currentUserCache: UserAccount | null = null;
 
-export async function loginUser(email: string, password: string): Promise<UserAccount | null> {
+// Enhanced login function that supports both email and hackername
+export async function loginUser(identifier: string, password: string): Promise<UserAccount | null> {
   try {
+    // Log connection attempt
+    console.log(`🔐 Authentication attempt for: ${identifier.substring(0, 3)}***`);
+    
     const response = await apiRequest('POST', '/api/auth/login', {
-      email,
+      email: identifier, // Backend will handle both email and hackername
       password
     });
     
     const authData: AuthResponse = await response.json();
     currentUserCache = authData.user;
     
-    // Also store in localStorage as backup/cache
+    // Store in localStorage as backup/cache
     localStorage.setItem('roguesim_current_user', JSON.stringify(authData.user));
+    localStorage.setItem('authenticated', 'true');
+    
+    // Log successful connection
+    console.log(`✅ Authentication successful for: ${authData.user.hackerName}`);
+    logUserConnection(authData.user.hackerName, 'login');
     
     return authData.user;
   } catch (error) {
-    console.error('Login failed:', error);
+    console.error('❌ Login failed:', error);
+    logUserConnection(identifier, 'login_failed');
     return null;
   }
 }
 
+// Enhanced registration with email verification
 export async function registerUser(userData: {
   hackerName: string;
   email: string;
   password: string;
+  requireVerification?: boolean;
 }): Promise<UserAccount | null> {
   try {
+    console.log(`📝 Registration attempt for: ${userData.hackerName}`);
+    
+    if (userData.requireVerification) {
+      // Send verification code first
+      await sendVerificationCode(userData.email);
+      return null; // Will need to verify before completing registration
+    }
+    
     const response = await apiRequest('POST', '/api/auth/register', userData);
     const authData: AuthResponse = await response.json();
     currentUserCache = authData.user;
     
     // Store in localStorage as backup/cache
     localStorage.setItem('roguesim_current_user', JSON.stringify(authData.user));
+    localStorage.setItem('authenticated', 'true');
+    
+    console.log(`✅ Registration successful for: ${authData.user.hackerName}`);
+    logUserConnection(authData.user.hackerName, 'register');
     
     return authData.user;
   } catch (error) {
-    console.error('Registration failed:', error);
+    console.error('❌ Registration failed:', error);
+    logUserConnection(userData.hackerName, 'register_failed');
+    return null;
+  }
+}
+
+// Send email verification code
+export async function sendVerificationCode(email: string): Promise<boolean> {
+  try {
+    console.log(`📧 Sending verification code to: ${email.substring(0, 3)}***`);
+    
+    await apiRequest('POST', '/api/auth/send-verification', { email });
+    
+    console.log(`✅ Verification code sent successfully`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send verification code:', error);
+    return false;
+  }
+}
+
+// Verify email with code
+export async function verifyEmail(email: string, code: string): Promise<UserAccount | null> {
+  try {
+    console.log(`🔐 Verifying email with code for: ${email.substring(0, 3)}***`);
+    
+    const response = await apiRequest('POST', '/api/auth/verify', {
+      email,
+      code
+    });
+    
+    const authData: AuthResponse = await response.json();
+    currentUserCache = authData.user;
+    
+    // Store in localStorage as backup/cache
+    localStorage.setItem('roguesim_current_user', JSON.stringify(authData.user));
+    localStorage.setItem('authenticated', 'true');
+    
+    console.log(`✅ Email verification successful for: ${authData.user.hackerName}`);
+    logUserConnection(authData.user.hackerName, 'verify');
+    
+    return authData.user;
+  } catch (error) {
+    console.error('❌ Email verification failed:', error);
     return null;
   }
 }
@@ -92,21 +159,131 @@ export async function getCurrentUser(): Promise<UserAccount | null> {
   }
 }
 
+// Enhanced logout with proper cleanup
 export async function logoutUser(): Promise<void> {
+  const userToLogout = currentUserCache;
+  
   try {
+    console.log(`👋 Logging out user: ${userToLogout?.hackerName || 'Unknown'}`);
+    
+    // Call backend logout API
     await apiRequest('POST', '/api/auth/logout', undefined);
+    
+    if (userToLogout) {
+      logUserConnection(userToLogout.hackerName, 'logout');
+    }
+    
+    console.log(`✅ Logout successful`);
   } catch (error) {
-    console.error('Logout request failed:', error);
+    console.error('❌ Logout request failed:', error);
+    
+    if (userToLogout) {
+      logUserConnection(userToLogout.hackerName, 'logout_failed');
+    }
   } finally {
-    // Clear cache and localStorage regardless of API success
+    // Always clear cache and localStorage regardless of API success
     currentUserCache = null;
     localStorage.removeItem('roguesim_current_user');
+    localStorage.removeItem('authenticated');
+    
+    // Trigger logout event for other components
+    const event = new CustomEvent('userLoggedOut', {
+      detail: { user: userToLogout }
+    });
+    window.dispatchEvent(event);
+  }
+}
+
+// Update user profile with restrictions on hackername changes
+export async function updateUserProfile(updates: {
+  hackerName?: string;
+  bio?: string;
+  profileImageUrl?: string;
+  currentPassword?: string; // Required for hackername changes
+}): Promise<UserAccount | null> {
+  try {
+    if (updates.hackerName && !updates.currentPassword) {
+      throw new Error('Password required to change hacker name');
+    }
+    
+    console.log(`🔧 Updating profile for: ${currentUserCache?.hackerName || 'Unknown'}`);
+    
+    const response = await apiRequest('POST', '/api/user/update-profile', updates);
+    const updatedUser: UserAccount = await response.json();
+    
+    // Update cache
+    currentUserCache = updatedUser;
+    localStorage.setItem('roguesim_current_user', JSON.stringify(updatedUser));
+    
+    console.log(`✅ Profile updated successfully`);
+    
+    if (updates.hackerName) {
+      logUserConnection(updatedUser.hackerName, 'name_change');
+    }
+    
+    return updatedUser;
+  } catch (error) {
+    console.error('❌ Profile update failed:', error);
+    throw error;
+  }
+}
+
+// Log user connections and activities
+function logUserConnection(username: string, action: string): void {
+  const timestamp = new Date().toISOString();
+  console.log(`🔄 [${timestamp}] ${action.toUpperCase()}: ${username}`);
+  
+  // Send to backend for logging if available
+  try {
+    apiRequest('POST', '/api/user/log-activity', {
+      username,
+      action,
+      timestamp,
+      userAgent: navigator.userAgent,
+      ip: 'client-side' // Will be replaced by actual IP on backend
+    }).catch(error => {
+      // Don't throw - logging should be non-blocking
+      console.warn('Failed to log user activity to backend:', error);
+    });
+  } catch (error) {
+    // Ignore logging errors
+  }
+  
+  // Also store locally for offline capability
+  try {
+    const logs = JSON.parse(localStorage.getItem('user_activity_logs') || '[]');
+    logs.push({
+      username,
+      action,
+      timestamp,
+      userAgent: navigator.userAgent
+    });
+    
+    // Keep only last 100 logs
+    if (logs.length > 100) {
+      logs.splice(0, logs.length - 100);
+    }
+    
+    localStorage.setItem('user_activity_logs', JSON.stringify(logs));
+  } catch (error) {
+    // Ignore localStorage errors
+  }
+}
+
+// Get user activity logs
+export function getUserActivityLogs(): any[] {
+  try {
+    return JSON.parse(localStorage.getItem('user_activity_logs') || '[]');
+  } catch (error) {
+    return [];
   }
 }
 
 export function clearCurrentUser(): void {
+  console.log(`🧹 Clearing current user cache`);
   currentUserCache = null;
   localStorage.removeItem('roguesim_current_user');
+  localStorage.removeItem('authenticated');
 }
 
 // Legacy functions for backward compatibility
@@ -117,7 +294,6 @@ export function createUserAccount(userData: {
   specialization: string;
   bio: string;
 }): UserAccount {
-  // This should now use the registerUser function
   console.warn('createUserAccount is deprecated, use registerUser instead');
   return {
     id: 'temp_' + Date.now(),
@@ -128,7 +304,6 @@ export function createUserAccount(userData: {
 }
 
 export function saveUserAccount(user: UserAccount): void {
-  // This is now handled by the backend, just update cache
   console.warn('saveUserAccount is deprecated, user data is saved automatically');
   currentUserCache = user;
   localStorage.setItem('roguesim_current_user', JSON.stringify(user));

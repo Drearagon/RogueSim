@@ -82,14 +82,21 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
         websocket.onopen = () => {
           setConnectionStatus('connected');
+          const timestamp = new Date().toISOString();
+          const username = getUserDisplayName();
+          
+          // Log player connection
+          console.log(`🔄 [${timestamp}] PLAYER_CONNECT: ${username}`);
+          console.log('✅ Chat WebSocket connected to multiplayer network');
           
           // Send join message
           websocket.send(JSON.stringify({
             type: 'join_global_chat',
             payload: {
               userId: getUserId(),
-              username: getUserDisplayName(),
-              level: gameState.playerLevel || 1
+              username: username,
+              level: gameState.playerLevel || 1,
+              timestamp: timestamp
             }
           }));
 
@@ -99,8 +106,8 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
               id: Date.now().toString(),
               userId: 'system',
               username: 'SYSTEM',
-              message: 'Connected to The Shadow Network. Secure communications established.',
-              timestamp: new Date().toISOString(),
+              message: `🌐 Connected to The Shadow Network. Welcome, ${username}! Secure communications established.`,
+              timestamp: timestamp,
               type: 'system'
             }]);
             setHasShownWelcome(true);
@@ -114,12 +121,25 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
         websocket.onclose = () => {
           setConnectionStatus('offline');
+          const timestamp = new Date().toISOString();
+          const username = getUserDisplayName();
+          
+          // Log player disconnection
+          console.log(`🔄 [${timestamp}] PLAYER_DISCONNECT: ${username}`);
+          console.log('⚠️ Chat WebSocket connection closed');
+          
           // Try to reconnect after 5 seconds
           setTimeout(initWebSocket, 5000);
         };
 
-        websocket.onerror = () => {
+        websocket.onerror = (error) => {
           setConnectionStatus('offline');
+          const timestamp = new Date().toISOString();
+          const username = getUserDisplayName();
+          
+          // Log connection error
+          console.log(`🔄 [${timestamp}] PLAYER_CONNECTION_ERROR: ${username}`);
+          console.error('❌ Chat WebSocket error:', error);
         };
 
         setWs(websocket);

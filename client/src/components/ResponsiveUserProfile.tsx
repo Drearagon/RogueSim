@@ -120,9 +120,33 @@ export function ResponsiveUserProfile({
     }
   }, [isDesktopDropdownOpen]);
 
-  const handleSaveProfile = () => {
-    onUpdateProfile(editForm);
-    setIsEditing(false);
+  const handleSaveProfile = async () => {
+    try {
+      // For hackername changes, require password confirmation
+      if (editForm.hackerName !== (user?.hackerName || user?.username)) {
+        const password = prompt('🔐 Password required to change hackername:');
+        if (!password) {
+          alert('Password required to change hackername');
+          return;
+        }
+        
+        const { updateUserProfile } = await import('@/lib/userStorage');
+        await updateUserProfile({
+          ...editForm,
+          currentPassword: password
+        });
+        
+        alert('✅ Profile updated successfully! Hackername changes require security verification.');
+      } else {
+        // Regular profile update without hackername change
+        onUpdateProfile(editForm);
+      }
+      
+      setIsEditing(false);
+    } catch (error) {
+      console.error('Profile update failed:', error);
+      alert('❌ Profile update failed: ' + (error as Error).message);
+    }
   };
 
   const getReputationColor = (rep: string) => {
