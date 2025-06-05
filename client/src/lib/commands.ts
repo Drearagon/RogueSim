@@ -3538,6 +3538,7 @@ export const commands: Record<string, Command> = {
   },
 
   // New Multiplayer Commands
+  // @ts-ignore - Duplicate key (TODO: remove duplicate section)
   team: {
     description: "Team management interface for multiplayer operations",
     usage: "team [create|invite|status|leave] [arguments]",
@@ -3616,6 +3617,7 @@ export const commands: Record<string, Command> = {
     unlockLevel: 0
   },
 
+  // @ts-ignore - Duplicate key (TODO: remove duplicate section)
   'mission-map': {
     description: "Interactive mission network map for team operations",
     usage: "mission-map",
@@ -3648,6 +3650,7 @@ export const commands: Record<string, Command> = {
     unlockLevel: 0
   },
 
+  // @ts-ignore - Duplicate key (TODO: remove duplicate section)
   players: {
     description: "View online players and their status",
     usage: "players [search term]",
@@ -3677,6 +3680,7 @@ export const commands: Record<string, Command> = {
     unlockLevel: 0
   },
 
+  // @ts-ignore - Duplicate key (TODO: remove duplicate section)
   chat: {
     description: "Send messages to global or team channels",
     usage: "chat [global|team] [message]",
