@@ -140,18 +140,23 @@ export class MultiplayerWebSocketServer {
     }
   }
 
-  private async handleRoomChat(ws: GameWebSocket, payload: { message: string }) {
+  private async handleRoomChat(ws: GameWebSocket, payload: { message: string, channel?: string, userId?: string, username?: string }) {
     if (!ws.roomId || !ws.userId) return;
 
-    this.broadcastToRoom(ws.roomId, {
+    const chatMessage = {
       type: 'chat_message',
       payload: {
-        userId: ws.userId,
-        hackerName: ws.hackerName,
+        id: Date.now().toString(),
+        userId: payload.userId || ws.userId,
+        username: payload.username || ws.hackerName || 'Anonymous',
         message: payload.message,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        messageType: payload.channel === 'team' ? 'team' : 'chat'
       }
-    });
+    };
+
+    // Broadcast to all users in the room
+    this.broadcastToRoom(ws.roomId, chatMessage);
   }
 
   private async handleGameAction(ws: GameWebSocket, payload: any) {
