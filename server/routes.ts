@@ -18,6 +18,7 @@ import connectPg from "connect-pg-simple";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger"; // Make sure these are defined/imported correctly
 import { log } from "./vite"; // Your custom logger
+import crypto from "crypto"; // Add crypto import for secure random generation
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -181,25 +182,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
             try {
                 const { email, code } = req.body;
 
-                // UNCOMMENTED - These methods ARE implemented in DatabaseStorage:
-                const verification = await storage.getVerificationCode(email, code);
+                // Input validation
+                if (!email || typeof email !== 'string' || !isValidEmail(email)) {
+                    return res.status(400).json({ error: "Valid email is required" });
+                }
+
+                if (!code || typeof code !== 'string' || !/^\d{6}$/.test(code)) {
+                    return res.status(400).json({ error: "Valid 6-digit verification code is required" });
+                }
+
+                // Normalize email
+                const normalizedEmail = email.toLowerCase().trim();
+
+                // Get verification code (email-specific, not globally valid)
+                const verification = await storage.getVerificationCode(normalizedEmail, code);
                 if (!verification || verification.used || new Date() > verification.expiresAt) {
+                    // Log failed verification attempt for security monitoring
+                    logAuthEvent('verification_failed', normalizedEmail, false);
                     return res.status(400).json({ error: "Invalid or expired verification code" });
                 }
 
+                // Mark code as used IMMEDIATELY to prevent race conditions
                 await storage.markVerificationCodeUsed(verification.id);
 
-                const unverifiedUser = await storage.getUnverifiedUser(email);
+                const unverifiedUser = await storage.getUnverifiedUser(normalizedEmail);
                 if (!unverifiedUser) {
                     return res.status(400).json({ error: "User data not found" });
                 }
 
+                // Create the verified user account
                 const user = await storage.createUser(unverifiedUser);
 
-                await storage.deleteUnverifiedUser(email);
+                // Clean up unverified user data
+                await storage.deleteUnverifiedUser(normalizedEmail);
 
-                await sendWelcomeEmail(email, unverifiedUser.hackerName);
+                // Send welcome email (non-blocking)
+                sendWelcomeEmail(normalizedEmail, unverifiedUser.hackerName).catch(err => {
+                    console.warn("Welcome email failed to send:", err);
+                });
 
+                // Log successful verification
+                logAuthEvent('verification_success', normalizedEmail, true);
+
+                // Create authenticated session
                 (req.session as any).userId = user.id;
                 (req.session as any).hackerName = user.hackerName;
 
@@ -298,22 +323,44 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
+        // Generate cryptographically secure verification code
+        const generateSecureVerificationCode = (): string => {
+            // Generate 6-digit code using crypto.randomInt for security
+            return crypto.randomInt(100000, 999999).toString();
+        };
+
+        // Validate email format
+        const isValidEmail = (email: string): boolean => {
+            const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+            return emailRegex.test(email) && email.length <= 254;
+        };
+
         // Send verification code to email
         app.post('/api/auth/send-verification', async (req, res) => {
             try {
                 const { email, hackerName } = req.body;
 
-                if (!email) {
-                    return res.status(400).json({ error: "Email is required" });
+                // Input validation
+                if (!email || typeof email !== 'string') {
+                    return res.status(400).json({ error: "Valid email is required" });
                 }
 
-                // Generate 6-digit verification code
-                const code = Math.floor(100000 + Math.random() * 900000).toString();
+                if (!isValidEmail(email)) {
+                    return res.status(400).json({ error: "Invalid email format" });
+                }
+
+                // Optional: Rate limiting check (prevent spam)
+                // TODO: Implement rate limiting per email/IP
+                
+                // Generate cryptographically secure 6-digit verification code
+                const code = generateSecureVerificationCode();
                 const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+                // Note: Could add cleanup of old verification codes here in the future
 
                 // Store verification code in database
                 await storage.storeVerificationCode({
-                    email,
+                    email: email.toLowerCase().trim(), // Normalize email
                     hackerName: hackerName || 'Agent',
                     code,
                     expiresAt
