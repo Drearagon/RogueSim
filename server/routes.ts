@@ -354,7 +354,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 // Generate cryptographically secure 6-digit verification code
                 const code = generateSecureVerificationCode();
-                const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+                const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
 
                 // Note: Could add cleanup of old verification codes here in the future
 
