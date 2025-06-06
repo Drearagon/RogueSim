@@ -50,8 +50,8 @@ export class DatabaseStorage implements IStorage {
     }
 
     async createUser(userData: any): Promise<User> {
-        // Use direct SQL with template literal for postgres.js client
-        const insertQuery = `
+        // Use postgres.js tagged template literals
+        await this.rawPool`
             INSERT INTO users (
                 id, email, password, hacker_name,
                 player_level, total_missions_completed, total_credits_earned,
@@ -67,10 +67,12 @@ export class DatabaseStorage implements IStorage {
                 false, 'single'
             )
         `;
-        await this.rawPool`${insertQuery}`; // Use rawPool for this query
 
-        const selectQuery = `SELECT id, email, hacker_name, profile_image_url FROM users WHERE id = ${userData.id}`;
-        const result = await this.rawPool`${selectQuery}`;
+        const result = await this.rawPool`
+            SELECT id, email, hacker_name, profile_image_url 
+            FROM users 
+            WHERE id = ${userData.id}
+        `;
         return result[0]; // postgres.js returns array of rows for select
     }
 
@@ -351,48 +353,40 @@ export class DatabaseStorage implements IStorage {
 
     // Email verification operations
     async storeVerificationCode(data: any): Promise<void> {
-        const query = `
+        await this.rawPool`
             INSERT INTO verification_codes (email, hacker_name, code, expires_at, used)
-            VALUES ($1, $2, $3, $4, false)
+            VALUES (${data.email}, ${data.hackerName}, ${data.code}, ${data.expiresAt}, false)
         `;
-        await (this.rawPool as NodePgPool).query(query, [data.email, data.hackerName, data.code, data.expiresAt]);
     }
 
     async getVerificationCode(email: string, code: string): Promise<any> {
-        const query = `
+        const result = await this.rawPool`
             SELECT * FROM verification_codes
-            WHERE email = $1 AND code = $2 AND used = false
+            WHERE email = ${email} AND code = ${code} AND used = false
             ORDER BY created_at DESC LIMIT 1
         `;
-        const result = await (this.rawPool as NodePgPool).query(query, [email, code]);
-        return result.rows[0];
+        return result[0];
     }
 
     async markVerificationCodeUsed(id: number): Promise<void> {
-        const query = `UPDATE verification_codes SET used = true WHERE id = $1`;
-        await (this.rawPool as NodePgPool).query(query, [id]);
+        await this.rawPool`UPDATE verification_codes SET used = true WHERE id = ${id}`;
     }
 
     async storeUnverifiedUser(userData: any): Promise<void> {
-        const query = `
+        await this.rawPool`
             INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            VALUES (${userData.id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, ${userData.createdAt}, ${userData.updatedAt})
             ON CONFLICT (email) DO UPDATE SET
-                id = $1, hacker_name = $2, password = $4, updated_at = $7
+                id = ${userData.id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, updated_at = ${userData.updatedAt}
         `;
-        await (this.rawPool as NodePgPool).query(query, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl, userData.createdAt, userData.updatedAt]);
     }
 
     async getUnverifiedUser(email: string): Promise<any> {
-        const query = `SELECT * FROM unverified_users WHERE email = $1`;
-        const result = await (this.rawPool as NodePgPool).query(query, [email]);
-        return result.rows[0];
+        const result = await this.rawPool`SELECT * FROM unverified_users WHERE email = ${email}`;
+        return result[0];
     }
 
     async deleteUnverifiedUser(email: string): Promise<void> {
-        const query = `DELETE FROM unverified_users WHERE email = $1`;
-        await (this.rawPool as NodePgPool).query(query, [email]);
+        await this.rawPool`DELETE FROM unverified_users WHERE email = ${email}`;
     }
 }
-
-export const storage = new DatabaseStorage();
