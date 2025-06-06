@@ -1,37 +1,8 @@
 import sgMail from '@sendgrid/mail';
-import path from 'path';
-import fs from 'fs';
 import { logger } from './logger';
 
-// Load SendGrid configuration from sendgrid.env file
-const loadSendGridConfig = () => {
-  const sendgridEnvPath = path.join(__dirname, 'sendgrid.env');
-  
-  try {
-    if (fs.existsSync(sendgridEnvPath)) {
-      const envContent = fs.readFileSync(sendgridEnvPath, 'utf8');
-      const lines = envContent.split('\n');
-      
-      for (const line of lines) {
-        if (line.trim() && !line.startsWith('#')) {
-          const [key, value] = line.split('=');
-          if (key && value) {
-            process.env[key.trim()] = value.trim();
-          }
-        }
-      }
-      
-             logger.info('SendGrid configuration loaded successfully');
-     } else {
-       logger.warn('sendgrid.env file not found, email functionality may not work');
-     }
-   } catch (error) {
-     logger.error(`Failed to load SendGrid configuration: ${error}`);
-   }
- };
- 
- // Initialize SendGrid
- loadSendGridConfig();
+// Initialize SendGrid with environment variables
+// Note: Environment variables are loaded by dotenv/config in index.ts
  
  if (process.env.SENDGRID_API_KEY) {
    sgMail.setApiKey(process.env.SENDGRID_API_KEY);
