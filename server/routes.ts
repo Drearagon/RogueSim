@@ -181,6 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         app.post('/api/auth/verify', async (req, res) => {
             try {
                 const { email, code } = req.body;
+                log(`DEBUG: Verify request for email: ${email}, code: ${code}`, 'auth'); // NEW LOG
 
                 // Input validation
                 if (!email || typeof email !== 'string' || !isValidEmail(email)) {
@@ -193,14 +194,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 // Normalize email
                 const normalizedEmail = email.toLowerCase().trim();
+                log(`DEBUG: Normalized email: ${normalizedEmail}`, 'auth'); // NEW LOG
 
-                // Get verification code (email-specific, not globally valid)
+                // First check: getVerificationCode call
                 const verification = await storage.getVerificationCode(normalizedEmail, code);
-                if (!verification || verification.used || new Date() > verification.expiresAt) {
-                    // Log failed verification attempt for security monitoring
-                    logAuthEvent('verification_failed', normalizedEmail, false);
+                log(`DEBUG: Verification record found: ${JSON.stringify(verification)}`, 'auth'); // NEW LOG
+
+                if (!verification) {
+                    log(`DEBUG: Verification failed - No record found for email/code.`, 'auth'); // NEW LOG
+                    logAuthEvent('verification_failed', normalizedEmail, false); // More specific logging
                     return res.status(400).json({ error: "Invalid or expired verification code" });
                 }
+
+                // Check if already used
+                if (verification.used) {
+                    log(`DEBUG: Verification failed - Code already used.`, 'auth'); // NEW LOG
+                    logAuthEvent('verification_failed', normalizedEmail, false); // More specific logging
+                    return res.status(400).json({ error: "Invalid or expired verification code" });
+                }
+
+                // Check for expiration
+                const now = new Date();
+                const expiresAt = new Date(verification.expires_at || verification.expiresAt); // Handle both column names
+                log(`DEBUG: Current time: ${now.toISOString()}, Code expires: ${expiresAt.toISOString()}`, 'auth'); // NEW LOG
+
+                if (now > expiresAt) {
+                    log(`DEBUG: Verification failed - Code expired.`, 'auth'); // NEW LOG
+                    logAuthEvent('verification_failed', normalizedEmail, false); // More specific logging
+                    return res.status(400).json({ error: "Invalid or expired verification code" });
+                }
+
+                // If all checks pass:
+                log(`DEBUG: Verification successful for email: ${normalizedEmail}`, 'auth'); // NEW LOG
 
                 // Mark code as used IMMEDIATELY to prevent race conditions
                 await storage.markVerificationCodeUsed(verification.id);

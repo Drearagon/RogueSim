@@ -398,28 +398,33 @@ export class DatabaseStorage implements IStorage {
 
     // Email verification operations
     async storeVerificationCode(data: any): Promise<void> {
+        console.log(`DEBUG: Storing verification code - email: ${data.email}, hacker_name: ${data.hackerName}, code: ${data.code}, expires_at: ${data.expiresAt}`);
         if (typeof this.rawPool.query === 'function') {
             // Neon Pool
             await this.rawPool.query(
                 'INSERT INTO verification_codes (email, hacker_name, code, expires_at, used) VALUES ($1, $2, $3, $4, false)',
                 [data.email, data.hackerName, data.code, data.expiresAt]
             );
+            console.log(`DEBUG: Verification code stored successfully using Neon Pool`);
         } else {
             // postgres.js client
             await this.rawPool`
                 INSERT INTO verification_codes (email, hacker_name, code, expires_at, used)
                 VALUES (${data.email}, ${data.hackerName}, ${data.code}, ${data.expiresAt}, false)
             `;
+            console.log(`DEBUG: Verification code stored successfully using postgres.js`);
         }
     }
 
     async getVerificationCode(email: string, code: string): Promise<any> {
+        console.log(`DEBUG: Looking up verification code - email: ${email}, code: ${code}`);
         if (typeof this.rawPool.query === 'function') {
             // Neon Pool
             const result = await this.rawPool.query(
                 'SELECT * FROM verification_codes WHERE email = $1 AND code = $2 AND used = false ORDER BY created_at DESC LIMIT 1',
                 [email, code]
             );
+            console.log(`DEBUG: Neon Pool query result:`, result.rows[0] ? 'Found' : 'Not found', result.rows[0] || 'No record');
             return result.rows[0];
         } else {
             // postgres.js client
@@ -428,6 +433,7 @@ export class DatabaseStorage implements IStorage {
                 WHERE email = ${email} AND code = ${code} AND used = false
                 ORDER BY created_at DESC LIMIT 1
             `;
+            console.log(`DEBUG: postgres.js query result:`, result[0] ? 'Found' : 'Not found', result[0] || 'No record');
             return result[0];
         }
     }
