@@ -39,9 +39,22 @@ export class DatabaseStorage implements IStorage {
     }
 
     async getUserByEmail(email: string): Promise<any> {
-        // This query uses the raw postgres.js client (template literal syntax)
-        const result = await this.rawPool`SELECT * FROM users WHERE email = ${email}`;
-        return result[0]; // postgres.js returns an array of rows
+        // Handle both Neon Pool and postgres.js client
+        try {
+            let result: any;
+            if (typeof this.rawPool.query === 'function') {
+                // Neon Pool with .query() method
+                result = await this.rawPool.query('SELECT * FROM users WHERE email = $1', [email]);
+                return result.rows[0];
+            } else {
+                // postgres.js client with template literals
+                result = await this.rawPool`SELECT * FROM users WHERE email = ${email}`;
+                return result[0];
+            }
+        } catch (error) {
+            console.error('Error in getUserByEmail:', error);
+            throw error;
+        }
     }
 
     async getUserByHackerName(hackerName: string): Promise<User | undefined> {
@@ -50,30 +63,51 @@ export class DatabaseStorage implements IStorage {
     }
 
     async createUser(userData: any): Promise<User> {
-        // Use postgres.js tagged template literals
-        await this.rawPool`
-            INSERT INTO users (
-                id, email, password, hacker_name,
-                player_level, total_missions_completed, total_credits_earned,
-                reputation, created_at, updated_at, joined_at, last_active,
-                is_online, current_mode
-            ) VALUES (
-                ${userData.id},
-                ${userData.email},
-                ${userData.password},
-                ${userData.hackerName},
-                1, 0, 0, 'ROOKIE',
-                NOW(), NOW(), NOW(), NOW(),
-                false, 'single'
-            )
-        `;
+        if (typeof this.rawPool.query === 'function') {
+            // Neon Pool
+            await this.rawPool.query(`
+                INSERT INTO users (
+                    id, email, password, hacker_name,
+                    player_level, total_missions_completed, total_credits_earned,
+                    reputation, created_at, updated_at, joined_at, last_active,
+                    is_online, current_mode
+                ) VALUES (
+                    $1, $2, $3, $4, 1, 0, 0, 'ROOKIE',
+                    NOW(), NOW(), NOW(), NOW(), false, 'single'
+                )
+            `, [userData.id, userData.email, userData.password, userData.hackerName]);
 
-        const result = await this.rawPool`
-            SELECT id, email, hacker_name, profile_image_url 
-            FROM users 
-            WHERE id = ${userData.id}
-        `;
-        return result[0]; // postgres.js returns array of rows for select
+            const result = await this.rawPool.query(
+                'SELECT id, email, hacker_name, profile_image_url FROM users WHERE id = $1',
+                [userData.id]
+            );
+            return result.rows[0];
+        } else {
+            // postgres.js client
+            await this.rawPool`
+                INSERT INTO users (
+                    id, email, password, hacker_name,
+                    player_level, total_missions_completed, total_credits_earned,
+                    reputation, created_at, updated_at, joined_at, last_active,
+                    is_online, current_mode
+                ) VALUES (
+                    ${userData.id},
+                    ${userData.email},
+                    ${userData.password},
+                    ${userData.hackerName},
+                    1, 0, 0, 'ROOKIE',
+                    NOW(), NOW(), NOW(), NOW(),
+                    false, 'single'
+                )
+            `;
+
+            const result = await this.rawPool`
+                SELECT id, email, hacker_name, profile_image_url 
+                FROM users 
+                WHERE id = ${userData.id}
+            `;
+            return result[0];
+        }
     }
 
     async updateHackerName(userId: string, hackerName: string): Promise<User> {
@@ -353,40 +387,89 @@ export class DatabaseStorage implements IStorage {
 
     // Email verification operations
     async storeVerificationCode(data: any): Promise<void> {
-        await this.rawPool`
-            INSERT INTO verification_codes (email, hacker_name, code, expires_at, used)
-            VALUES (${data.email}, ${data.hackerName}, ${data.code}, ${data.expiresAt}, false)
-        `;
+        if (typeof this.rawPool.query === 'function') {
+            // Neon Pool
+            await this.rawPool.query(
+                'INSERT INTO verification_codes (email, hacker_name, code, expires_at, used) VALUES ($1, $2, $3, $4, false)',
+                [data.email, data.hackerName, data.code, data.expiresAt]
+            );
+        } else {
+            // postgres.js client
+            await this.rawPool`
+                INSERT INTO verification_codes (email, hacker_name, code, expires_at, used)
+                VALUES (${data.email}, ${data.hackerName}, ${data.code}, ${data.expiresAt}, false)
+            `;
+        }
     }
 
     async getVerificationCode(email: string, code: string): Promise<any> {
-        const result = await this.rawPool`
-            SELECT * FROM verification_codes
-            WHERE email = ${email} AND code = ${code} AND used = false
-            ORDER BY created_at DESC LIMIT 1
-        `;
-        return result[0];
+        if (typeof this.rawPool.query === 'function') {
+            // Neon Pool
+            const result = await this.rawPool.query(
+                'SELECT * FROM verification_codes WHERE email = $1 AND code = $2 AND used = false ORDER BY created_at DESC LIMIT 1',
+                [email, code]
+            );
+            return result.rows[0];
+        } else {
+            // postgres.js client
+            const result = await this.rawPool`
+                SELECT * FROM verification_codes
+                WHERE email = ${email} AND code = ${code} AND used = false
+                ORDER BY created_at DESC LIMIT 1
+            `;
+            return result[0];
+        }
     }
 
     async markVerificationCodeUsed(id: number): Promise<void> {
-        await this.rawPool`UPDATE verification_codes SET used = true WHERE id = ${id}`;
+        if (typeof this.rawPool.query === 'function') {
+            // Neon Pool
+            await this.rawPool.query('UPDATE verification_codes SET used = true WHERE id = $1', [id]);
+        } else {
+            // postgres.js client
+            await this.rawPool`UPDATE verification_codes SET used = true WHERE id = ${id}`;
+        }
     }
 
     async storeUnverifiedUser(userData: any): Promise<void> {
-        await this.rawPool`
-            INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
-            VALUES (${userData.id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, ${userData.createdAt}, ${userData.updatedAt})
-            ON CONFLICT (email) DO UPDATE SET
-                id = ${userData.id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, updated_at = ${userData.updatedAt}
-        `;
+        if (typeof this.rawPool.query === 'function') {
+            // Neon Pool
+            await this.rawPool.query(`
+                INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                ON CONFLICT (email) DO UPDATE SET
+                    id = $1, hacker_name = $2, password = $4, updated_at = $7
+            `, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl, userData.createdAt, userData.updatedAt]);
+        } else {
+            // postgres.js client
+            await this.rawPool`
+                INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
+                VALUES (${userData.id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, ${userData.createdAt}, ${userData.updatedAt})
+                ON CONFLICT (email) DO UPDATE SET
+                    id = ${userData.id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, updated_at = ${userData.updatedAt}
+            `;
+        }
     }
 
     async getUnverifiedUser(email: string): Promise<any> {
-        const result = await this.rawPool`SELECT * FROM unverified_users WHERE email = ${email}`;
-        return result[0];
+        if (typeof this.rawPool.query === 'function') {
+            // Neon Pool
+            const result = await this.rawPool.query('SELECT * FROM unverified_users WHERE email = $1', [email]);
+            return result.rows[0];
+        } else {
+            // postgres.js client
+            const result = await this.rawPool`SELECT * FROM unverified_users WHERE email = ${email}`;
+            return result[0];
+        }
     }
 
     async deleteUnverifiedUser(email: string): Promise<void> {
-        await this.rawPool`DELETE FROM unverified_users WHERE email = ${email}`;
+        if (typeof this.rawPool.query === 'function') {
+            // Neon Pool
+            await this.rawPool.query('DELETE FROM unverified_users WHERE email = $1', [email]);
+        } else {
+            // postgres.js client
+            await this.rawPool`DELETE FROM unverified_users WHERE email = ${email}`;
+        }
     }
 }
