@@ -54,7 +54,18 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
         console.warn('Could not load user data for chat');
       }
     };
+    
     loadChatUser();
+    
+    // Listen for profile updates to reload user data
+    const handleProfileUpdate = () => {
+      loadChatUser();
+    };
+    
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
   }, []);
 
   const getUserDisplayName = () => {

@@ -137,9 +137,15 @@ export function ResponsiveUserProfile({
         });
         
         alert('✅ Profile updated successfully! Hackername changes require security verification.');
+        
+        // Emit profile updated event for real-time updates across components
+        window.dispatchEvent(new CustomEvent('profileUpdated'));
       } else {
         // Regular profile update without hackername change
         onUpdateProfile(editForm);
+        
+        // Emit profile updated event for real-time updates across components
+        window.dispatchEvent(new CustomEvent('profileUpdated'));
       }
       
       setIsEditing(false);

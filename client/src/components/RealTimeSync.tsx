@@ -73,7 +73,7 @@ export function RealTimeSync({ websocket, roomId, currentUser }: RealTimeSyncPro
         type: 'authenticate',
         payload: {
           userId: currentUser?.id,
-          hackerName: currentUser?.username
+          hackerName: (currentUser as any)?.hackerName || currentUser?.username
         }
       }));
       

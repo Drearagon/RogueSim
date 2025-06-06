@@ -6,7 +6,7 @@ import { createServer, type Server } from "http";
 // Remove: import { pool } from "./db"; // <--- REMOVE THIS LINE!
 
 // NEW IMPORTS matching refactored db.ts and storage.ts
-import { getDb, getPool } from "./db"; // <--- Import the getter functions
+import { getDb, getPool, isUsingLocalFallback } from "./db"; // <--- Import the getter functions
 import { DatabaseStorage } from "./storage"; // <--- Import the DatabaseStorage CLASS
 
 import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema } from "@shared/schema";
@@ -15,7 +15,7 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import { EmailService } from "./emailService";
+import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger"; // Make sure these are defined/imported correctly
 import { log } from "./vite"; // Your custom logger
 
@@ -39,13 +39,29 @@ let rawPoolForSessionStore: any; // Type should be Pool or Client from 'pg' or '
 
 export async function registerRoutes(app: Express): Promise<Server> {
     try {
-        // --- CRITICAL FIX: Get initialized DB clients and instantiate storage ---
-        const drizzleDb = getDb(); // Get the Drizzle instance
-        rawPoolForSessionStore = getPool(); // Get the raw client for connect-pg-simple and direct queries
-
-        // Instantiate DatabaseStorage with the ready clients
-        storage = new DatabaseStorage(drizzleDb, rawPoolForSessionStore); // <--- Instantiate DatabaseStorage!
-        // -------------------------------------------------------------------
+        // --- NEON MIGRATION: Proper DatabaseStorage instantiation ---
+        const db = getDb(); // Get initialized Drizzle instance
+        const pool = getPool(); // Get initialized raw pool
+        storage = new DatabaseStorage(db, pool); // Instantiate with both clients
+        log('📊 DatabaseStorage instantiated with Neon/PostgreSQL clients', 'db');
+        
+        // COMMENTED OUT OLD APPROACH:
+        // storage = getStorage(); // Get storage instance (handles main/local fallback automatically)
+        
+        // For session store, try to get raw pool, fallback to memory store if local DB
+        try {
+            if (!isUsingLocalFallback()) {
+                rawPoolForSessionStore = getPool(); // Get the raw client for connect-pg-simple
+                log('📊 Using main database for sessions and storage', 'db');
+            } else {
+                rawPoolForSessionStore = null; // Will use memory store for sessions
+                log('📊 Using local database for storage, memory store for sessions', 'db');
+            }
+        } catch (error) {
+            rawPoolForSessionStore = null;
+            log('⚠️ Could not get database pool, will use memory session store', 'db');
+        }
+        // ------------------------------------------------------------------------
 
         log('🔗 Setting up session management...');
 
@@ -57,18 +73,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         let sessionStore: any;
         try {
-            if (process.env.DATABASE_URL) {
+            if (rawPoolForSessionStore && !isUsingLocalFallback()) {
                 const pgStore = connectPg(session);
                 sessionStore = new pgStore({
                     conString: process.env.DATABASE_URL,
                     createTableIfMissing: false,
                     ttl: sessionTtl,
                     tableName: "sessions",
-                    pool: rawPoolForSessionStore // <--- Pass the raw pool here
+                    pool: rawPoolForSessionStore
                 });
                 log('✅ PostgreSQL session store initialized successfully');
             } else {
-                log('❌ DATABASE_URL not available for session store, falling back to memory store.', 'error');
+                log('🔄 Using memory session store (local database mode)', 'db');
                 sessionStore = new session.MemoryStore();
             }
         } catch (error) {
@@ -92,6 +108,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
 
         log('✅ Session middleware configured successfully');
+
+        // --- DATABASE STATUS ENDPOINT ---
+        app.get('/api/status', async (req, res) => {
+            try {
+                const status: any = {
+                    database: isUsingLocalFallback() ? 'LOCAL_BACKUP' : 'MAIN_DATABASE',
+                    timestamp: new Date().toISOString(),
+                    version: '1.0.0'
+                };
+
+                if (isUsingLocalFallback()) {
+                    const { getLocalDbStats } = await import('./localDB');
+                    const localStats = await getLocalDbStats();
+                    status.localDatabase = localStats;
+                }
+
+                res.json(status);
+            } catch (error) {
+                res.status(500).json({ error: 'Failed to get status' });
+            }
+        });
 
         // --- CUSTOM AUTHENTICATION ROUTES ---
         app.post('/api/auth/register', async (req, res) => {
@@ -144,6 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             try {
                 const { email, code } = req.body;
 
+                // UNCOMMENTED - These methods ARE implemented in DatabaseStorage:
                 const verification = await storage.getVerificationCode(email, code);
                 if (!verification || verification.used || new Date() > verification.expiresAt) {
                     return res.status(400).json({ error: "Invalid or expired verification code" });
@@ -160,7 +198,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 await storage.deleteUnverifiedUser(email);
 
-                await EmailService.sendWelcomeEmail(email, unverifiedUser.hackerName);
+                await sendWelcomeEmail(email, unverifiedUser.hackerName);
 
                 (req.session as any).userId = user.id;
                 (req.session as any).hackerName = user.hackerName;
@@ -209,55 +247,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(401).json({ error: "Invalid credentials" });
                 }
 
-                const validPassword = await bcrypt.compare(password, user.password);
-                if (!validPassword) {
-                    // authLogger.warn(`Password validation failed for user: ${user.email}`); // Ensure authLogger is defined
+                const isValid = await bcrypt.compare(password, user.password);
+                if (!isValid) {
                     logAuthEvent('login_failed', user.email || identifier, false);
                     return res.status(401).json({ error: "Invalid credentials" });
                 }
 
+                logAuthEvent('login_success', user.email || identifier, true);
+
                 (req.session as any).userId = user.id;
                 (req.session as any).hackerName = user.hackerName;
-
-                // sessionLogger.info(`Session created successfully for user: ${user.id.substring(0, 8)}...`); // Ensure sessionLogger is defined
-
-                logAuthEvent('login_success', user.email || identifier, true);
-                logUserAction(user.id, 'user_login', { email: user.email || identifier });
 
                 res.json({
                     user: {
                         id: user.id,
                         hackerName: user.hackerName,
                         email: user.email,
-                        profileImageUrl: user.profileImageUrl,
-                        authenticated: true
-                    },
-                    sessionId: req.sessionID
+                        profileImageUrl: user.profileImageUrl
+                    }
                 });
             } catch (error) {
-                const safeIdentifier = identifier && typeof identifier === 'string' ? identifier.substring(0, 3) + '***' : 'unknown';
-                // authLogger.error("Login error occurred", {
-                //     error: error instanceof Error ? error.message : 'Unknown error',
-                //     identifier: safeIdentifier
-                // });
-                logAuthEvent('login_error', identifier || 'unknown', false);
-                res.status(500).json({ error: "Login failed due to server error" });
+                console.error("Login error:", error);
+                logAuthEvent('login_error', identifier || 'system_error', false);
+                res.status(500).json({ error: "Login failed" });
             }
         });
 
-        app.post('/api/auth/logout', (req, res) => {
-            req.session.destroy((err) => {
-                if (err) {
-                    return res.status(500).json({ error: "Logout failed" });
+        app.post('/api/auth/logout', async (req, res) => {
+            try {
+                if (req.session) {
+                    const userId = (req.session as any).userId;
+                    if (userId) {
+                        logUserAction(userId, 'logout');
+                    }
+
+                    req.session.destroy((err: any) => {
+                        if (err) {
+                            console.error('Session destruction error:', err);
+                            return res.status(500).json({ error: "Failed to logout" });
+                        }
+                        res.clearCookie('sessionId');
+                        res.json({ message: "Logged out successfully" });
+                    });
+                } else {
+                    res.json({ message: "Already logged out" });
                 }
-                res.json({ message: "Logged out successfully" });
-            });
+            } catch (error) {
+                console.error("Logout error:", error);
+                res.status(500).json({ error: "Logout failed" });
+            }
         });
 
         // Send verification code to email
         app.post('/api/auth/send-verification', async (req, res) => {
             try {
-                const { email } = req.body;
+                const { email, hackerName } = req.body;
 
                 if (!email) {
                     return res.status(400).json({ error: "Email is required" });
@@ -267,171 +311,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const code = Math.floor(100000 + Math.random() * 900000).toString();
                 const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-                // Store verification code
-                await storage.createVerificationCode(email, code, expiresAt);
+                // Store verification code in database
+                await storage.storeVerificationCode({
+                    email,
+                    hackerName: hackerName || 'Agent',
+                    code,
+                    expiresAt
+                });
 
-                // Send email (placeholder - you would integrate with an email service)
-                console.log(`📧 Verification code for ${email}: ${code}`);
-                console.log(`Code expires at: ${expiresAt.toISOString()}`);
+                // Send verification email using SendGrid
+                const emailSent = await sendVerificationEmail(email, code, hackerName);
 
-                // In a real implementation, you would send this via email service like SendGrid, AWS SES, etc.
-                // await EmailService.sendVerificationCode(email, code);
-
-                res.json({ message: "Verification code sent to email" });
+                if (emailSent) {
+                    res.json({ 
+                        message: "Verification code sent to email",
+                        success: true 
+                    });
+                } else {
+                    // Still return success even if email fails, for better UX
+                    // The user can still use the verification system
+                    console.log(`📧 Fallback: Verification code for ${email}: ${code}`);
+                    res.json({ 
+                        message: "Verification code generated (email service temporarily unavailable)",
+                        success: true 
+                    });
+                }
             } catch (error) {
                 console.error("Error sending verification code:", error);
                 res.status(500).json({ error: "Failed to send verification code" });
-            }
-        });
-
-        // User profile update with security for hackername changes
-        app.post('/api/user/update-profile', isAuthenticated, async (req: any, res) => {
-            try {
-                const userId = req.userId;
-                const { hackerName, bio, profileImageUrl, currentPassword } = req.body;
-
-                if (!userId) {
-                    return res.status(401).json({ error: "User not authenticated" });
-                }
-
-                const currentUser = await storage.getUserById(userId);
-                if (!currentUser) {
-                    return res.status(404).json({ error: "User not found" });
-                }
-
-                // If hackername is being changed, require password verification
-                if (hackerName && hackerName !== currentUser.hackerName) {
-                    if (!currentPassword) {
-                        return res.status(400).json({ error: "Password required to change hackername" });
-                    }
-
-                    const validPassword = await bcrypt.compare(currentPassword, currentUser.password);
-                    if (!validPassword) {
-                        return res.status(401).json({ error: "Invalid password" });
-                    }
-
-                    // Check if new hackername is already taken
-                    const existingUser = await storage.getUserByHackerName(hackerName);
-                    if (existingUser && existingUser.id !== userId) {
-                        return res.status(409).json({ error: "Hackername already taken" });
-                    }
-
-                    // Log hackername change for security
-                    logUserAction(userId, 'hackername_change', {
-                        oldHackerName: currentUser.hackerName,
-                        newHackerName: hackerName,
-                        timestamp: new Date().toISOString()
-                    });
-                }
-
-                // Update user profile
-                const updatedUser = await storage.updateUser(userId, {
-                    hackerName: hackerName || currentUser.hackerName,
-                    bio: bio !== undefined ? bio : currentUser.bio,
-                    profileImageUrl: profileImageUrl !== undefined ? profileImageUrl : currentUser.profileImageUrl
-                });
-
-                res.json({
-                    id: updatedUser.id,
-                    hackerName: updatedUser.hackerName,
-                    email: updatedUser.email,
-                    bio: updatedUser.bio,
-                    profileImageUrl: updatedUser.profileImageUrl
-                });
-            } catch (error) {
-                console.error("Profile update error:", error);
-                res.status(500).json({ error: "Profile update failed" });
-            }
-        });
-
-        // Log user activity for connection tracking
-        app.post('/api/user/log-activity', async (req, res) => {
-            try {
-                const { username, action, timestamp, userAgent } = req.body;
-                const clientIp = req.ip || req.connection?.remoteAddress || 'unknown';
-
-                // Log activity to console (in production, you'd log to a proper logging service)
-                console.log(`🔄 [${timestamp}] ${action.toUpperCase()}: ${username} | IP: ${clientIp} | UA: ${userAgent?.substring(0, 50)}...`);
-
-                // You could also store this in a database for analytics
-                // await storage.logUserActivity(username, action, timestamp, clientIp, userAgent);
-
-                res.json({ message: "Activity logged" });
-            } catch (error) {
-                console.error("Error logging activity:", error);
-                res.status(500).json({ error: "Failed to log activity" });
-            }
-        });
-
-        // Set username for first-time users
-        app.post("/api/user/set-username", isAuthenticated, async (req: any, res) => {
-            try {
-                const userId = req.userId; // Use req.userId from isAuthenticated
-                const { username } = req.body;
-
-                if (!userId) { // Safety check
-                    return res.status(401).json({ error: "User not authenticated" });
-                }
-
-                if (!username || typeof username !== 'string') {
-                    return res.status(400).json({ error: "Username is required" });
-                }
-
-                const trimmedUsername = username.trim();
-
-                if (trimmedUsername.length < 3) {
-                    return res.status(400).json({ error: "Username must be at least 3 characters long" });
-                }
-
-                if (!/^[a-zA-Z0-9_-]+$/.test(trimmedUsername)) {
-                    return res.status(400).json({ error: "Username can only contain letters, numbers, underscores, and hyphens" });
-                }
-
-                const existingUser = await storage.getUserByHackerName(trimmedUsername);
-                if (existingUser && existingUser.id !== userId) {
-                    return res.status(409).json({ error: "Username is already taken" });
-                }
-
-                const updatedUser = await storage.updateHackerName(userId, trimmedUsername);
-
-                res.json({
-                    user: {
-                        id: updatedUser.id,
-                        hackerName: updatedUser.hackerName,
-                        email: updatedUser.email
-                    }
-                });
-            } catch (error) {
-                console.error("Username setting error:", error);
-                res.status(500).json({ error: "Failed to set username" });
-            }
-        });
-
-        app.get("/api/auth/user", async (req: any, res) => { // Removed isAuthenticated here if user profile is public
-            try {
-                // console.log('Auth check - Session exists:', !!req.session); // Debug log
-                // console.log('Auth check - User ID in session:', req.session?.userId); // Debug log
-                // console.log('Auth check - Session data:', req.session); // Debug log
-
-                if (!req.session || !req.session.userId) {
-                    return res.status(401).json({ error: "Authentication required" });
-                }
-
-                const userId = req.session.userId;
-                const user = await storage.getUser(userId); // Use storage.getUser
-                if (user) {
-                    res.json({
-                        id: user.id,
-                        hackerName: user.hackerName,
-                        email: user.email,
-                        profileImageUrl: user.profileImageUrl
-                    });
-                } else {
-                    res.status(404).json({ error: "User not found" });
-                }
-            } catch (error) {
-                console.error("Error fetching user:", error);
-                res.status(500).json({ error: "Failed to fetch user" });
             }
         });
 
@@ -442,7 +349,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 if (!userId) return res.status(401).json({ error: "Authentication required" });
 
                 const gameState = insertGameSaveSchema.parse(req.body);
-                const savedState = await storage.saveGameState({ ...gameState, userId, sessionId: req.sessionID }); // Ensure sessionId is passed from req.sessionID
+                const savedState = await storage.saveGameState({ ...gameState, userId, sessionId: req.sessionID });
                 res.json(savedState);
             } catch (error) {
                 console.error("Error saving game state:", error);
@@ -453,13 +360,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
-        app.get("/api/game/load/:gameMode?", isAuthenticated, async (req: any, res) => { // Changed :sessionId to :gameMode
+        app.get("/api/game/load/:gameMode?", isAuthenticated, async (req: any, res) => {
             try {
                 const userId = req.userId;
                 if (!userId) return res.status(401).json({ error: "Authentication required" });
 
-                const gameMode = req.params.gameMode || 'single'; // Default game mode
-                const gameState = await storage.getUserGameSave(userId, gameMode); // Use storage.getUserGameSave
+                const gameMode = req.params.gameMode || 'single';
+                const gameState = await storage.getUserGameSave(userId, gameMode);
 
                 if (gameState) {
                     res.json(gameState);
@@ -805,18 +712,50 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
-        const httpServer = createServer(app);
+        // Create WebSocket server
+        const server = createServer(app);
 
-        // Initialize WebSocket server for real multiplayer functionality
-        const { MultiplayerWebSocketServer } = await import('./websocket');
-        const wsServer = new MultiplayerWebSocketServer(httpServer);
+        // Set up WebSocket handling for multiplayer functionality
+        const { Server } = await import("socket.io");
         
-        // Make WebSocket server available to other routes
-        app.locals.wsServer = wsServer;
+        const io = new Server(server, {
+            cors: {
+                origin: "*",
+                methods: ["GET", "POST"]
+            },
+            path: '/ws',
+            transports: ['websocket', 'polling']
+        });
 
-        return httpServer;
+        // Basic WebSocket setup for multiplayer chat
+        io.on('connection', (socket) => {
+            console.log('New WebSocket connection established');
+            
+            socket.on('join_global_chat', (data) => {
+                socket.join('global_chat');
+                console.log(`User ${data.username} joined global chat`);
+            });
+
+            socket.on('send_message', (data) => {
+                io.to('global_chat').emit('chat_message', {
+                    id: Date.now(),
+                    ...data,
+                    timestamp: new Date().toISOString()
+                });
+            });
+
+            socket.on('disconnect', () => {
+                console.log('WebSocket connection closed');
+            });
+        });
+
+        console.log('WebSocket server initialized on /ws path');
+
+        log('✅ FINAL: API routes registered successfully');
+        return server;
+
     } catch (error) {
-        console.error("Error setting up routes:", error);
+        console.error('Failed to register routes:', error);
         throw error;
     }
 }

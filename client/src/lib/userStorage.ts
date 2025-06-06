@@ -84,11 +84,14 @@ export async function registerUser(userData: {
 }
 
 // Send email verification code
-export async function sendVerificationCode(email: string): Promise<boolean> {
+export async function sendVerificationCode(email: string, hackerName?: string): Promise<boolean> {
   try {
     console.log(`📧 Sending verification code to: ${email.substring(0, 3)}***`);
     
-    await apiRequest('POST', '/api/auth/send-verification', { email });
+    await apiRequest('POST', '/api/auth/send-verification', { 
+      email, 
+      hackerName: hackerName || 'Agent'
+    });
     
     console.log(`✅ Verification code sent successfully`);
     return true;

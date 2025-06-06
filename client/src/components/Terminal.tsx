@@ -9,6 +9,7 @@ import { MissionCompleteNotification } from './MissionCompleteNotification';
 import { trackMissionProgress, checkStepCompletion } from '../lib/missionTracker';
 import { TerminalSettings } from './TerminalSettings';
 import { ResponsiveUserProfile } from './ResponsiveUserProfile';
+import { getCurrentUser } from '@/lib/userStorage';
 import { focusSystem } from '../lib/focusSystem';
 import { Brain, ChevronDown, ChevronUp, Coffee, Heart, Zap, Pause, AlertTriangle } from 'lucide-react';
 
@@ -60,6 +61,31 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     typingSpeed: 5
   });
   const { playKeypress, playError, playSuccess } = useSound();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Load current user on component mount and when profile updates
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        setCurrentUser(user);
+      } catch (error) {
+        console.log('No authenticated user found');
+      }
+    };
+    
+    loadUser();
+    
+    // Listen for profile updates
+    const handleProfileUpdate = () => {
+      loadUser();
+    };
+    
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
+  }, []);
 
   // Listen for mission completion events
   useEffect(() => {
@@ -188,8 +214,9 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     setCommandHistory(prev => [...prev, input]);
     setHistoryIndex(-1);
 
-    // Add command to output
-    setOutput(prev => [...prev, `shadow@roguesim:~$ ${input}`]);
+    // Add command to output  
+    const promptName = currentUser?.hackerName || 'shadow';
+    setOutput(prev => [...prev, `${promptName}@roguesim:~$ ${input}`]);
 
     // Check for easter eggs first!
     const easterEgg = checkEasterEgg(input, gameState);
@@ -433,12 +460,16 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           <span className="truncate" style={{ color: terminalSettings.textColor }}>{gameState.networkStatus}</span>
           <ResponsiveUserProfile
             user={{
-              username: 'CyberOp_' + (gameState.playerLevel || 1),
-              avatar: '/default-avatar.png',
-              reputation: gameState.reputation || 'Rookie',
+              username: currentUser?.hackerName || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
+              hackerName: currentUser?.hackerName || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
+              email: currentUser?.email || 'unknown@roguesim.net',
+              avatar: currentUser?.profileImageUrl || '/default-avatar.png',
+              reputation: gameState.reputation || 'NOVICE',
               level: gameState.playerLevel || 1,
               credits: gameState.credits || 0,
-              specialization: 'Network Infiltration'
+              specialization: 'Network Infiltration',
+              id: currentUser?.id || 'guest',
+              bio: currentUser?.bio || 'Elite hacker in the shadow network.'
             }}
             gameState={{
               completedMissions: gameState.completedMissions || 0,
@@ -598,7 +629,9 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           
           {/* Current input line */}
           <div className="flex items-center w-full" style={{ maxWidth: '100%' }}>
-            <span className="flex-shrink-0" style={{ color: terminalSettings.primaryColor }}>shadow@roguesim:~$ </span>
+            <span className="flex-shrink-0" style={{ color: terminalSettings.primaryColor }}>
+              {currentUser?.hackerName || 'shadow'}@roguesim:~$ 
+            </span>
             <div className="flex items-center flex-1 min-w-0">
               <span className="break-all" style={{ overflowWrap: 'break-word' }}>{currentInput}</span>
               <span 
