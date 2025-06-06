@@ -6,7 +6,7 @@ import { Leaderboard } from './components/Leaderboard';
 import { UserProfile } from './components/UserProfile';
 import { MatrixRain } from './components/MatrixRain';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
-import { Landing } from './pages/Landing';
+import { LoginPage } from './components/LoginPage';
 import { AuthScreen } from './components/AuthScreen';
 import { UsernameSetup } from './components/UsernameSetup';
 import { useGameState } from './hooks/useGameState';
@@ -23,27 +23,9 @@ import { GameState, Mission } from './types/game';
 export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
   const { setEnabled } = useSound();
-  // Use simple localStorage-based authentication for independent deployment
-  const [user, setUser] = useState<any>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
+  // Use proper backend authentication system
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [needsUsername, setNeedsUsername] = useState(false);
-
-  // Check authentication state on app load
-  useEffect(() => {
-    const checkAuth = () => {
-      const savedUser = localStorage.getItem('user');
-      const savedAuth = localStorage.getItem('authenticated');
-      
-      if (savedUser && savedAuth === 'true') {
-        setUser(JSON.parse(savedUser));
-        setIsAuthenticated(true);
-      }
-      setAuthLoading(false);
-    };
-    
-    checkAuth();
-  }, []);
   const [currentView, setCurrentView] = useState<'auth' | 'game' | 'multiplayer' | 'leaderboard' | 'profile' | 'onboarding'>('auth');
   const [userProfile, setUserProfile] = useState<any>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
@@ -216,25 +198,13 @@ export default function App() {
     );
   }
 
-  // Show authentication screen if not logged in
-  if (!isAuthenticated) {
-    return <AuthScreen onAuthSuccess={(user) => {
-      // Update authentication state immediately
-      setUser(user);
-      setIsAuthenticated(true);
-      
-      // Check if user needs to set a username
-      if (!user.hackerName) {
-        setNeedsUsername(true);
-      }
-    }} />;
-  }
-
-  // Show username setup if needed
-  if (needsUsername) {
+  // Show username setup if needed (for backward compatibility)
+  if (needsUsername && user && !user.hackerName) {
     return <UsernameSetup onUsernameSet={(username) => {
-      setUser({ ...user, hackerName: username });
+      // Username update will be handled by the backend
       setNeedsUsername(false);
+      // Trigger a re-fetch of user data
+      window.location.reload();
     }} />;
   }
 
@@ -257,9 +227,7 @@ export default function App() {
       console.error('Logout error:', error);
     }
     
-    // Clear authentication state
-    setUser(null);
-    setIsAuthenticated(false);
+    // Clear profile and UI state
     setUserProfile(null);
     setNeedsOnboarding(false);
     setCurrentView('auth');
@@ -267,6 +235,10 @@ export default function App() {
     // Clear localStorage
     localStorage.removeItem('user');
     localStorage.removeItem('authenticated');
+    localStorage.removeItem('roguesim_current_user');
+    
+    // Refresh page to reset authentication state
+    window.location.reload();
   };
 
   const handleShowProfile = () => {
@@ -345,14 +317,16 @@ export default function App() {
     setShowMissionInterface(false);
   };
 
-  // Use real authentication for all users to ensure individual profiles
-  const effectiveUser = user;
-  const effectiveAuth = isAuthenticated;
-  
-  // Show landing page if not authenticated
-  if (!effectiveAuth) {
-    return <Landing />;
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return <LoginPage onLoginSuccess={(userData) => {
+      // Login will be handled by the backend and useAuth hook
+      window.location.reload();
+    }} />;
   }
+
+  // Add effectiveUser for backward compatibility
+  const effectiveUser = user;
 
   if (!gameState.isBootComplete) {
     return <BootScreen onBootComplete={handleBootComplete} />;
