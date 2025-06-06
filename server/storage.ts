@@ -26,6 +26,17 @@ export class DatabaseStorage implements IStorage {
     constructor(private drizzleDb: PgDatabase<any, any>, private rawPool: PostgresJsClient) {
         // `this.drizzleDb` will be your Drizzle instance (`db` from `db.ts`)
         // `this.rawPool` will be your postgres.js client (`pool` from `db.ts`)
+        
+        // DEBUG: Log what we're actually receiving
+        console.log('=== DatabaseStorage Constructor Debug ===');
+        console.log('drizzleDb type:', typeof drizzleDb);
+        console.log('drizzleDb defined:', !!drizzleDb);
+        console.log('rawPool type:', typeof rawPool);
+        console.log('rawPool defined:', !!rawPool);
+        console.log('rawPool.query type:', typeof rawPool?.query);
+        console.log('rawPool constructor:', rawPool?.constructor?.name);
+        console.log('rawPool is function:', typeof rawPool === 'function');
+        console.log('================================================');
     }
 
     // --- USER OPERATIONS ---
