@@ -352,8 +352,8 @@ export class DatabaseStorage implements IStorage {
     // Email verification operations
     async storeVerificationCode(data: any): Promise<void> {
         const query = `
-            INSERT INTO verification_codes (email, hacker_name, code, expires_at)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO verification_codes (email, hacker_name, code, expires_at, used)
+            VALUES ($1, $2, $3, $4, false)
         `;
         await (this.rawPool as NodePgPool).query(query, [data.email, data.hackerName, data.code, data.expiresAt]);
     }
