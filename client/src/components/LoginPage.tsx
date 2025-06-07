@@ -120,7 +120,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     try {
       if (requireVerification) {
         // Send verification code first
-        const sent = await sendVerificationCode(email, username);
+        const sent = await sendVerificationCode(email, username, password);
         if (sent) {
           setVerificationSent(true);
           setCurrentStep('verification');
@@ -178,7 +178,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const resendVerificationCode = async () => {
     setLoading(true);
     try {
-      const sent = await sendVerificationCode(email, username);
+      const sent = await sendVerificationCode(email, username, password);
       if (sent) {
         setMessage('New verification code sent to your email.');
       } else {
