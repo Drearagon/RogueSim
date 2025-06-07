@@ -84,29 +84,9 @@ export async function registerUser(userData: {
   }
 }
 
-// DEPRECATED: Use registerUser() instead of sendVerificationCode
-// This function is kept for backward compatibility but should not be used
-export async function sendVerificationCode(email: string, hackerName?: string): Promise<boolean> {
-  console.warn('🚨 sendVerificationCode is deprecated. Use registerUser() instead.');
-  
-  try {
-    console.log(`📧 DEPRECATED: Redirecting to registerUser for: ${email.substring(0, 3)}***`);
-    
-    // Redirect to registerUser with minimal required data
-    // This should NOT be used - registerUser should be called directly
-    const result = await registerUser({
-      email,
-      hackerName: hackerName || 'Agent',
-      password: 'TEMP_PASSWORD_REQUIRED', // This will fail validation
-      requireVerification: true
-    });
-    
-    return result === null; // null means verification required (success)
-  } catch (error) {
-    console.error('❌ Deprecated sendVerificationCode failed:', error);
-    return false;
-  }
-}
+// COMPLETELY REMOVED: sendVerificationCode function
+// This function has been completely removed to prevent any accidental usage
+// All verification flows should use registerUser() directly
 
 // Verify email with code
 export async function verifyEmail(email: string, code: string): Promise<UserAccount | null> {
