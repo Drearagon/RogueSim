@@ -728,6 +728,7 @@ export const commands: Record<string, Command> = {
   inject: {
     description: "Inject payload into target",
     usage: "inject <payload_name>",
+    unlockLevel: 0, // Basic command available from start
     execute: (args: string[], gameState: GameState): CommandResult => {
       if (args.length === 0) {
         return {
@@ -3585,7 +3586,20 @@ export const commands: Record<string, Command> = {
 };
 
 export function getInitialUnlockedCommands(): string[] {
-  return ["help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings", "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login"];
+  return [
+    // Essential system commands (always available)
+    "help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings", 
+    "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login",
+    
+    // Basic utility commands (unlockLevel 0 or undefined)
+    "man", "reboot", "ping", "ls", "cd", "pwd", "cat", "whoami", "ps",
+    
+    // Basic hacking commands (unlockLevel 0)
+    "inject",
+    
+    // Game features (always available)
+    "minigame", "faction", "leaderboard", "easter", "reset_shop"
+  ];
 }
 
 // Command availability checker
@@ -3593,16 +3607,25 @@ export function isCommandAvailable(commandName: string, gameState: GameState): b
   const command = commands[commandName];
   if (!command) return false;
   
-  // Check if command is in unlocked commands list
-  if (gameState.unlockedCommands && !gameState.unlockedCommands.includes(commandName)) {
-    return false;
-  }
-  
-  // Always allow basic commands regardless of unlock level
-  const basicCommands = ["help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings"];
-  if (basicCommands.includes(commandName)) {
+  // Commands without unlockLevel are always available (like basic system commands)
+  if (command.unlockLevel === undefined || command.unlockLevel === 0) {
     return true;
   }
   
-  return true; // All other commands are available if in unlocked list
+  // Check if command is explicitly unlocked
+  if (gameState.unlockedCommands && gameState.unlockedCommands.includes(commandName)) {
+    return true;
+  }
+  
+  // Check level-based unlocking
+  if (gameState.playerLevel && gameState.playerLevel >= command.unlockLevel) {
+    return true;
+  }
+  
+  // Check if purchased from shop (for shop-exclusive commands)
+  if (command.unlockLevel === 999) {
+    return gameState.unlockedCommands && gameState.unlockedCommands.includes(commandName);
+  }
+  
+  return false;
 }
