@@ -83,6 +83,10 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
         }
         
         // Move to setup step for registration
+        // Auto-fill email if identifier was an email
+        if (identifier.includes('@')) {
+          setEmail(identifier);
+        }
         setCurrentStep('setup');
       }
     } catch (error) {
@@ -119,14 +123,22 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
     
     try {
       if (requireVerification) {
-        // Send verification code first
-        const sent = await sendVerificationCode(email, username, password);
-        if (sent) {
+        // Use full registration with verification flow
+        const user = await registerUser({
+          hackerName: username,
+          email: email,
+          password: password,
+          requireVerification: true
+        });
+        
+        if (user === null) {
+          // Registration successful, need verification
           setVerificationSent(true);
           setCurrentStep('verification');
-          setMessage('Verification code sent to your email. Check your inbox.');
+          setMessage('Registration successful! Check your email for verification code.');
         } else {
-          setMessage('Failed to send verification code. Please try again.');
+          // Should not happen with requireVerification: true
+          onLoginSuccess(user);
         }
       } else {
         // Register without verification
@@ -178,7 +190,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const resendVerificationCode = async () => {
     setLoading(true);
     try {
-      const sent = await sendVerificationCode(email, username, password);
+      const sent = await sendVerificationCode(email, username);
       if (sent) {
         setMessage('New verification code sent to your email.');
       } else {
