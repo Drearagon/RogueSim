@@ -6,7 +6,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User, Lock, Mail, Eye, EyeOff, Terminal, Shield, Key, CheckCircle } from 'lucide-react';
 import { MatrixRain } from './MatrixRain';
-import { loginUser, registerUser, sendVerificationCode, verifyEmail } from '@/lib/userStorage';
+import { loginUser, registerUser, /*sendVerificationCode*/ verifyEmail } from '@/lib/userStorage';
 
 interface LoginPageProps {
   onLoginSuccess: (user: any) => void;
