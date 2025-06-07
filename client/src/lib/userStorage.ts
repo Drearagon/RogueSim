@@ -58,24 +58,28 @@ export async function registerUser(userData: {
   try {
     console.log(`📝 Registration attempt for: ${userData.hackerName}`);
     
-    if (userData.requireVerification) {
-      // Send verification code first
-      await sendVerificationCode(userData.email);
-      return null; // Will need to verify before completing registration
-    }
-    
+    // Always call the full registration endpoint
     const response = await apiRequest('POST', '/api/auth/register', userData);
-    const authData: AuthResponse = await response.json();
-    currentUserCache = authData.user;
+    const result = await response.json();
     
-    // Store in localStorage as backup/cache
-    localStorage.setItem('roguesim_current_user', JSON.stringify(authData.user));
-    localStorage.setItem('authenticated', 'true');
-    
-    console.log(`✅ Registration successful for: ${authData.user.hackerName}`);
-    logUserConnection(authData.user.hackerName, 'register');
-    
-    return authData.user;
+    if (userData.requireVerification && result.requiresVerification) {
+      // Registration successful, user needs to verify email
+      console.log(`✅ Registration with verification for: ${userData.hackerName}`);
+      return null; // Frontend expects null to show verification step
+    } else {
+      // Registration successful, user logged in immediately
+      const authData: AuthResponse = result;
+      currentUserCache = authData.user;
+      
+      // Store in localStorage as backup/cache
+      localStorage.setItem('roguesim_current_user', JSON.stringify(authData.user));
+      localStorage.setItem('authenticated', 'true');
+      
+      console.log(`✅ Registration successful for: ${authData.user.hackerName}`);
+      logUserConnection(authData.user.hackerName, 'register');
+      
+      return authData.user;
+    }
   } catch (error) {
     console.error('❌ Registration failed:', error);
     logUserConnection(userData.hackerName, 'register_failed');
