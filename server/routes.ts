@@ -438,10 +438,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return emailRegex.test(email) && email.length <= 254;
         };
 
-        // Send verification code to email
+        // Send verification code to email (standalone endpoint)
         app.post('/api/auth/send-verification', async (req, res) => {
             try {
-                const { email, hackerName, password } = req.body;
+                const { email, hackerName } = req.body;
 
                 // Input validation
                 if (!email || typeof email !== 'string') {
@@ -452,40 +452,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ error: "Invalid email format" });
                 }
 
-                // Validate required fields for user creation
-                if (!hackerName || !password) {
-                    return res.status(400).json({ error: "Hacker name and password are required" });
+                if (!hackerName) {
+                    return res.status(400).json({ error: "Hacker name is required" });
                 }
 
                 const normalizedEmail = email.toLowerCase().trim();
 
-                // Check if user already exists
-                const existingUser = await storage.getUserByEmail(normalizedEmail);
-                const existingHackerName = await storage.getUserByHackerName(hackerName);
-
-                if (existingUser) {
-                    return res.status(409).json({ error: "Email already registered" });
-                }
-                if (existingHackerName) {
-                    return res.status(409).json({ error: "Hacker name already taken" });
-                }
-
-                // Hash password and create user ID
-                const hashedPassword = await bcrypt.hash(password, 10);
-                const userId = uuidv4();
-
-                log(`DEBUG: /api/auth/send-verification - Creating unverified user record for ${normalizedEmail}`, 'auth');
-
-                // CRITICAL FIX: Store the unverified user data
-                await storage.storeUnverifiedUser({
-                    id: userId,
-                    hackerName,
-                    email: normalizedEmail,
-                    password: hashedPassword,
-                    profileImageUrl: null
-                });
-
-                log(`DEBUG: /api/auth/send-verification - Unverified user stored successfully`, 'auth');
+                log(`DEBUG: /api/auth/send-verification - Sending verification code for ${normalizedEmail}`, 'auth');
 
                 // Generate cryptographically secure 6-digit verification code
                 const code = generateSecureVerificationCode();
