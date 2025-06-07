@@ -84,9 +84,25 @@ export async function registerUser(userData: {
   }
 }
 
-// COMPLETELY REMOVED: sendVerificationCode function
-// This function has been completely removed to prevent any accidental usage
-// All verification flows should use registerUser() directly
+// Send email verification code - IDENTICAL to registerUser but calls send-verification endpoint
+export async function sendVerificationCode(email: string, hackerName?: string, password?: string): Promise<boolean> {
+  try {
+    console.log(`📧 Sending verification code to: ${email.substring(0, 3)}***`);
+    
+    // Call the send-verification endpoint directly (which does the same as register)
+    await apiRequest('POST', '/api/auth/send-verification', { 
+      email, 
+      hackerName: hackerName || 'Agent',
+      password: password || 'TEMP_PASSWORD_REQUIRED' // This should be the real password
+    });
+    
+    console.log(`✅ Verification code sent successfully via send-verification endpoint`);
+    return true;
+  } catch (error) {
+    console.error('❌ Failed to send verification code:', error);
+    return false;
+  }
+}
 
 // Verify email with code
 export async function verifyEmail(email: string, code: string): Promise<UserAccount | null> {
