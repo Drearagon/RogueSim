@@ -440,61 +440,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return emailRegex.test(email) && email.length <= 254;
         };
 
-        // Send verification code to email (standalone endpoint)
+        // DISABLED: Send verification code endpoint - returns error message
         app.post('/api/auth/send-verification', async (req, res) => {
-            try {
-                const { email, hackerName } = req.body;
-
-                // Input validation
-                if (!email || typeof email !== 'string') {
-                    return res.status(400).json({ error: "Valid email is required" });
-                }
-
-                if (!isValidEmail(email)) {
-                    return res.status(400).json({ error: "Invalid email format" });
-                }
-
-                if (!hackerName) {
-                    return res.status(400).json({ error: "Hacker name is required" });
-                }
-
-                const normalizedEmail = email.toLowerCase().trim();
-
-                log(`DEBUG: /api/auth/send-verification - Sending verification code for ${normalizedEmail}`, 'auth');
-
-                // Generate cryptographically secure 6-digit verification code
-                const code = generateSecureVerificationCode();
-                const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
-
-                // Store verification code in database
-                await storage.storeVerificationCode({
-                    email: normalizedEmail,
-                    hackerName: hackerName,
-                    code,
-                    expiresAt
-                });
-
-                // Send verification email using SendGrid
-                const emailSent = await sendVerificationEmail(email, code, hackerName);
-
-                if (emailSent) {
-                    res.json({ 
-                        message: "Verification code sent to email",
-                        success: true 
-                    });
-                } else {
-                    // Still return success even if email fails, for better UX
-                    // The user can still use the verification system
-                    console.log(`📧 Fallback: Verification code for ${email}: ${code}`);
-                    res.json({ 
-                        message: "Verification code generated (email service temporarily unavailable)",
-                        success: true 
-                    });
-                }
-            } catch (error) {
-                console.error("Error sending verification code:", error);
-                res.status(500).json({ error: "Failed to send verification code" });
-            }
+            log(`WARNING: /api/auth/send-verification called - this endpoint is disabled`, 'auth');
+            
+            return res.status(400).json({ 
+                error: "This endpoint is deprecated and disabled. Please use /api/auth/register with email, hackerName, and password.",
+                redirect: "/api/auth/register",
+                deprecated: true
+            });
         });
 
         // Game state routes
