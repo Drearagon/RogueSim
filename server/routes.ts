@@ -110,6 +110,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         log('✅ Session middleware configured successfully');
 
+        // --- DEBUG TEST ENDPOINT ---
+        app.get('/api/test', (req, res) => {
+            log('DEBUG: /api/test route HIT!', 'debug');
+            res.json({ 
+                message: 'API routes are working!', 
+                timestamp: new Date().toISOString(),
+                headers: req.headers,
+                method: req.method,
+                url: req.url
+            });
+        });
+
         // --- DATABASE STATUS ENDPOINT ---
         app.get('/api/status', async (req, res) => {
             try {
@@ -179,6 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         app.post('/api/auth/verify', async (req, res) => {
+            log('DEBUG: /api/auth/verify route HIT!', 'auth'); // NEW LOG
             try {
                 const { email, code } = req.body;
                 log(`DEBUG: Verify request for email: ${email}, code: ${code}`, 'auth'); // NEW LOG
@@ -345,6 +358,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (error) {
                 console.error("Logout error:", error);
                 res.status(500).json({ error: "Logout failed" });
+            }
+        });
+
+        // GET current authenticated user
+        app.get('/api/auth/user', async (req: any, res) => {
+            log('DEBUG: /api/auth/user route HIT!', 'auth'); // NEW LOG
+            try {
+                if (!req.session || !req.session.userId) {
+                    log('DEBUG: /api/auth/user - Auth required.', 'auth'); // NEW LOG
+                    return res.status(401).json({ error: "Authentication required" });
+                }
+                const userId = req.session.userId;
+                log(`DEBUG: /api/auth/user - Fetching user ${userId}`, 'auth'); // NEW LOG
+                const user = await storage.getUser(userId);
+                if (user) {
+                    log(`DEBUG: /api/auth/user - Found user ${user.email}`, 'auth'); // NEW LOG
+                    res.json({
+                        id: user.id, 
+                        hackerName: user.hackerName, 
+                        email: user.email, 
+                        profileImageUrl: user.profileImageUrl
+                    });
+                } else {
+                    log('DEBUG: /api/auth/user - User not found in DB.', 'auth'); // NEW LOG
+                    res.status(404).json({ error: "User not found" });
+                }
+            } catch (error) {
+                console.error("Error fetching user:", error);
+                res.status(500).json({ error: "Failed to fetch user" });
             }
         });
 
