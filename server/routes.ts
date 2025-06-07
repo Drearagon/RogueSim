@@ -441,7 +441,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Send verification code to email
         app.post('/api/auth/send-verification', async (req, res) => {
             try {
-                const { email, hackerName } = req.body;
+                const { email, hackerName, password } = req.body;
 
                 // Input validation
                 if (!email || typeof email !== 'string') {
@@ -452,19 +452,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ error: "Invalid email format" });
                 }
 
-                // Optional: Rate limiting check (prevent spam)
-                // TODO: Implement rate limiting per email/IP
-                
+                // Validate required fields for user creation
+                if (!hackerName || !password) {
+                    return res.status(400).json({ error: "Hacker name and password are required" });
+                }
+
+                const normalizedEmail = email.toLowerCase().trim();
+
+                // Check if user already exists
+                const existingUser = await storage.getUserByEmail(normalizedEmail);
+                const existingHackerName = await storage.getUserByHackerName(hackerName);
+
+                if (existingUser) {
+                    return res.status(409).json({ error: "Email already registered" });
+                }
+                if (existingHackerName) {
+                    return res.status(409).json({ error: "Hacker name already taken" });
+                }
+
+                // Hash password and create user ID
+                const hashedPassword = await bcrypt.hash(password, 10);
+                const userId = uuidv4();
+
+                log(`DEBUG: /api/auth/send-verification - Creating unverified user record for ${normalizedEmail}`, 'auth');
+
+                // CRITICAL FIX: Store the unverified user data
+                await storage.storeUnverifiedUser({
+                    id: userId,
+                    hackerName,
+                    email: normalizedEmail,
+                    password: hashedPassword,
+                    profileImageUrl: null
+                });
+
+                log(`DEBUG: /api/auth/send-verification - Unverified user stored successfully`, 'auth');
+
                 // Generate cryptographically secure 6-digit verification code
                 const code = generateSecureVerificationCode();
                 const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
 
-                // Note: Could add cleanup of old verification codes here in the future
-
                 // Store verification code in database
                 await storage.storeVerificationCode({
-                    email: email.toLowerCase().trim(), // Normalize email
-                    hackerName: hackerName || 'Agent',
+                    email: normalizedEmail,
+                    hackerName: hackerName,
                     code,
                     expiresAt
                 });
