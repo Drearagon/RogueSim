@@ -440,16 +440,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return emailRegex.test(email) && email.length <= 254;
         };
 
-        // DISABLED: Send verification code endpoint - returns error message
-        app.post('/api/auth/send-verification', async (req, res) => {
-            log(`WARNING: /api/auth/send-verification called - this endpoint is disabled`, 'auth');
-            
-            return res.status(400).json({ 
-                error: "This endpoint is deprecated and disabled. Please use /api/auth/register with email, hackerName, and password.",
-                redirect: "/api/auth/register",
-                deprecated: true
-            });
-        });
+        // COMPLETELY REMOVED: Send verification code endpoint
+        // This endpoint has been completely removed to prevent any accidental calls
+        // All verification flows should use /api/auth/register instead
 
         // Game state routes
         app.post("/api/game/save", isAuthenticated, async (req: any, res) => {
