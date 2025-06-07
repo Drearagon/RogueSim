@@ -276,13 +276,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 // If all checks pass:
                 log(`DEBUG: Verification successful for email: ${normalizedEmail}`, 'auth'); // NEW LOG
 
-                // Mark code as used IMMEDIATELY to prevent race conditions
-                await storage.markVerificationCodeUsed(verification.id);
-
+                // Get unverified user first before marking code as used
                 const unverifiedUser = await storage.getUnverifiedUser(normalizedEmail);
                 if (!unverifiedUser) {
-                    return res.status(400).json({ error: "User data not found" });
+                    log(`DEBUG: Verification failed - Unverified user not found in database`, 'auth');
+                    return res.status(400).json({ error: "User registration data not found. Please register again." });
                 }
+
+                // Mark code as used only after confirming user exists
+                await storage.markVerificationCodeUsed(verification.id);
 
                 // Create the verified user account
                 const user = await storage.createUser(unverifiedUser);
