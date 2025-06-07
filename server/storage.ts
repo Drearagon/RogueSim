@@ -449,33 +449,39 @@ export class DatabaseStorage implements IStorage {
     }
 
     async storeUnverifiedUser(userData: any): Promise<void> {
+        console.log(`DEBUG: Storing unverified user - email: ${userData.email}, hacker_name: ${userData.hackerName}, id: ${userData.id}`);
         if (typeof this.rawPool.query === 'function') {
             // Neon Pool
             await this.rawPool.query(`
                 INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
-                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
                 ON CONFLICT (email) DO UPDATE SET
-                    id = $1, hacker_name = $2, password = $4, updated_at = $7
-            `, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl, userData.createdAt, userData.updatedAt]);
+                    id = $1, hacker_name = $2, password = $4, profile_image_url = $5, updated_at = NOW()
+            `, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl]);
+            console.log(`DEBUG: Unverified user stored successfully using Neon Pool`);
         } else {
             // postgres.js client
             await this.rawPool`
                 INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
-                VALUES (${userData.id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, ${userData.createdAt}, ${userData.updatedAt})
+                VALUES (${userData.id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, NOW(), NOW())
                 ON CONFLICT (email) DO UPDATE SET
-                    id = ${userData.id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, updated_at = ${userData.updatedAt}
+                    id = ${userData.id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, profile_image_url = ${userData.profileImageUrl}, updated_at = NOW()
             `;
+            console.log(`DEBUG: Unverified user stored successfully using postgres.js`);
         }
     }
 
     async getUnverifiedUser(email: string): Promise<any> {
+        console.log(`DEBUG: Looking up unverified user - email: ${email}`);
         if (typeof this.rawPool.query === 'function') {
             // Neon Pool
             const result = await this.rawPool.query('SELECT * FROM unverified_users WHERE email = $1', [email]);
+            console.log(`DEBUG: Neon Pool unverified user result:`, result.rows[0] ? 'Found' : 'Not found', result.rows[0] || 'No record');
             return result.rows[0];
         } else {
             // postgres.js client
             const result = await this.rawPool`SELECT * FROM unverified_users WHERE email = ${email}`;
+            console.log(`DEBUG: postgres.js unverified user result:`, result[0] ? 'Found' : 'Not found', result[0] || 'No record');
             return result[0];
         }
     }

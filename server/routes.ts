@@ -145,47 +145,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // --- CUSTOM AUTHENTICATION ROUTES ---
         app.post('/api/auth/register', async (req, res) => {
+            log('DEBUG: /api/auth/register route HIT!', 'auth'); // NEW LOG
             try {
                 const { hackerName, email, password } = req.body;
-                // console.log('Registration request:', { hackerName, email, password: password ? '***' : 'missing' }); // Debug log
+                log(`DEBUG: Registration request for email: ${email}, hackerName: ${hackerName}`, 'auth'); // NEW LOG
 
                 if (!hackerName || !email || !password) {
                     return res.status(400).json({ error: "All fields are required" });
                 }
 
-                const hashedPassword = await bcrypt.hash(password, 10);
-                // console.log('Password hashed successfully'); // Debug log
+                // Validate email format
+                if (!isValidEmail(email)) {
+                    return res.status(400).json({ error: "Invalid email format" });
+                }
 
-                const userId = uuidv4();
-                // console.log('About to create user with:', { userId, hackerName, email, hashedPassword: hashedPassword.substring(0, 10) + '...' }); // Debug log
+                // Normalize email
+                const normalizedEmail = email.toLowerCase().trim();
 
-                const user = await storage.createUser({
-                    id: userId,
-                    hackerName,
-                    email,
-                    password: hashedPassword
-                });
+                // Check if user already exists in either table
+                const existingUser = await storage.getUserByEmail(normalizedEmail);
+                const existingHackerName = await storage.getUserByHackerName(hackerName);
+                const existingUnverifiedUser = await storage.getUnverifiedUser(normalizedEmail);
 
-                (req.session as any).userId = userId;
-                (req.session as any).hackerName = hackerName;
-
-                res.json({
-                    user: {
-                        id: user.id,
-                        hackerName: user.hackerName,
-                        email: user.email,
-                        profileImageUrl: user.profileImageUrl
-                    }
-                });
-            } catch (error) {
-                console.error("Registration error:", error);
-                // More specific error handling
-                if ((error as Error).message && (error as Error).message.includes('duplicate key value violates unique constraint "users_email_unique"')) {
+                if (existingUser) {
                     return res.status(409).json({ error: "Email already registered" });
                 }
-                if ((error as Error).message && (error as Error).message.includes('duplicate key value violates unique constraint "users_hacker_name_unique"')) {
+                if (existingHackerName) {
                     return res.status(409).json({ error: "Hacker name already taken" });
                 }
+
+                const hashedPassword = await bcrypt.hash(password, 10);
+                const userId = uuidv4();
+
+                log(`DEBUG: Creating unverified user record`, 'auth'); // NEW LOG
+
+                // Store user data temporarily in unverified_users table
+                await storage.storeUnverifiedUser({
+                    id: userId,
+                    hackerName,
+                    email: normalizedEmail,
+                    password: hashedPassword,
+                    profileImageUrl: null
+                });
+
+                log(`DEBUG: Unverified user stored, now sending verification email`, 'auth'); // NEW LOG
+
+                // Generate and send verification code
+                const code = generateSecureVerificationCode();
+                const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+
+                await storage.storeVerificationCode({
+                    email: normalizedEmail,
+                    hackerName: hackerName,
+                    code,
+                    expiresAt
+                });
+
+                // Send verification email
+                const emailSent = await sendVerificationEmail(normalizedEmail, code, hackerName);
+
+                if (emailSent) {
+                    log(`DEBUG: Verification email sent successfully`, 'auth'); // NEW LOG
+                    res.json({ 
+                        message: "Registration successful! Please check your email for verification code.",
+                        success: true,
+                        requiresVerification: true
+                    });
+                } else {
+                    log(`DEBUG: Verification email failed, but registration completed`, 'auth'); // NEW LOG
+                    console.log(`📧 Fallback: Verification code for ${normalizedEmail}: ${code}`);
+                    res.json({ 
+                        message: "Registration successful! Verification code generated (email service temporarily unavailable)",
+                        success: true,
+                        requiresVerification: true
+                    });
+                }
+            } catch (error) {
+                console.error("Registration error:", error);
                 res.status(500).json({ error: "Registration failed" });
             }
         });
