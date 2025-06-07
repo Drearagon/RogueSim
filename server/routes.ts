@@ -440,9 +440,89 @@ export async function registerRoutes(app: Express): Promise<Server> {
             return emailRegex.test(email) && email.length <= 254;
         };
 
-        // COMPLETELY REMOVED: Send verification code endpoint
-        // This endpoint has been completely removed to prevent any accidental calls
-        // All verification flows should use /api/auth/register instead
+        // Send verification code endpoint - EXACT COPY of /api/auth/register
+        // This endpoint does exactly the same thing as register for compatibility
+        app.post('/api/auth/send-verification', async (req, res) => {
+            log('DEBUG: /api/auth/send-verification route HIT! (IDENTICAL TO REGISTER)', 'auth');
+            try {
+                const { hackerName, email, password } = req.body;
+                log(`DEBUG: Send-verification request for email: ${email}, hackerName: ${hackerName}`, 'auth');
+
+                if (!hackerName || !email || !password) {
+                    return res.status(400).json({ error: "All fields are required" });
+                }
+
+                // Validate email format
+                if (!isValidEmail(email)) {
+                    return res.status(400).json({ error: "Invalid email format" });
+                }
+
+                // Normalize email
+                const normalizedEmail = email.toLowerCase().trim();
+
+                // Check if user already exists in either table
+                const existingUser = await storage.getUserByEmail(normalizedEmail);
+                const existingHackerName = await storage.getUserByHackerName(hackerName);
+                const existingUnverifiedUser = await storage.getUnverifiedUser(normalizedEmail);
+
+                if (existingUser) {
+                    return res.status(409).json({ error: "Email already registered" });
+                }
+                if (existingHackerName) {
+                    return res.status(409).json({ error: "Hacker name already taken" });
+                }
+
+                const hashedPassword = await bcrypt.hash(password, 10);
+                const userId = uuidv4();
+
+                log(`DEBUG: Send-verification creating unverified user record`, 'auth');
+
+                // Store user data temporarily in unverified_users table
+                await storage.storeUnverifiedUser({
+                    id: userId,
+                    hackerName,
+                    email: normalizedEmail,
+                    password: hashedPassword,
+                    profileImageUrl: null
+                });
+
+                log(`DEBUG: Send-verification unverified user stored, now sending verification email`, 'auth');
+
+                // Generate and send verification code
+                const code = generateSecureVerificationCode();
+                const expiresAt = new Date(Date.now() + 2 * 60 * 60 * 1000); // 2 hours
+
+                await storage.storeVerificationCode({
+                    email: normalizedEmail,
+                    hackerName: hackerName,
+                    code,
+                    expiresAt
+                });
+
+                // Send verification email
+                const emailSent = await sendVerificationEmail(normalizedEmail, code, hackerName);
+
+                if (emailSent) {
+                    log(`DEBUG: Send-verification email sent successfully`, 'auth');
+                    res.json({ 
+                        message: "Registration successful! Please check your email for verification code.",
+                        success: true,
+                        requiresVerification: true
+                    });
+                } else {
+                    log(`DEBUG: Send-verification email failed, but registration completed`, 'auth');
+                    console.log(`📧 Fallback: Verification code for ${normalizedEmail}: ${code}`);
+                    res.json({ 
+                        message: "Registration successful! Verification code generated (email service temporarily unavailable)",
+                        success: true,
+                        requiresVerification: true
+                    });
+                }
+            } catch (error) {
+                console.error("Send-verification error:", error);
+                res.status(500).json({ error: "Registration failed" });
+            }
+        });
 
         // Game state routes
         app.post("/api/game/save", isAuthenticated, async (req: any, res) => {
