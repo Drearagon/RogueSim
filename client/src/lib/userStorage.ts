@@ -40,6 +40,12 @@ export async function loginUser(identifier: string, password: string): Promise<U
     console.log(`✅ Authentication successful for: ${authData.user.hackerName}`);
     logUserConnection(authData.user.hackerName, 'login');
     
+    // Trigger authentication event for React Query
+    const event = new CustomEvent('userLoggedIn', {
+      detail: { user: authData.user }
+    });
+    window.dispatchEvent(event);
+    
     return authData.user;
   } catch (error) {
     console.error('❌ Login failed:', error);
@@ -76,7 +82,7 @@ export async function registerUser(userData: {
       logUserConnection(result.user.hackerName, 'register');
       
       return result.user;
-    }
+}
   } catch (error) {
     console.error('❌ Registration failed:', error);
     logUserConnection(userData.hackerName, 'register_failed');
@@ -124,6 +130,12 @@ export async function verifyEmail(email: string, code: string): Promise<UserAcco
     console.log(`✅ Email verification successful for: ${authData.user.hackerName}`);
     logUserConnection(authData.user.hackerName, 'verify');
     
+    // Trigger authentication event for React Query
+    const event = new CustomEvent('userVerified', {
+      detail: { user: authData.user }
+    });
+    window.dispatchEvent(event);
+    
     return authData.user;
   } catch (error) {
     console.error('❌ Email verification failed:', error);
@@ -159,8 +171,8 @@ export async function getCurrentUser(): Promise<UserAccount | null> {
       }
     } catch (storageError) {
       console.error('Failed to get user from localStorage:', storageError);
-    }
-    
+}
+
     return null;
   }
 }
@@ -197,7 +209,7 @@ export async function logoutUser(): Promise<void> {
       detail: { user: userToLogout }
     });
     window.dispatchEvent(event);
-  }
+}
 }
 
 // Update user profile with restrictions on hackername changes
@@ -231,7 +243,7 @@ export async function updateUserProfile(updates: {
   } catch (error) {
     console.error('❌ Profile update failed:', error);
     throw error;
-  }
+}
 }
 
 // Log user connections and activities

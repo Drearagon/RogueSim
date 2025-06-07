@@ -179,26 +179,26 @@ export const commands: Record<string, Command> = {
       } else {
         // Default extraction for story missions
         extractionResults = [
-          '> INITIALIZING DATA EXTRACTION PROTOCOL...',
-          '> Scanning target filesystem...',
-          '> [████████████████████████] 100%',
-          '',
-          '┌─ EXTRACTED DATA SUMMARY ─┐',
-          '│ Files recovered: 247      │',
-          '│ Database entries: 1,832   │',
-          '│ Encrypted files: 23       │',
-          '│ Sensitive docs: 12        │',
-          '└───────────────────────────┘',
-          '',
-          `> Data extraction from ${target} completed successfully.`,
-          '> Use "file_recovery" to restore deleted files.',
-          ''
-        ];
+        '> INITIALIZING DATA EXTRACTION PROTOCOL...',
+        '> Scanning target filesystem...',
+        '> [████████████████████████] 100%',
+        '',
+        '┌─ EXTRACTED DATA SUMMARY ─┐',
+        '│ Files recovered: 247      │',
+        '│ Database entries: 1,832   │',
+        '│ Encrypted files: 23       │',
+        '│ Sensitive docs: 12        │',
+        '└───────────────────────────┘',
+        '',
+        `> Data extraction from ${target} completed successfully.`,
+        '> Use "file_recovery" to restore deleted files.',
+        ''
+      ];
 
-        // Only award credits if this command is completing a mission step
-        const shouldAwardCredits = shouldAwardCommandCredits('extract_data', args, true, gameState);
+      // Only award credits if this command is completing a mission step
+      const shouldAwardCredits = shouldAwardCommandCredits('extract_data', args, true, gameState);
         updateGameState = shouldAwardCredits ? {
-          credits: gameState.credits + 150
+        credits: gameState.credits + 150
         } : {};
       }
 
@@ -642,10 +642,10 @@ export const commands: Record<string, Command> = {
       const isHighSecurity = target?.hostileDetection === 'High' || target?.hostileDetection === 'Extreme' || target?.hostileDetection === 'Maximum';
       
       let connectionOutput = [
-        `▶ Attempting connection to '${ssid}'...`,
-        '▶ Analyzing security protocols...',
-        '▶ Executing handshake...',
-        '▶ Establishing encrypted tunnel...',
+          `▶ Attempting connection to '${ssid}'...`,
+          '▶ Analyzing security protocols...',
+          '▶ Executing handshake...',
+          '▶ Establishing encrypted tunnel...',
         ''
       ];
       
@@ -1083,8 +1083,8 @@ export const commands: Record<string, Command> = {
       // Check if there's an active narrative event
       const currentEvent = getNextNarrativeEvent(gameState);
       if (!currentEvent) {
-        return {
-          output: [
+            return {
+              output: [
             'No active choices available',
             '',
             'Choices become available during:',
@@ -2555,8 +2555,8 @@ export const commands: Record<string, Command> = {
           
           const currentFactionName = gameState.activeFaction.replace('_', ' ').toUpperCase();
           
-          return {
-            output: [
+            return {
+              output: [
               `▶ LEFT FACTION: ${currentFactionName} ▶`,
               '',
               `✓ You have left ${currentFactionName}`,
@@ -2574,7 +2574,7 @@ export const commands: Record<string, Command> = {
                   ...gameState.factionStandings[gameState.activeFaction],
                   isActive: false
                 }
-              }
+                }
             },
             soundEffect: 'success'
           };
@@ -2590,8 +2590,8 @@ export const commands: Record<string, Command> = {
             };
           }
           
-          return {
-            output: [
+            return {
+              output: [
               `▶ ${gameState.activeFaction.replace('_', ' ').toUpperCase()} MISSIONS ▶`,
               '',
               '┌─ AVAILABLE MISSIONS ─┐',

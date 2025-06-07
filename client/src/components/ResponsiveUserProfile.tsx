@@ -142,13 +142,13 @@ export function ResponsiveUserProfile({
         window.dispatchEvent(new CustomEvent('profileUpdated'));
       } else {
         // Regular profile update without hackername change
-        onUpdateProfile(editForm);
+    onUpdateProfile(editForm);
         
         // Emit profile updated event for real-time updates across components
         window.dispatchEvent(new CustomEvent('profileUpdated'));
       }
       
-      setIsEditing(false);
+    setIsEditing(false);
     } catch (error) {
       console.error('Profile update failed:', error);
       alert('❌ Profile update failed: ' + (error as Error).message);
@@ -587,33 +587,33 @@ export function ResponsiveUserProfile({
 
   return (
     <>
-      {/* Mobile Sheet */}
-      <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
-        <SheetTrigger asChild>
-          <div style={{ display: 'none' }} />
-        </SheetTrigger>
-        <SheetContent 
-          side="right" 
-          className="w-full sm:w-96"
-          style={{
-            backgroundColor: terminalSettings.backgroundColor,
-            borderColor: terminalSettings.primaryColor,
-            color: terminalSettings.textColor
-          }}
-        >
-          <SheetHeader>
-            <SheetTitle 
-              className="font-mono"
-              style={{ color: terminalSettings.primaryColor }}
-            >
-              User Profile
-            </SheetTitle>
-          </SheetHeader>
-          <div className="mt-6">
-            <FullProfileContent />
-          </div>
-        </SheetContent>
-      </Sheet>
+        {/* Mobile Sheet */}
+        <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
+          <SheetTrigger asChild>
+            <div style={{ display: 'none' }} />
+          </SheetTrigger>
+          <SheetContent 
+            side="right" 
+            className="w-full sm:w-96"
+            style={{
+              backgroundColor: terminalSettings.backgroundColor,
+              borderColor: terminalSettings.primaryColor,
+              color: terminalSettings.textColor
+            }}
+          >
+            <SheetHeader>
+              <SheetTitle 
+                className="font-mono"
+                style={{ color: terminalSettings.primaryColor }}
+              >
+                User Profile
+              </SheetTitle>
+            </SheetHeader>
+            <div className="mt-6">
+              <FullProfileContent />
+            </div>
+          </SheetContent>
+        </Sheet>
 
       {/* User Header Button - now just the button without absolute positioning */}
       <div className="relative" ref={dropdownRef}>

@@ -97,21 +97,21 @@ export class DatabaseStorage implements IStorage {
         } else {
             // postgres.js client
             await this.rawPool`
-                INSERT INTO users (
-                    id, email, password, hacker_name,
-                    player_level, total_missions_completed, total_credits_earned,
-                    reputation, created_at, updated_at, joined_at, last_active,
-                    is_online, current_mode
-                ) VALUES (
-                    ${userData.id},
-                    ${userData.email},
-                    ${userData.password},
-                    ${userData.hackerName},
-                    1, 0, 0, 'ROOKIE',
-                    NOW(), NOW(), NOW(), NOW(),
-                    false, 'single'
-                )
-            `;
+            INSERT INTO users (
+                id, email, password, hacker_name,
+                player_level, total_missions_completed, total_credits_earned,
+                reputation, created_at, updated_at, joined_at, last_active,
+                is_online, current_mode
+            ) VALUES (
+                ${userData.id},
+                ${userData.email},
+                ${userData.password},
+                ${userData.hackerName},
+                1, 0, 0, 'ROOKIE',
+                NOW(), NOW(), NOW(), NOW(),
+                false, 'single'
+            )
+        `;
 
             const result = await this.rawPool`
                 SELECT id, email, hacker_name, profile_image_url 
@@ -430,10 +430,10 @@ export class DatabaseStorage implements IStorage {
         } else {
             // postgres.js client
             const result = await this.rawPool`
-                SELECT * FROM verification_codes
+            SELECT * FROM verification_codes
                 WHERE email = ${email} AND code = ${code} AND used = false
-                ORDER BY created_at DESC LIMIT 1
-            `;
+            ORDER BY created_at DESC LIMIT 1
+        `;
             console.log(`DEBUG: postgres.js query result:`, result[0] ? 'Found' : 'Not found', result[0] || 'No record');
             return result[0];
         }
@@ -474,9 +474,9 @@ export class DatabaseStorage implements IStorage {
                 // postgres.js client
                 console.log(`DEBUG: Using postgres.js client for storeUnverifiedUser`);
                 await this.rawPool`
-                    INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
+            INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
                     VALUES (${userData.id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, NOW(), NOW())
-                    ON CONFLICT (email) DO UPDATE SET
+            ON CONFLICT (email) DO UPDATE SET
                         id = ${userData.id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, profile_image_url = ${userData.profileImageUrl}, updated_at = NOW()
                 `;
                 log(`DEBUG: Unverified user stored successfully using postgres.js for email: ${userData.email}`, 'auth');
@@ -498,7 +498,7 @@ export class DatabaseStorage implements IStorage {
                 const result = await this.rawPool.query('SELECT * FROM unverified_users WHERE email = $1', [email]);
                 if (result && result.rows && result.rows.length > 0) {
                     log(`DEBUG: getUnverifiedUser result for ${email}: Found record with ID ${result.rows[0].id}`, 'auth');
-                    return result.rows[0];
+        return result.rows[0];
                 } else {
                     log(`DEBUG: getUnverifiedUser result for ${email}: Not found in DB (Neon Pool)`, 'auth');
                     return undefined;
@@ -529,6 +529,6 @@ export class DatabaseStorage implements IStorage {
         } else {
             // postgres.js client
             await this.rawPool`DELETE FROM unverified_users WHERE email = ${email}`;
-        }
     }
+}
 }
