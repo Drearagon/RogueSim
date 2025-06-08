@@ -87,8 +87,20 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
     // Initialize WebSocket connection for real-time chat
     const initWebSocket = () => {
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
+        // Better URL handling for localtunnel and local development
+        const isLocalTunnel = window.location.hostname.includes('.loca.lt');
+        const protocol = window.location.protocol === 'https:' || isLocalTunnel ? 'wss:' : 'ws:';
+        
+        let wsUrl;
+        if (isLocalTunnel) {
+          // For localtunnel, use the same domain but with wss
+          wsUrl = `${protocol}//${window.location.host}/ws`;
+        } else {
+          // For local development, connect to localhost:5000
+          wsUrl = `ws://localhost:5000/ws`;
+        }
+        
+        console.log(`🔌 Attempting WebSocket connection to: ${wsUrl}`);
         const websocket = new WebSocket(wsUrl);
 
         websocket.onopen = () => {
@@ -130,17 +142,19 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
           handleWebSocketMessage(data);
         };
 
-        websocket.onclose = () => {
+        websocket.onclose = (event) => {
           setConnectionStatus('offline');
           const timestamp = new Date().toISOString();
           const username = getUserDisplayName();
           
           // Log player disconnection
-          console.log(`🔄 [${timestamp}] PLAYER_DISCONNECT: ${username}`);
+          console.log(`🔄 [${timestamp}] PLAYER_DISCONNECT: ${username} (Code: ${event.code})`);
           console.log('⚠️ Chat WebSocket connection closed');
           
-          // Try to reconnect after 5 seconds
-          setTimeout(initWebSocket, 5000);
+          // Try to reconnect after 5 seconds, but not immediately on first load
+          if (event.code !== 1000) { // Don't reconnect if normal closure
+            setTimeout(initWebSocket, 5000);
+          }
         };
 
         websocket.onerror = (error) => {
@@ -177,7 +191,9 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
     setTimeout(initWebSocket, 1000);
 
     return () => {
-      if (ws) ws.close();
+      if (ws) {
+        ws.close(1000); // Normal closure
+      }
     };
   }, [chatUser, gameState.playerLevel]);
 
