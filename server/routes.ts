@@ -894,6 +894,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
+        // Add the update-profile route that the frontend expects
+        app.post("/api/user/update-profile", isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.userId;
+                if (!userId) return res.status(401).json({ error: "Authentication required" });
+
+                const updates = req.body;
+                
+                // If hackername change is requested, validate password
+                if (updates.hackerName && updates.currentPassword) {
+                    try {
+                        // Get user from database to verify password
+                        const user = await storage.getUser(userId);
+                        if (!user) {
+                            return res.status(404).json({ error: "User not found" });
+                        }
+                        
+                        // Verify password using bcryptjs (using existing import)
+                        const isPasswordValid = await bcrypt.compare(updates.currentPassword, user.password);
+                        if (!isPasswordValid) {
+                            return res.status(401).json({ error: "Invalid password" });
+                        }
+                    } catch (passwordError) {
+                        console.error("Password verification failed:", passwordError);
+                        return res.status(401).json({ error: "Password verification failed" });
+                    }
+                }
+
+                // Remove currentPassword from updates before saving
+                const { currentPassword, ...profileUpdates } = updates;
+                
+                const profile = await storage.updateUserProfile(userId, profileUpdates);
+                res.json(profile);
+            } catch (error) {
+                console.error("Error updating user profile:", error);
+                res.status(500).json({ error: "Failed to update user profile" });
+            }
+        });
+
         // Create WebSocket server
         const server = createServer(app);
 

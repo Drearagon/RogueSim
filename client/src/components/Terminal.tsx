@@ -500,9 +500,24 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
             }}
             onLogout={() => {
               console.log('Logout triggered from terminal profile');
-              // Trigger the main logout function
-              const event = new CustomEvent('userLogout');
-              window.dispatchEvent(event);
+              // Trigger the main logout function directly
+              const handleLogout = async () => {
+                try {
+                  const { logoutUser } = await import('../lib/userStorage');
+                  await logoutUser();
+                  
+                  // Also trigger the custom event for other components
+                  window.dispatchEvent(new CustomEvent('userLoggedOut'));
+                  
+                  // Reload page to reset state
+                  window.location.reload();
+                } catch (error) {
+                  console.error('Logout error:', error);
+                  // Force reload on error
+                  window.location.reload();
+                }
+              };
+              handleLogout();
             }}
             terminalSettings={{
               primaryColor: terminalSettings.primaryColor,
