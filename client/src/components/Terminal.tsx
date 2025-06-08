@@ -68,22 +68,37 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     const loadUser = async () => {
       try {
         const user = await getCurrentUser();
+        console.log('🔄 Terminal: Loaded user:', user?.hackerName || 'None');
         setCurrentUser(user);
       } catch (error) {
         console.log('No authenticated user found');
+        setCurrentUser(null);
       }
     };
     
     loadUser();
     
-    // Listen for profile updates
+    // Listen for profile updates and authentication events
     const handleProfileUpdate = () => {
+      console.log('🔄 Terminal: Profile update event received');
+      loadUser();
+    };
+    
+    const handleAuthChange = () => {
+      console.log('🔄 Terminal: Authentication change event received');
       loadUser();
     };
     
     window.addEventListener('profileUpdated', handleProfileUpdate);
+    window.addEventListener('userLoggedIn', handleAuthChange);
+    window.addEventListener('userLoggedOut', handleAuthChange);
+    window.addEventListener('userVerified', handleAuthChange);
+    
     return () => {
       window.removeEventListener('profileUpdated', handleProfileUpdate);
+      window.removeEventListener('userLoggedIn', handleAuthChange);
+      window.removeEventListener('userLoggedOut', handleAuthChange);
+      window.removeEventListener('userVerified', handleAuthChange);
     };
   }, []);
 
@@ -485,7 +500,9 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
             }}
             onLogout={() => {
               console.log('Logout triggered from terminal profile');
-              // Could trigger logout logic here
+              // Trigger the main logout function
+              const event = new CustomEvent('userLogout');
+              window.dispatchEvent(event);
             }}
             terminalSettings={{
               primaryColor: terminalSettings.primaryColor,

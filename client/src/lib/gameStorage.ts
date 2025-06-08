@@ -1,6 +1,6 @@
 import { GameState } from '../types/game';
 import { apiRequest } from './queryClient';
-import { createDefaultSkillTree } from './skillTree';
+import { initializeSkillTree } from './skillSystem';
 import { getCurrentUser } from './userStorage';
 
 const STORAGE_KEY = 'roguesim_game_state';
@@ -28,7 +28,7 @@ const defaultGameState: GameState = {
   },
   narrativeChoices: [],
   suspicionLevel: 0,
-  skillTree: createDefaultSkillTree(),
+  skillTree: initializeSkillTree(),
   inventory: {
     hardware: [],
     software: [],
@@ -42,7 +42,21 @@ const defaultGameState: GameState = {
   },
   missionSteps: {},
   branchChoices: {},
-  dynamicMissionSteps: {}
+  dynamicMissionSteps: {},
+  // Faction system state
+  factionStandings: {},
+  factionEvents: [],
+  completedFactionMissions: [],
+  factionMissionCooldowns: {},
+  activeFactionWars: [],
+  factionAchievements: [],
+  // Enhanced Mission System
+  availableMissions: [],
+  completedMissionIds: [],
+  failedMissionIds: [],
+  missionHistory: [],
+  missionCooldowns: {},
+  emergencyMissions: []
 };
 
 // Generate or get persistent session ID per user session
