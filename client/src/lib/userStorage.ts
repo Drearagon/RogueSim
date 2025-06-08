@@ -146,13 +146,22 @@ export async function verifyEmail(email: string, code: string): Promise<UserAcco
 export async function getCurrentUser(): Promise<UserAccount | null> {
   // Return cached user if available
   if (currentUserCache) {
+    console.log('🔄 getCurrentUser: Returning cached user:', currentUserCache.hackerName);
     return currentUserCache;
   }
   
   try {
     // Try to get user from backend
+    console.log('🔄 getCurrentUser: Calling /api/auth/user...');
     const response = await apiRequest('GET', '/api/auth/user', undefined);
     const user: UserAccount = await response.json();
+    
+    console.log('🔄 getCurrentUser: Backend response:', {
+      id: user.id,
+      hackerName: user.hackerName,
+      email: user.email
+    });
+    
     currentUserCache = user;
     
     // Update localStorage cache
@@ -160,19 +169,25 @@ export async function getCurrentUser(): Promise<UserAccount | null> {
     
     return user;
   } catch (error) {
-    console.error('Failed to get current user:', error);
+    console.error('❌ getCurrentUser: Failed to get current user from backend:', error);
     
     // Try to get from localStorage as fallback
     try {
       const stored = localStorage.getItem('roguesim_current_user');
       if (stored) {
         const user = JSON.parse(stored);
+        console.log('🔄 getCurrentUser: Using localStorage fallback:', {
+          id: user.id,
+          hackerName: user.hackerName,
+          email: user.email
+        });
         return user;
       }
     } catch (storageError) {
-      console.error('Failed to get user from localStorage:', storageError);
+      console.error('❌ getCurrentUser: Failed to get user from localStorage:', storageError);
 }
 
+    console.log('❌ getCurrentUser: No user found anywhere');
     return null;
   }
 }
