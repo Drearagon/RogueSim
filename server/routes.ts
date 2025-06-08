@@ -530,8 +530,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const userId = req.userId;
                 if (!userId) return res.status(401).json({ error: "Authentication required" });
 
-                const gameState = insertGameSaveSchema.parse(req.body);
-                const savedState = await storage.saveGameState({ ...gameState, userId, sessionId: req.sessionID });
+                // Extract gameState from request body and prepare data for schema validation
+                const { gameState, gameMode = 'single', sessionId: clientSessionId } = req.body;
+                
+                // Prepare the full game save data with all required fields
+                const gameSaveData = {
+                    userId,
+                    sessionId: req.sessionID,
+                    gameMode,
+                    // Extract individual fields from gameState for schema validation
+                    currentMission: gameState?.currentMission || 0,
+                    credits: gameState?.credits || 1000,
+                    reputation: gameState?.reputation || 'ROOKIE',
+                    completedMissions: gameState?.completedMissions || 0,
+                    unlockedCommands: gameState?.unlockedCommands || ['help', 'scan', 'connect', 'status', 'clear'],
+                    missionProgress: gameState?.missionProgress || 0,
+                    networkStatus: gameState?.networkStatus || 'DISCONNECTED',
+                    soundEnabled: gameState?.soundEnabled ?? true,
+                    isBootComplete: gameState?.isBootComplete ?? false,
+                    currentNetwork: gameState?.currentNetwork || null,
+                    inventory: gameState?.inventory ? 
+                        (Array.isArray(gameState.inventory) ? gameState.inventory : 
+                         [JSON.stringify(gameState.inventory)]) : [],
+                    skillTree: gameState?.skillTree || {},
+                    gameData: gameState || {}
+                };
+
+                const validatedGameSave = insertGameSaveSchema.parse(gameSaveData);
+                const savedState = await storage.saveGameState(validatedGameSave);
                 res.json(savedState);
             } catch (error) {
                 console.error("Error saving game state:", error);
@@ -600,8 +626,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const userId = req.userId;
                 if (!userId) return res.status(401).json({ error: "Authentication required" });
 
-                const commandLog = insertCommandLogSchema.parse(req.body);
-                const savedLog = await storage.logCommand({ ...commandLog, userId }); // Ensure userId is passed
+                const { command, args = [], success = true } = req.body;
+                
+                // Prepare command log data with all required fields
+                const commandLogData = {
+                    userId,
+                    sessionId: req.sessionID,
+                    command,
+                    args,
+                    success,
+                    output: [`Command '${command}' executed ${success ? 'successfully' : 'with errors'}`]
+                };
+
+                const validatedCommandLog = insertCommandLogSchema.parse(commandLogData);
+                const savedLog = await storage.logCommand(validatedCommandLog);
                 res.json(savedLog);
             } catch (error) {
                 console.error("Error logging command:", error);
