@@ -974,37 +974,111 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create WebSocket server
         const server = createServer(app);
 
-        // Set up WebSocket handling for multiplayer functionality
-        const { Server } = await import("socket.io");
+        // Set up WebSocket handling for multiplayer functionality using native WebSocket
+        const { WebSocketServer } = await import('ws');
         
-        const io = new Server(server, {
-            cors: {
-                origin: "*",
-                methods: ["GET", "POST"]
-            },
+        const wss = new WebSocketServer({ 
+            server, 
             path: '/ws',
-            transports: ['websocket', 'polling']
+            perMessageDeflate: false
         });
 
-        // Basic WebSocket setup for multiplayer chat
-        io.on('connection', (socket) => {
+        // Global chat room - store connections
+        const globalChatConnections = new Set<any>();
+        const userConnections = new Map<string, any>();
+
+        // WebSocket connection handling
+        wss.on('connection', (ws, req) => {
             console.log('New WebSocket connection established');
             
-            socket.on('join_global_chat', (data) => {
-                socket.join('global_chat');
-                console.log(`User ${data.username} joined global chat`);
+            let userId: string | null = null;
+            let username: string | null = null;
+
+            ws.on('message', (data) => {
+                try {
+                    const message = JSON.parse(data.toString());
+                    const { type, payload } = message;
+
+                    switch (type) {
+                        case 'join_global_chat':
+                            userId = payload.userId;
+                            username = payload.username;
+                            globalChatConnections.add(ws);
+                            userConnections.set(userId, ws);
+                            console.log(`User ${username} joined global chat`);
+                            
+                            // Send welcome back to client
+                            ws.send(JSON.stringify({
+                                type: 'user_joined',
+                                payload: {
+                                    username: username,
+                                    timestamp: new Date().toISOString()
+                                }
+                            }));
+                            break;
+
+                        case 'send_message':
+                            if (globalChatConnections.has(ws)) {
+                                const chatMessage = {
+                                    type: 'chat_message',
+                                    payload: {
+                                        id: Date.now(),
+                                        userId: payload.userId || userId,
+                                        username: payload.username || username,
+                                        message: payload.message,
+                                        timestamp: new Date().toISOString(),
+                                        messageType: payload.channel === 'team' ? 'team' : 'chat'
+                                    }
+                                };
+
+                                // Broadcast to all connected clients
+                                globalChatConnections.forEach(client => {
+                                    if (client.readyState === ws.OPEN) {
+                                        client.send(JSON.stringify(chatMessage));
+                                    }
+                                });
+                            }
+                            break;
+
+                        default:
+                            console.log('Unknown message type:', type);
+                    }
+                } catch (error) {
+                    console.error('Error handling WebSocket message:', error);
+                    ws.send(JSON.stringify({ 
+                        type: 'error', 
+                        payload: { message: 'Invalid message format' }
+                    }));
+                }
             });
 
-            socket.on('send_message', (data) => {
-                io.to('global_chat').emit('chat_message', {
-                    id: Date.now(),
-                    ...data,
-                    timestamp: new Date().toISOString()
-                });
-            });
-
-            socket.on('disconnect', () => {
+            ws.on('close', () => {
                 console.log('WebSocket connection closed');
+                globalChatConnections.delete(ws);
+                if (userId) {
+                    userConnections.delete(userId);
+                    
+                    // Notify others of disconnection
+                    if (username) {
+                        const disconnectMessage = {
+                            type: 'user_left',
+                            payload: {
+                                username: username,
+                                timestamp: new Date().toISOString()
+                            }
+                        };
+                        
+                        globalChatConnections.forEach(client => {
+                            if (client.readyState === ws.OPEN) {
+                                client.send(JSON.stringify(disconnectMessage));
+                            }
+                        });
+                    }
+                }
+            });
+
+            ws.on('error', (error) => {
+                console.error('WebSocket error:', error);
             });
         });
 

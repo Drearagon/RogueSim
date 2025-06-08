@@ -9,6 +9,7 @@ import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { LoginPage } from './components/LoginPage';
 import { AuthScreen } from './components/AuthScreen';
 import { UsernameSetup } from './components/UsernameSetup';
+import { MiniGameInterface } from './components/MiniGameInterface';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 import { useAuth } from './hooks/useAuth';
@@ -18,7 +19,7 @@ import { FactionInterface } from './components/FactionInterface';
 import { SkillTreeInterface } from './components/SkillTreeInterface';
 import { MissionInterface } from './components/MissionInterface';
 import { initializeSkillTree, purchaseSkill } from './lib/skillSystem';
-import { GameState, Mission } from './types/game';
+import { GameState, Mission, MiniGameState } from './types/game';
 
 export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
@@ -32,6 +33,7 @@ export default function App() {
   const [showFactionInterface, setShowFactionInterface] = useState(false);
   const [showSkillTreeInterface, setShowSkillTreeInterface] = useState(false);
   const [showMissionInterface, setShowMissionInterface] = useState(false);
+  const [activeMiniGame, setActiveMiniGame] = useState<MiniGameState | null>(null);
 
   // Load user profile and handle onboarding
   useEffect(() => {
@@ -129,6 +131,34 @@ export default function App() {
       window.removeEventListener('showFactionInterface', handleShowFactionInterface);
       window.removeEventListener('showSkillTree', handleShowSkillTree);
       window.removeEventListener('showMissionInterface', handleShowMissionInterface);
+    };
+  }, []);
+
+  // Mini-game event listener
+  useEffect(() => {
+    const handleStartMiniGame = (event: CustomEvent) => {
+      const { miniGameState } = event.detail;
+      setActiveMiniGame(miniGameState);
+    };
+
+    window.addEventListener('startMiniGame', handleStartMiniGame as EventListener);
+    
+    return () => {
+      window.removeEventListener('startMiniGame', handleStartMiniGame as EventListener);
+    };
+  }, []);
+
+  // Mini-game event listener
+  useEffect(() => {
+    const handleStartMiniGame = (event: CustomEvent) => {
+      const { miniGameState } = event.detail;
+      setActiveMiniGame(miniGameState);
+    };
+
+    window.addEventListener('startMiniGame', handleStartMiniGame as EventListener);
+    
+    return () => {
+      window.removeEventListener('startMiniGame', handleStartMiniGame as EventListener);
     };
   }, []);
 
@@ -315,6 +345,48 @@ export default function App() {
     });
 
     setShowMissionInterface(false);
+  };
+
+  const handleMiniGameComplete = (success: boolean, score: number) => {
+    if (activeMiniGame && activeMiniGame.currentGame) {
+      const game = activeMiniGame.currentGame;
+      if (success) {
+        updateGameState({
+          credits: gameState.credits + game.reward.credits,
+          experience: gameState.experience + game.reward.experience,
+          miniGameState: {
+            ...activeMiniGame,
+            completed: true,
+            success: true,
+            score: score
+          }
+        });
+      } else {
+        updateGameState({
+          miniGameState: {
+            ...activeMiniGame,
+            completed: true,
+            success: false,
+            score: 0
+          }
+        });
+      }
+    }
+    setActiveMiniGame(null);
+  };
+
+  const handleMiniGameExit = () => {
+    if (activeMiniGame) {
+      updateGameState({
+        miniGameState: {
+          ...activeMiniGame,
+          isActive: false,
+          completed: true,
+          success: false
+        }
+      });
+    }
+    setActiveMiniGame(null);
   };
 
   // Show login screen if not authenticated
