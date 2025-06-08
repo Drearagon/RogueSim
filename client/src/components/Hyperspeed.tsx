@@ -99,7 +99,7 @@ const Hyperspeed: React.FC<HyperspeedProps> = ({ effectOptions = {} }) => {
     const distortions = {
       turbulentDistortion: {
         uniforms: turbulentUniforms,
-        getDistortion: \`
+        getDistortion: `
           uniform vec4 uFreq;
           uniform vec4 uAmp;
           float nsin(float val){
@@ -125,7 +125,7 @@ const Hyperspeed: React.FC<HyperspeedProps> = ({ effectOptions = {} }) => {
               0.
             );
           }
-        \`,
+        `,
         getJS: (progress: number, time: number) => {
           const uFreq = turbulentUniforms.uFreq.value;
           const uAmp = turbulentUniforms.uAmp.value;
@@ -239,7 +239,7 @@ const Hyperspeed: React.FC<HyperspeedProps> = ({ effectOptions = {} }) => {
         // Create a simple animated road with lights
         const geometry = new THREE.PlaneGeometry(20, 400, 1, 100);
         const material = new THREE.ShaderMaterial({
-          vertexShader: \`
+          vertexShader: `
             uniform float uTime;
             varying vec2 vUv;
             void main() {
@@ -248,8 +248,8 @@ const Hyperspeed: React.FC<HyperspeedProps> = ({ effectOptions = {} }) => {
               gl_Position = projectionMatrix * modelViewMatrix * vec4(pos, 1.0);
               vUv = uv;
             }
-          \`,
-          fragmentShader: \`
+          `,
+          fragmentShader: `
             uniform float uTime;
             varying vec2 vUv;
             void main() {
@@ -264,7 +264,7 @@ const Hyperspeed: React.FC<HyperspeedProps> = ({ effectOptions = {} }) => {
               
               gl_FragColor = vec4(color, road + lines);
             }
-          \`,
+          `,
           uniforms: {
             uTime: { value: 0 }
           },
