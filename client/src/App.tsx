@@ -148,20 +148,6 @@ export default function App() {
     };
   }, []);
 
-  // Mini-game event listener
-  useEffect(() => {
-    const handleStartMiniGame = (event: CustomEvent) => {
-      const { miniGameState } = event.detail;
-      setActiveMiniGame(miniGameState);
-    };
-
-    window.addEventListener('startMiniGame', handleStartMiniGame as EventListener);
-    
-    return () => {
-      window.removeEventListener('startMiniGame', handleStartMiniGame as EventListener);
-    };
-  }, []);
-
   // Initialize faction standings and skill tree if not present
   useEffect(() => {
     try {
@@ -353,22 +339,7 @@ export default function App() {
       if (success) {
         updateGameState({
           credits: gameState.credits + game.reward.credits,
-          experience: gameState.experience + game.reward.experience,
-          miniGameState: {
-            ...activeMiniGame,
-            completed: true,
-            success: true,
-            score: score
-          }
-        });
-      } else {
-        updateGameState({
-          miniGameState: {
-            ...activeMiniGame,
-            completed: true,
-            success: false,
-            score: 0
-          }
+          experience: gameState.experience + (game.reward.experience || 10)
         });
       }
     }
@@ -376,16 +347,6 @@ export default function App() {
   };
 
   const handleMiniGameExit = () => {
-    if (activeMiniGame) {
-      updateGameState({
-        miniGameState: {
-          ...activeMiniGame,
-          isActive: false,
-          completed: true,
-          success: false
-        }
-      });
-    }
     setActiveMiniGame(null);
   };
 
@@ -484,12 +445,22 @@ export default function App() {
 
       {/* Mission Interface */}
       {showMissionInterface && (
-        <MissionInterface
-          gameState={gameState}
+        <MissionInterface       
+          gameState={gameState} 
           onMissionStart={handleMissionStart}
           onClose={() => setShowMissionInterface(false)}
         />
       )}
+
+      {/* Mini-Game Interface */}
+      {activeMiniGame && (
+        <MiniGameInterface
+          miniGameState={activeMiniGame}
+          onGameComplete={handleMiniGameComplete}
+          onGameExit={handleMiniGameExit}
+        />
+      )}
+
     </div>
   );
 }
