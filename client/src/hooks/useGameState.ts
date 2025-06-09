@@ -15,6 +15,7 @@ export function useGameState() {
     soundEnabled: true,
     isBootComplete: false,
     playerLevel: 1,
+    experience: 0,
     hydraProtocol: {
       discovered: false,
       access_level: 0,
