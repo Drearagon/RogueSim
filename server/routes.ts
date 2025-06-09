@@ -1000,6 +1000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                     switch (type) {
                         case 'join_global_chat':
+
                             if (payload.userId && payload.username) {
                                 userId = String(payload.userId);
                                 username = String(payload.username);
@@ -1024,6 +1025,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                     }
                                 });
                             }
+
+                            userId = payload.userId;
+                            username = payload.username;
+                            globalChatConnections.add(ws);
+                            userConnections.set(userId, ws);
+                            onlinePlayers.set(userId, username);
+                            console.log(`User ${username} joined global chat`);
+
+                            ws.send(JSON.stringify({
+                                type: 'user_joined',
+                                payload: {
+                                    username: username,
+                                    timestamp: new Date().toISOString()
+                                }
+                            }));
+
+                            const playerList = Array.from(onlinePlayers, ([id, name]) => ({ id, username: name }));
+                            const listMessage = { type: 'player_list_update', payload: { players: playerList } };
+                            globalChatConnections.forEach(client => {
+                                if (client.readyState === ws.OPEN) {
+                                    client.send(JSON.stringify(listMessage));
+                                }
+                            });
+
                             break;
 
                         case 'send_message':
