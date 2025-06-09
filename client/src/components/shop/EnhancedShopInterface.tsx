@@ -65,8 +65,10 @@ export function EnhancedShopInterface({ gameState, onUpdateGameState, onClose }:
     const hasCredits = gameState.credits >= item.price;
     const hasMissions = gameState.completedMissions >= (item.requiredMissions || 0);
     const hasPrereqs = meetsPrerequisites(item);
-    
-    return hasCredits && hasMissions && hasPrereqs && !isOwned(item);
+    const levelOk = !item.requiredLevel || gameState.playerLevel >= item.requiredLevel;
+    const factionOk = !item.requiredFaction || gameState.activeFaction === item.requiredFaction;
+
+    return hasCredits && hasMissions && hasPrereqs && levelOk && factionOk && !isOwned(item);
   };
 
   const handlePurchase = (item: EnhancedShopItem) => {
@@ -335,6 +337,17 @@ export function EnhancedShopInterface({ gameState, onUpdateGameState, onClose }:
                       <div className="text-xs font-mono text-green-400">
                         Unlocks: {item.unlocks.slice(0, 2).join(', ')}
                         {item.unlocks.length > 2 && '...'}
+                      </div>
+                    )}
+
+                    {!canPurchase && (
+                      <div className="text-xs font-mono text-red-400">
+                        {item.requiredLevel && gameState.playerLevel < item.requiredLevel && (
+                          <div>Requires Level {item.requiredLevel}</div>
+                        )}
+                        {item.requiredFaction && gameState.activeFaction !== item.requiredFaction && (
+                          <div>Requires {item.requiredFaction.replace('_',' ')}</div>
+                        )}
                       </div>
                     )}
                   </div>

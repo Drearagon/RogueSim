@@ -10,6 +10,7 @@ export interface GameState {
   isBootComplete: boolean;
   currentNetwork?: string;
   playerLevel: number;
+  experience: number;
   hydraProtocol: HydraProtocolState;
   narrativeChoices: string[];
   suspicionLevel: number;

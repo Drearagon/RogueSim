@@ -63,6 +63,21 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
   const { playKeypress, playError, playSuccess } = useSound();
   const [currentUser, setCurrentUser] = useState<any>(null);
 
+  // Load command history from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('roguesim_history');
+    if (saved) {
+      try {
+        setCommandHistory(JSON.parse(saved));
+      } catch {}
+    }
+  }, []);
+
+  // Persist command history
+  useEffect(() => {
+    localStorage.setItem('roguesim_history', JSON.stringify(commandHistory.slice(-50)));
+  }, [commandHistory]);
+
   // Load current user on component mount and when profile updates
   useEffect(() => {
     const loadUser = async () => {
@@ -242,7 +257,13 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
 
     // Parse command
     const parts = input.trim().split(' ');
-    const commandName = parts[0].toLowerCase();
+    const commandAliases: Record<string, string> = {
+      inv: 'inventory',
+      stat: 'status'
+    };
+
+    let commandName = parts[0].toLowerCase();
+    commandName = commandAliases[commandName] || commandName;
     const args = parts.slice(1);
 
     // Check if command exists and is unlocked
