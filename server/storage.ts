@@ -337,7 +337,7 @@ export class DatabaseStorage implements IStorage {
         const stats = await this.getPlayerStats(userId);
         return {
             id: user.id,
-            hackerName: user.firstName || 'Anonymous_Hacker',
+            hackerName: user.hackerName || 'Anonymous_Hacker',
             email: user.email,
             profileImageUrl: user.profileImageUrl,
             joinDate: user.createdAt?.toISOString(),
