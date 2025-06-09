@@ -461,6 +461,9 @@ export default function App() {
         />
       )}
 
+      {/* Profile Modal */}
+      <ProfileModal />
+
     </div>
   );
 }

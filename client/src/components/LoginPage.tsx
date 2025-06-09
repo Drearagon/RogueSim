@@ -63,11 +63,11 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
       if (isLogin) {
         // Support login with either email or hackername
         const user = await loginUser(identifier, password);
-        if (user) {
-          onLoginSuccess(user);
-        } else {
+          if (user) {
+            onLoginSuccess(user);
+          } else {
           setMessage('Invalid credentials. Check your email/hackername and password.');
-        }
+          }
       } else {
         // Registration flow
         if (password !== confirmPassword) {
@@ -318,13 +318,13 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
+            <div className="space-y-2">
                 <label className="text-green-400 font-mono text-sm">HACKERNAME *</label>
-                <div className="relative">
-                  <User className="absolute left-3 top-3 h-4 w-4 text-green-400" />
-                  <Input
-                    placeholder="Enter your hacker alias"
-                    value={username}
+              <div className="relative">
+                <User className="absolute left-3 top-3 h-4 w-4 text-green-400" />
+                <Input
+                  placeholder="Enter your hacker alias"
+                  value={username}
                     onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
                     className="pl-10 bg-black border-green-400 text-green-400 font-mono"
                     required
@@ -344,9 +344,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                     placeholder="your.email@example.com"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="pl-10 bg-black border-green-400 text-green-400 font-mono"
-                    required
-                  />
+                  className="pl-10 bg-black border-green-400 text-green-400 font-mono"
+                  required
+                />
                 </div>
               </div>
             </div>
@@ -533,7 +533,7 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   </button>
                 </div>
               </div>
-
+              
               {!isLogin && (
                 <div className="space-y-2">
                   <div className="relative">
@@ -552,9 +552,9 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   </p>
                 </div>
               )}
-
-              <Button
-                type="submit"
+              
+              <Button 
+                type="submit" 
                 className="w-full bg-green-400 text-black hover:bg-green-500 font-mono font-bold"
                 disabled={loading}
               >

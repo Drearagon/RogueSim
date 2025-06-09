@@ -206,7 +206,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 if (emailSent) {
                     log(`DEBUG: Verification email sent successfully`, 'auth'); // NEW LOG
-                    res.json({ 
+                res.json({
                         message: "Registration successful! Please check your email for verification code.",
                         success: true,
                         requiresVerification: true
@@ -383,13 +383,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     }
 
                     req.session.destroy((err: any) => {
-                        if (err) {
+                if (err) {
                             console.error('Session destruction error:', err);
                             return res.status(500).json({ error: "Failed to logout" });
-                        }
+                }
                         res.clearCookie('sessionId');
-                        res.json({ message: "Logged out successfully" });
-                    });
+                res.json({ message: "Logged out successfully" });
+            });
                 } else {
                     res.json({ message: "Already logged out" });
                 }
@@ -504,7 +504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 if (emailSent) {
                     log(`DEBUG: Send-verification email sent successfully`, 'auth');
-                    res.json({ 
+                    res.json({
                         message: "Registration successful! Please check your email for verification code.",
                         success: true,
                         requiresVerification: true
@@ -965,7 +965,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 
                 const profile = await storage.updateUserProfile(userId, profileUpdates);
                 res.json(profile);
-            } catch (error) {
+    } catch (error) {
                 console.error("Error updating user profile:", error);
                 res.status(500).json({ error: "Failed to update user profile" });
             }

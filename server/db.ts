@@ -103,8 +103,8 @@ export async function initDatabase(): Promise<void> {
             usingLocalFallback = true;
             
             // Clear main DB references on failure
-            initializedDb = undefined;
-            initializedPool = undefined;
+        initializedDb = undefined;
+        initializedPool = undefined;
             
             // Log local database status
             const stats = await getLocalDbStats();
