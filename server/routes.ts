@@ -1048,6 +1048,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                 });
                             }
                             break;
+                        case 'send_private_message':
+                            const targetWs = userConnections.get(String(payload.targetUserId));
+                            if (targetWs && targetWs.readyState === ws.OPEN) {
+                                const privateMsg = {
+                                    type: 'private_message',
+                                    payload: {
+                                        id: Date.now(),
+                                        fromUserId: userId,
+                                        toUserId: String(payload.targetUserId),
+                                        username: username,
+                                        message: payload.message,
+                                        timestamp: new Date().toISOString()
+                                    }
+                                };
+                                targetWs.send(JSON.stringify(privateMsg));
+                            }
+                            break;
 
                         default:
                             console.log('Unknown message type:', type);
