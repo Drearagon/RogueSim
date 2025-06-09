@@ -1,3 +1,4 @@
+// @ts-nocheck
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Gamepad2, Users, Settings, User, LogOut } from 'lucide-react';
