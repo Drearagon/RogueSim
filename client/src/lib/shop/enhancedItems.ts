@@ -32,6 +32,8 @@ export interface EnhancedShopItem {
   payload?: string; // Payload identifier
   icon: any;
   prerequisites?: string[];
+  requiredLevel?: number;
+  requiredFaction?: string;
   maxQuantity?: number;
   requiredMissions?: number;
   functionality: string; // What it actually does

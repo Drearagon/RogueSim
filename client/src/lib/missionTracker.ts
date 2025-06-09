@@ -78,6 +78,11 @@ export function trackMissionProgress(
       }, 500);
 
       updates.credits = gameState.credits + finalReward;
+      updates.experience = (gameState.experience || 0) + (currentMission.experienceReward || 0);
+      const newLevel = Math.floor(updates.experience / 1000) + 1;
+      if (newLevel > gameState.playerLevel) {
+        updates.playerLevel = newLevel;
+      }
       updates.completedMissions = gameState.completedMissions + 1;
       updates.currentMission = gameState.currentMission + 1;
       updates.missionProgress = 0; // Reset for next mission

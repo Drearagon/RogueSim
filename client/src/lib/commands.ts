@@ -211,6 +211,65 @@ export const commands: Record<string, Command> = {
     }
   },
 
+  inventory: {
+    description: "View owned items",
+    usage: "inventory",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const inv = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+      const lines = [
+        '┌─ INVENTORY ─┐',
+        `│ Hardware: ${inv.hardware.join(', ') || 'None'} │`,
+        `│ Software: ${inv.software.join(', ') || 'None'} │`,
+        `│ Payloads: ${inv.payloads.join(', ') || 'None'} │`,
+        `│ Intel: ${inv.intel.join(', ') || 'None'} │`,
+        '└─────────────┘',
+        ''
+      ];
+      return { output: lines, success: true };
+    }
+  },
+
+  whoami: {
+    description: "Display user profile",
+    usage: "whoami",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const profileLines = [
+        '┌─ USER PROFILE ─┐',
+        `│ Level: ${gameState.playerLevel} │`,
+        `│ XP: ${gameState.experience} │`,
+        `│ Credits: ${gameState.credits} │`,
+        gameState.activeFaction ? `│ Faction: ${gameState.activeFaction} │` : '│ Faction: None │',
+        '└───────────────┘',
+        ''
+      ];
+      return { output: profileLines, success: true };
+    }
+  },
+
+  fortune: {
+    description: "Get a random hacker quote",
+    usage: "fortune",
+    execute: (): CommandResult => {
+      const quotes = [
+        'Knowledge is power.',
+        'The quieter you become, the more you hear.',
+        'There is no patch for human stupidity.',
+        'Hack the planet!'
+      ];
+      const line = quotes[Math.floor(Math.random() * quotes.length)];
+      return { output: [line, ''], success: true };
+    }
+  },
+
+  lore: {
+    description: "Reveal rogue network lore",
+    usage: "lore",
+    execute: (): CommandResult => {
+      const text = 'Whispers speak of an AI born from forgotten code, lurking in the dark net.';
+      return { output: [text, ''], success: true };
+    }
+  },
+
   file_recovery: {
     description: "Recover deleted or corrupted files from extracted data",
     usage: "file_recovery [--deep]",
@@ -558,15 +617,22 @@ export const commands: Record<string, Command> = {
         }
       }
       
-      const availableCommands = Object.keys(commands).filter(cmd => 
+      const availableCommands = Object.keys(commands).filter(cmd =>
         gameState.unlockedCommands.includes(cmd)
       );
+      const aliasInfo = {
+        inv: 'inventory',
+        stat: 'status'
+      };
       
       return {
         output: [
           '┌─ AVAILABLE COMMANDS ─┐',
           ...availableCommands.map(cmd => `│ ${cmd.padEnd(10)} - ${commands[cmd].description.substring(0, 20)} │`),
           '└─────────────────────┘',
+          '',
+          'Aliases:',
+          ...Object.entries(aliasInfo).map(([alias, full]) => `  ${alias} -> ${full}`),
           '',
           'Type "man <cmd>" for help',
           ''
@@ -684,12 +750,15 @@ export const commands: Record<string, Command> = {
     description: "Display system status",
     usage: "status",
     execute: (args: string[], gameState: GameState): CommandResult => {
+      const nextLevelXp = (gameState.playerLevel + 1) * 1000;
       const output = [
         '┌─ SYSTEM STATUS ─┐',
         `│ ESP32: ONLINE    │`,
         `│ WiFi: ${gameState.networkStatus.substring(0, 10).padEnd(10)} │`,
         `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
         `│ Rep: ${gameState.reputation.substring(0, 10).padEnd(10)} │`,
+        `│ Level: ${gameState.playerLevel.toString().padEnd(6)} │`,
+        `│ XP: ${gameState.experience}/${nextLevelXp} │`,
         `│ Missions: ${gameState.completedMissions}/∞    │`,
         '└─────────────────┘'
       ];
@@ -2731,7 +2800,11 @@ export const commands: Record<string, Command> = {
               ...gameState.factionStandings[gameState.activeFaction],
               reputation: gameState.factionStandings[gameState.activeFaction].reputation + mission.reputationReward,
               missionsCompleted: gameState.factionStandings[gameState.activeFaction].missionsCompleted + 1,
-              creditsEarned: gameState.factionStandings[gameState.activeFaction].creditsEarned + bonusCredits
+              creditsEarned: gameState.factionStandings[gameState.activeFaction].creditsEarned + bonusCredits,
+              rank: getPlayerFactionRank(
+                gameState.activeFaction,
+                gameState.factionStandings[gameState.activeFaction].reputation + mission.reputationReward
+              )
             }
           },
           completedFactionMissions: [...gameState.completedFactionMissions, mission.id],
@@ -3592,7 +3665,7 @@ export function getInitialUnlockedCommands(): string[] {
     "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login",
     
     // Basic utility commands (unlockLevel 0 or undefined)
-    "man", "reboot", "ping", "ls", "cd", "pwd", "cat", "whoami", "ps",
+    "man", "reboot", "ping", "ls", "cd", "pwd", "cat", "whoami", "ps", "inventory", "fortune", "lore",
     
     // Basic hacking commands (unlockLevel 0)
     "inject",
