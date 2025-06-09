@@ -423,13 +423,15 @@ export class LocalDatabaseStorage {
                 return;
             }
 
-            await localDb.insert(schema.userActivityLogs).values({
-                userId,
-                username,
-                action,
-                timestamp: new Date(),
-                metadata: JSON.stringify(metadata)
-            });
+            if ((schema as any).userActivityLogs) {
+                await localDb.insert((schema as any).userActivityLogs).values({
+                    userId,
+                    username,
+                    action,
+                    timestamp: new Date(),
+                    metadata: JSON.stringify(metadata)
+                });
+            }
 
             log(`✅ Logged user activity in local DB: ${username} - ${action}`, 'local-db');
 
@@ -451,7 +453,8 @@ export class LocalDatabaseStorage {
             }
 
             // Upsert game data
-            await localDb.insert(schema.gameData).values({
+            if ((schema as any).gameData) {
+            await localDb.insert((schema as any).gameData).values({
                 userId,
                 credits: gameData.credits || 0,
                 playerLevel: gameData.playerLevel || 1,
@@ -463,7 +466,7 @@ export class LocalDatabaseStorage {
                 psychProfile: JSON.stringify(gameData.psychProfile || {}),
                 updatedAt: new Date()
             }).onConflictDoUpdate({
-                target: schema.gameData.userId,
+                target: (schema as any).gameData.userId,
                 set: {
                     credits: gameData.credits || 0,
                     playerLevel: gameData.playerLevel || 1,
@@ -476,6 +479,7 @@ export class LocalDatabaseStorage {
                     updatedAt: new Date()
                 }
             });
+            }
 
             log(`✅ Saved game data in local DB: ${userId}`, 'local-db');
 
@@ -501,7 +505,10 @@ export class LocalDatabaseStorage {
                 return null;
             }
 
-            const result = await localDb.select().from(schema.gameData).where(sql`user_id = ${userId}`).limit(1);
+            let result: any[] = [];
+            if ((schema as any).gameData) {
+                result = await localDb.select().from((schema as any).gameData).where(sql`user_id = ${userId}`).limit(1);
+            }
             if (result[0]) {
                 const data = result[0];
                 return {
