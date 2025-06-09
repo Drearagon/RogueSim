@@ -259,7 +259,8 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     const parts = input.trim().split(' ');
     const commandAliases: Record<string, string> = {
       inv: 'inventory',
-      stat: 'status'
+      stat: 'status',
+      minigames: 'minigame'
     };
 
     let commandName = parts[0].toLowerCase();
