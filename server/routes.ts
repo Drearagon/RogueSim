@@ -775,12 +775,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     stats = await storage.updatePlayerStats(userId, {
                         userId,
                         totalMissions: 0,
-                        successfulMissions: 0,
-                        totalCredits: 1000,
-                        reputation: 'UNKNOWN',
-                        currentStreak: 0,
-                        longestStreak: 0,
-                        totalPlayTime: 0
+                        totalPlayTime: 0,
+                        multiplayerWins: 0,
+                        multiplayerLosses: 0,
+                        bestCompletionTime: null,
+                        achievementsUnlocked: [],
+                        favoriteCommands: []
                     });
                 }
 
@@ -849,7 +849,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const { playerLevel, completedMissions, reputation } = req.body;
 
                 const mission = await aiMissionGenerator.generateMission(
-                    userId, // Pass userId for context
                     playerLevel || 1,
                     completedMissions || [],
                     reputation || 'Novice'
@@ -871,7 +870,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const { playerLevel, completedMissions, reputation, count } = req.body;
 
                 const missions = await aiMissionGenerator.generateMissionBatch(
-                    userId, // Pass userId for context
                     playerLevel || 1,
                     completedMissions || [],
                     reputation || 'Novice',
@@ -1002,6 +1000,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                     switch (type) {
                         case 'join_global_chat':
+
+                            if (payload.userId && payload.username) {
+                                userId = String(payload.userId);
+                                username = String(payload.username);
+                                globalChatConnections.add(ws);
+                                userConnections.set(userId as string, ws);
+                                onlinePlayers.set(userId as string, username as string);
+                                console.log(`User ${username} joined global chat`);
+
+                                ws.send(JSON.stringify({
+                                    type: 'user_joined',
+                                    payload: {
+                                        username: username,
+                                        timestamp: new Date().toISOString()
+                                    }
+                                }));
+
+                                const playerList = Array.from(onlinePlayers, ([id, name]) => ({ id, username: name }));
+                                const listMessage = { type: 'player_list_update', payload: { players: playerList } };
+                                globalChatConnections.forEach(client => {
+                                    if (client.readyState === ws.OPEN) {
+                                        client.send(JSON.stringify(listMessage));
+                                    }
+                                });
+                            }
+
                             userId = payload.userId;
                             username = payload.username;
                             globalChatConnections.add(ws);
@@ -1024,6 +1048,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                     client.send(JSON.stringify(listMessage));
                                 }
                             });
+
                             break;
 
                         case 'send_message':
@@ -1046,6 +1071,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                         client.send(JSON.stringify(chatMessage));
                                     }
                                 });
+                            }
+                            break;
+                        case 'send_private_message':
+                            const targetWs = userConnections.get(String(payload.targetUserId));
+                            if (targetWs && targetWs.readyState === ws.OPEN) {
+                                const privateMsg = {
+                                    type: 'private_message',
+                                    payload: {
+                                        id: Date.now(),
+                                        fromUserId: userId,
+                                        toUserId: String(payload.targetUserId),
+                                        username: username,
+                                        message: payload.message,
+                                        timestamp: new Date().toISOString()
+                                    }
+                                };
+                                targetWs.send(JSON.stringify(privateMsg));
                             }
                             break;
 
