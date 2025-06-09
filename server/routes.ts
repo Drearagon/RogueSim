@@ -985,11 +985,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const globalChatConnections = new Set<any>();
         const userConnections = new Map<string, any>();
         const onlinePlayers = new Map<string, string>();
+        const roomConnections = new Map<number, Set<any>>();
 
         // WebSocket connection handling
         wss.on('connection', (ws, req) => {
             console.log('New WebSocket connection established');
-            
+
+            const sock = ws as any;
             let userId: string | null = null;
             let username: string | null = null;
 
@@ -999,80 +1001,118 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     const { type, payload } = message;
 
                     switch (type) {
-                        case 'join_global_chat':
+                        case 'authenticate':
+                            if (payload.userId) {
+                                userId = String(payload.userId);
+                                userConnections.set(userId, ws);
+                            }
+                            if (payload.hackerName) {
+                                username = String(payload.hackerName);
+                            }
+                            break;
 
+                        case 'join_global_chat':
                             if (payload.userId && payload.username) {
                                 userId = String(payload.userId);
                                 username = String(payload.username);
-                                globalChatConnections.add(ws);
-                                userConnections.set(userId as string, ws);
-                                onlinePlayers.set(userId as string, username as string);
-                                console.log(`User ${username} joined global chat`);
-
-                                ws.send(JSON.stringify({
-                                    type: 'user_joined',
-                                    payload: {
-                                        username: username,
-                                        timestamp: new Date().toISOString()
-                                    }
-                                }));
-
-                                const playerList = Array.from(onlinePlayers, ([id, name]) => ({ id, username: name }));
-                                const listMessage = { type: 'player_list_update', payload: { players: playerList } };
-                                globalChatConnections.forEach(client => {
-                                    if (client.readyState === ws.OPEN) {
-                                        client.send(JSON.stringify(listMessage));
-                                    }
-                                });
                             }
-
-                            userId = payload.userId;
-                            username = payload.username;
                             globalChatConnections.add(ws);
-                            userConnections.set(userId, ws);
-                            onlinePlayers.set(userId, username);
-                            console.log(`User ${username} joined global chat`);
-
+                            if (userId) {
+                                onlinePlayers.set(userId, username || userId);
+                            }
                             ws.send(JSON.stringify({
                                 type: 'user_joined',
-                                payload: {
-                                    username: username,
-                                    timestamp: new Date().toISOString()
-                                }
+                                payload: { username, timestamp: new Date().toISOString() }
                             }));
-
                             const playerList = Array.from(onlinePlayers, ([id, name]) => ({ id, username: name }));
-                            const listMessage = { type: 'player_list_update', payload: { players: playerList } };
+                            const listMsg = { type: 'player_list_update', payload: { players: playerList } };
                             globalChatConnections.forEach(client => {
                                 if (client.readyState === ws.OPEN) {
-                                    client.send(JSON.stringify(listMessage));
+                                    client.send(JSON.stringify(listMsg));
                                 }
                             });
+                            break;
 
+                        case 'join_room':
+                            if (typeof payload.roomId === 'number') {
+                                roomConnections.set(payload.roomId, roomConnections.get(payload.roomId) || new Set());
+                                roomConnections.get(payload.roomId)!.add(ws);
+                                sock.roomId = payload.roomId;
+                                if (username) {
+                                    roomConnections.get(payload.roomId)!.forEach(client => {
+                                        if (client !== ws && client.readyState === ws.OPEN) {
+                                            client.send(JSON.stringify({
+                                                type: 'player_joined',
+                                                payload: { hackerName: username, userId, timestamp: new Date().toISOString() }
+                                            }));
+                                        }
+                                    });
+                                }
+                                try {
+                                    const members = await storage.getRoomMembers(payload.roomId);
+                                    ws.send(JSON.stringify({ type: 'room_state', payload: { members, roomId: payload.roomId } }));
+                                } catch (err) {
+                                    console.error('Failed to get room members:', err);
+                                }
+                                const count = roomConnections.get(payload.roomId)!.size;
+                                const syncMsg = { type: 'sync_status', payload: { memberCount: count } };
+                                roomConnections.get(payload.roomId)!.forEach(client => {
+                                    if (client.readyState === ws.OPEN) client.send(JSON.stringify(syncMsg));
+                                });
+                            }
+                            break;
+
+                        case 'leave_room':
+                            if (sock.roomId !== undefined) {
+                                const roomSet = roomConnections.get(sock.roomId);
+                                if (roomSet) {
+                                    roomSet.delete(ws);
+                                    roomSet.forEach(client => {
+                                        if (client.readyState === ws.OPEN) {
+                                            client.send(JSON.stringify({
+                                                type: 'player_left',
+                                                payload: { hackerName: username, userId, timestamp: new Date().toISOString() }
+                                            }));
+                                        }
+                                    });
+                                    const count = roomSet.size;
+                                    const syncMsg = { type: 'sync_status', payload: { memberCount: count } };
+                                    roomSet.forEach(client => {
+                                        if (client.readyState === ws.OPEN) client.send(JSON.stringify(syncMsg));
+                                    });
+                                }
+                                sock.roomId = undefined;
+                            }
                             break;
 
                         case 'send_message':
-                            if (globalChatConnections.has(ws)) {
-                                const chatMessage = {
-                                    type: 'chat_message',
-                                    payload: {
-                                        id: Date.now(),
-                                        userId: payload.userId || userId,
-                                        username: payload.username || username,
-                                        message: payload.message,
-                                        timestamp: new Date().toISOString(),
-                                        messageType: payload.channel === 'team' ? 'team' : 'chat'
+                            const msgPayload = {
+                                type: 'chat_message',
+                                payload: {
+                                    id: Date.now(),
+                                    userId: payload.userId || userId,
+                                    username: payload.username || username,
+                                    message: payload.message,
+                                    timestamp: new Date().toISOString(),
+                                    messageType: payload.channel === 'team' ? 'team' : 'chat'
+                                }
+                            };
+                            if (payload.channel === 'room' && sock.roomId !== undefined) {
+                                const roomSet = roomConnections.get(sock.roomId);
+                                roomSet?.forEach(client => {
+                                    if (client.readyState === ws.OPEN) {
+                                        client.send(JSON.stringify(msgPayload));
                                     }
-                                };
-
-                                // Broadcast to all connected clients
+                                });
+                            } else if (globalChatConnections.has(ws)) {
                                 globalChatConnections.forEach(client => {
                                     if (client.readyState === ws.OPEN) {
-                                        client.send(JSON.stringify(chatMessage));
+                                        client.send(JSON.stringify(msgPayload));
                                     }
                                 });
                             }
                             break;
+
                         case 'send_private_message':
                             const targetWs = userConnections.get(String(payload.targetUserId));
                             if (targetWs && targetWs.readyState === ws.OPEN) {
@@ -1091,6 +1131,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                             }
                             break;
 
+                        case 'ping':
+                            ws.send(JSON.stringify({ type: 'pong' }));
+                            if (sock.roomId !== undefined) {
+                                const roomSet = roomConnections.get(sock.roomId);
+                                const count = roomSet ? roomSet.size : 0;
+                                ws.send(JSON.stringify({ type: 'sync_status', payload: { memberCount: count } }));
+                            }
+                            break;
+
                         default:
                             console.log('Unknown message type:', type);
                     }
@@ -1105,7 +1154,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             ws.on('close', () => {
                 console.log('WebSocket connection closed');
+
                 globalChatConnections.delete(ws);
+
+                if (sock.roomId !== undefined) {
+                    const roomSet = roomConnections.get(sock.roomId);
+                    if (roomSet) {
+                        roomSet.delete(ws);
+                        roomSet.forEach(client => {
+                            if (client.readyState === ws.OPEN) {
+                                client.send(JSON.stringify({
+                                    type: 'player_left',
+                                    payload: { hackerName: username, userId, timestamp: new Date().toISOString() }
+                                }));
+                            }
+                        });
+                        const count = roomSet.size;
+                        const syncMsg = { type: 'sync_status', payload: { memberCount: count } };
+                        roomSet.forEach(client => {
+                            if (client.readyState === ws.OPEN) client.send(JSON.stringify(syncMsg));
+                        });
+                    }
+                }
+
                 if (userId) {
                     userConnections.delete(userId);
                     onlinePlayers.delete(userId);
