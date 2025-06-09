@@ -445,7 +445,7 @@ export class DatabaseStorage implements IStorage {
             await (this.rawPool as any).query('UPDATE verification_codes SET used = true WHERE id = $1', [id]);
         } else {
             // postgres.js client
-            await this.rawPool`UPDATE verification_codes SET used = true WHERE id = ${id}`;
+            await (this.rawPool as PostgresJsClient)`UPDATE verification_codes SET used = true WHERE id = ${id}`;
         }
     }
 
