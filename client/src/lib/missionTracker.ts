@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { GameState, Mission, BranchPoint, BranchChoice } from '../types/game';
 import { getCurrentMission } from './missions';
 

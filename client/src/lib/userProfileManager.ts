@@ -160,7 +160,10 @@ class UserProfileManager {
 
     if (success) {
       updates.successfulMissions = (profile.successfulMissions ?? 0) + 1;
-      updates.longestStreak = Math.max(profile.longestStreak ?? 0, updates.currentStreak);
+      updates.longestStreak = Math.max(
+        profile.longestStreak ?? 0,
+        updates.currentStreak ?? 0
+      );
       updates.savedMissions = [...profile.savedMissions, missionId];
     } else {
       updates.failedMissions = (profile.failedMissions ?? 0) + 1;

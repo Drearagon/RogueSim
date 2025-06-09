@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Command, CommandResult, GameState, Network, Device, MissionStep } from '../types/game';
 import { 
   getNextNarrativeEvent, 

@@ -1001,11 +1001,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     switch (type) {
                         case 'join_global_chat':
                             if (payload.userId && payload.username) {
-                                userId = payload.userId;
-                                username = payload.username;
+                                userId = String(payload.userId);
+                                username = String(payload.username);
                                 globalChatConnections.add(ws);
                                 userConnections.set(userId as string, ws);
-                                onlinePlayers.set(userId as string, username);
+                                onlinePlayers.set(userId as string, username as string);
                                 console.log(`User ${username} joined global chat`);
 
                                 ws.send(JSON.stringify({
