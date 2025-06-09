@@ -293,7 +293,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         type: 'send_message',
         payload: {
           message: chatInput.trim(),
-          channel: 'global',
+          channel: 'room',
           userId: currentUser?.id,
           username: currentUser?.username || 'Anonymous'
         }
