@@ -986,6 +986,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Global chat room - store connections
         const globalChatConnections = new Set<any>();
         const userConnections = new Map<string, any>();
+        const onlinePlayers = new Map<string, string>();
 
         // WebSocket connection handling
         wss.on('connection', (ws, req) => {
@@ -1005,9 +1006,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                             username = payload.username;
                             globalChatConnections.add(ws);
                             userConnections.set(userId, ws);
+                            onlinePlayers.set(userId, username);
                             console.log(`User ${username} joined global chat`);
-                            
-                            // Send welcome back to client
+
                             ws.send(JSON.stringify({
                                 type: 'user_joined',
                                 payload: {
@@ -1015,6 +1016,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                     timestamp: new Date().toISOString()
                                 }
                             }));
+
+                            const playerList = Array.from(onlinePlayers, ([id, name]) => ({ id, username: name }));
+                            const listMessage = { type: 'player_list_update', payload: { players: playerList } };
+                            globalChatConnections.forEach(client => {
+                                if (client.readyState === ws.OPEN) {
+                                    client.send(JSON.stringify(listMessage));
+                                }
+                            });
                             break;
 
                         case 'send_message':
@@ -1057,8 +1066,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 globalChatConnections.delete(ws);
                 if (userId) {
                     userConnections.delete(userId);
-                    
-                    // Notify others of disconnection
+                    onlinePlayers.delete(userId);
+
                     if (username) {
                         const disconnectMessage = {
                             type: 'user_left',
@@ -1067,13 +1076,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
                                 timestamp: new Date().toISOString()
                             }
                         };
-                        
+
                         globalChatConnections.forEach(client => {
                             if (client.readyState === ws.OPEN) {
                                 client.send(JSON.stringify(disconnectMessage));
                             }
                         });
                     }
+
+                    const playerList = Array.from(onlinePlayers, ([id, name]) => ({ id, username: name }));
+                    const listMessage = { type: 'player_list_update', payload: { players: playerList } };
+                    globalChatConnections.forEach(client => {
+                        if (client.readyState === ws.OPEN) {
+                            client.send(JSON.stringify(listMessage));
+                        }
+                    });
                 }
             });
 
