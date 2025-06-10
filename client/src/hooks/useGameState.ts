@@ -2,6 +2,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { GameState } from '../types/game';
 import { loadGameState, saveGameState } from '../lib/gameStorage';
 import { initializeFactionStandings } from '../lib/factionSystem';
+import { getInitialUnlockedCommands } from '../lib/commands';
 
 export function useGameState() {
   const [gameState, setGameState] = useState<GameState>({
@@ -9,7 +10,7 @@ export function useGameState() {
     credits: 500,
     reputation: 'UNKNOWN',
     completedMissions: 0,
-    unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear'],
+    unlockedCommands: getInitialUnlockedCommands(),
     missionProgress: 0,
     networkStatus: 'DISCONNECTED',
     soundEnabled: true,

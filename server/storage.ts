@@ -361,7 +361,7 @@ export class DatabaseStorage implements IStorage {
             preferredGameMode: 'single',
 
             unlockedAchievements: stats?.achievementsUnlocked || [],
-            unlockedCommands: ['help', 'scan', 'connect', 'missions'],
+            unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'shop', 'hackide'],
             unlockedPayloads: ['basic_payload'],
 
             currentGameState: null,
