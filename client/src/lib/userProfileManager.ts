@@ -76,7 +76,7 @@ class UserProfileManager {
         
         // Initial unlocks
         unlockedAchievements: [],
-        unlockedCommands: ['help', 'scan', 'connect', 'missions'],
+        unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'shop', 'hackide'],
         unlockedPayloads: ['basic_payload'],
         
         // Empty save state
