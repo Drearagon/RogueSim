@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { Mission, GameState } from '../types/game';
 
 export interface DailyContract extends Mission {

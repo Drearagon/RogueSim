@@ -14,10 +14,10 @@ interface UserProfile {
   
   // Statistics
   totalMissions: number;
-  successfulMissions: number;
-  failedMissions: number;
-  currentStreak: number;
-  longestStreak: number;
+  successfulMissions?: number;
+  failedMissions?: number;
+  currentStreak?: number;
+  longestStreak?: number;
   totalPlayTime: number;
   
   // Preferences
@@ -76,7 +76,7 @@ class UserProfileManager {
         
         // Initial unlocks
         unlockedAchievements: [],
-        unlockedCommands: ['help', 'scan', 'connect', 'missions'],
+        unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'shop', 'hackide'],
         unlockedPayloads: ['basic_payload'],
         
         // Empty save state
@@ -155,15 +155,18 @@ class UserProfileManager {
 
     const updates: Partial<UserProfile> = {
       totalMissions: profile.totalMissions + 1,
-      currentStreak: success ? profile.currentStreak + 1 : 0
+      currentStreak: success ? (profile.currentStreak ?? 0) + 1 : 0
     };
 
     if (success) {
-      updates.successfulMissions = profile.successfulMissions + 1;
-      updates.longestStreak = Math.max(profile.longestStreak, updates.currentStreak);
+      updates.successfulMissions = (profile.successfulMissions ?? 0) + 1;
+      updates.longestStreak = Math.max(
+        profile.longestStreak ?? 0,
+        updates.currentStreak ?? 0
+      );
       updates.savedMissions = [...profile.savedMissions, missionId];
     } else {
-      updates.failedMissions = profile.failedMissions + 1;
+      updates.failedMissions = (profile.failedMissions ?? 0) + 1;
     }
 
     await this.updateProfile(updates);

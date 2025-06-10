@@ -22,11 +22,12 @@ export interface MissionTemplate {
 export class AIMissionGenerator {
   
   async generateMission(playerLevel: number, completedMissions: string[], reputation: string): Promise<MissionTemplate> {
+    let finalDifficulty = 1;
     try {
       // Calculate difficulty based on player progression
       const baseDifficulty = Math.min(playerLevel * 0.5 + 1, 10);
       const difficultyVariance = Math.random() * 2 - 1; // -1 to +1
-      const finalDifficulty = Math.max(1, Math.min(10, baseDifficulty + difficultyVariance));
+      finalDifficulty = Math.max(1, Math.min(10, baseDifficulty + difficultyVariance));
 
       const response = await openai.chat.completions.create({
         model: "gpt-4o", // the newest OpenAI model is "gpt-4o" which was released May 13, 2024. do not change this unless explicitly requested by the user

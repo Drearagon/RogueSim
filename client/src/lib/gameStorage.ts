@@ -2,6 +2,7 @@ import { GameState } from '../types/game';
 import { apiRequest } from './queryClient';
 import { initializeSkillTree } from './skillSystem';
 import { getCurrentUser } from './userStorage';
+import { getInitialUnlockedCommands } from './commands';
 
 const STORAGE_KEY = 'roguesim_game_state';
 const SESSION_KEY = 'roguesim_session_id';
@@ -11,12 +12,13 @@ const defaultGameState: GameState = {
   credits: 500,
   reputation: 'UNKNOWN',
   completedMissions: 0,
-  unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'devmode', 'multiplayer', 'mission-map', 'chat', 'team', 'players', 'login'],
+  unlockedCommands: getInitialUnlockedCommands(),
   missionProgress: 0,
   networkStatus: 'DISCONNECTED',
   soundEnabled: true,
   isBootComplete: false,
   playerLevel: 1,
+  experience: 0,
   hydraProtocol: {
     discovered: false,
     access_level: 0,

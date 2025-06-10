@@ -7,36 +7,51 @@ export const skillTreeData: SkillNode[] = [
     name: 'Basic Scanning',
     description: 'Unlock advanced network scanning capabilities',
     category: 'reconnaissance',
+    specialization: 'general',
+    tier: 1,
     cost: 1,
     prerequisites: [],
     unlocks: ['nmap', 'portscan'],
     position: { x: 100, y: 100 },
     unlocked: true,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
   {
     id: 'advanced_recon',
     name: 'Advanced Recon',
     description: 'Deep packet inspection and traffic analysis',
     category: 'reconnaissance',
+    specialization: 'general',
+    tier: 2,
     cost: 2,
     prerequisites: ['basic_scan'],
     unlocks: ['sniff', 'analyze'],
     position: { x: 200, y: 100 },
     unlocked: false,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
   {
     id: 'stealth_scan',
     name: 'Stealth Scanning',
     description: 'Scan targets without detection',
     category: 'reconnaissance',
+    specialization: 'general',
+    tier: 3,
     cost: 3,
     prerequisites: ['advanced_recon'],
     unlocks: ['stealth_mode'],
     position: { x: 300, y: 100 },
     unlocked: false,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
 
   // Exploitation Branch
@@ -45,36 +60,51 @@ export const skillTreeData: SkillNode[] = [
     name: 'Basic Exploitation',
     description: 'Execute simple exploits against vulnerabilities',
     category: 'exploitation',
+    specialization: 'general',
+    tier: 1,
     cost: 2,
     prerequisites: [],
     unlocks: ['exploit', 'buffer_overflow'],
     position: { x: 100, y: 200 },
     unlocked: true,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
   {
     id: 'advanced_exploit',
     name: 'Advanced Exploitation',
     description: 'Chain exploits for privilege escalation',
     category: 'exploitation',
+    specialization: 'general',
+    tier: 2,
     cost: 3,
     prerequisites: ['basic_exploit'],
     unlocks: ['privesc', 'rce'],
     position: { x: 200, y: 200 },
     unlocked: false,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
   {
     id: 'zero_day',
     name: 'Zero-Day Master',
     description: 'Craft and deploy zero-day exploits',
     category: 'exploitation',
+    specialization: 'general',
+    tier: 3,
     cost: 5,
     prerequisites: ['advanced_exploit'],
     unlocks: ['zero_day_craft'],
     position: { x: 300, y: 200 },
     unlocked: false,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
 
   // Persistence Branch
@@ -83,24 +113,34 @@ export const skillTreeData: SkillNode[] = [
     name: 'Basic Backdoor',
     description: 'Install simple backdoors for persistent access',
     category: 'persistence',
+    specialization: 'general',
+    tier: 1,
     cost: 2,
     prerequisites: ['basic_exploit'],
     unlocks: ['backdoor', 'reverse_shell'],
     position: { x: 100, y: 300 },
     unlocked: false,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
   {
     id: 'advanced_persistence',
     name: 'Advanced Persistence',
     description: 'Rootkits and kernel-level persistence',
     category: 'persistence',
+    specialization: 'general',
+    tier: 2,
     cost: 4,
     prerequisites: ['basic_backdoor'],
     unlocks: ['rootkit', 'kernel_mod'],
     position: { x: 200, y: 300 },
     unlocked: false,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
 
   // Evasion Branch
@@ -109,24 +149,34 @@ export const skillTreeData: SkillNode[] = [
     name: 'Basic Evasion',
     description: 'Avoid detection by security systems',
     category: 'evasion',
+    specialization: 'general',
+    tier: 1,
     cost: 2,
     prerequisites: [],
     unlocks: ['spoof', 'encrypt_traffic'],
     position: { x: 100, y: 400 },
     unlocked: true,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
   {
     id: 'advanced_evasion',
     name: 'Advanced Evasion',
     description: 'Polymorphic code and anti-forensics',
     category: 'evasion',
+    specialization: 'general',
+    tier: 2,
     cost: 3,
     prerequisites: ['basic_evasion'],
     unlocks: ['polymorphic', 'anti_forensics'],
     position: { x: 200, y: 400 },
     unlocked: false,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
 
   // Social Engineering Branch
@@ -135,31 +185,43 @@ export const skillTreeData: SkillNode[] = [
     name: 'Social Engineering',
     description: 'Human-based attack vectors',
     category: 'social',
+    specialization: 'general',
+    tier: 1,
     cost: 2,
     prerequisites: [],
     unlocks: ['phish', 'vishing'],
     position: { x: 100, y: 500 },
     unlocked: true,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   },
   {
     id: 'advanced_social',
     name: 'Advanced Social Eng',
     description: 'Psychological manipulation techniques',
     category: 'social',
+    specialization: 'general',
+    tier: 2,
     cost: 3,
     prerequisites: ['basic_social'],
     unlocks: ['pretexting', 'influence'],
     position: { x: 200, y: 500 },
     unlocked: false,
-    purchased: false
+    purchased: false,
+    bonuses: [],
+    maxLevel: 1,
+    currentLevel: 1
   }
 ];
 
 export function createDefaultSkillTree(): SkillTree {
   return {
     nodes: skillTreeData.map(node => ({ ...node })),
-    skillPoints: 5 // Starting skill points
+    skillPoints: 5, // Starting skill points
+    totalSkillsUnlocked: 0,
+    specializationBonuses: {}
   };
 }
 

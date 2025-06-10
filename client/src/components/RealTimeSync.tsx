@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
+import type { Socket } from 'socket.io-client';
 import { Badge } from '@/components/ui/badge';
 import { Wifi, WifiOff, Users, Activity } from 'lucide-react';
 
 interface RealTimeSyncProps {
-  websocket?: WebSocket;
+  websocket?: Socket;
   roomId?: number;
   currentUser?: {
     id: string;
@@ -29,93 +30,74 @@ export function RealTimeSync({ websocket, roomId, currentUser }: RealTimeSyncPro
   useEffect(() => {
     if (!websocket) return;
 
-    const handleMessage = (event: MessageEvent) => {
-      const data = JSON.parse(event.data);
-      
-      switch (data.type) {
-        case 'sync_status':
-          setSyncStatus(prev => ({
-            ...prev,
-            connected: true,
-            lastPing: Date.now(),
-            roomMembers: data.payload.memberCount || 0
-          }));
-          break;
-        
-        case 'operation_started':
-          setSyncStatus(prev => ({
-            ...prev,
-            activeOperations: [...prev.activeOperations, data.payload.operation]
-          }));
-          break;
-        
-        case 'operation_completed':
-          setSyncStatus(prev => ({
-            ...prev,
-            activeOperations: prev.activeOperations.filter(op => op !== data.payload.operation)
-          }));
-          break;
-        
-        case 'pong':
-          setSyncStatus(prev => ({
-            ...prev,
-            lastPing: Date.now()
-          }));
-          break;
-      }
-    };
-
-    const handleOpen = () => {
-      setSyncStatus(prev => ({ ...prev, connected: true }));
-      
-      // Send authentication and room join
-      websocket.send(JSON.stringify({
-        type: 'authenticate',
-        payload: {
-          userId: currentUser?.id,
-          hackerName: (currentUser as any)?.hackerName || currentUser?.username
-        }
+    const handleSyncStatus = (data: any) => {
+      setSyncStatus(prev => ({
+        ...prev,
+        connected: true,
+        lastPing: Date.now(),
+        roomMembers: data.memberCount || 0
       }));
-      
+    };
+
+    const handleOperationStarted = (data: any) => {
+      setSyncStatus(prev => ({
+        ...prev,
+        activeOperations: [...prev.activeOperations, data.operation]
+      }));
+    };
+
+    const handleOperationCompleted = (data: any) => {
+      setSyncStatus(prev => ({
+        ...prev,
+        activeOperations: prev.activeOperations.filter(op => op !== data.operation)
+      }));
+    };
+
+    const handlePong = () => {
+      setSyncStatus(prev => ({
+        ...prev,
+        lastPing: Date.now()
+      }));
+    };
+
+    const handleConnect = () => {
+      setSyncStatus(prev => ({ ...prev, connected: true }));
+      websocket.emit('authenticate', {
+        userId: currentUser?.id,
+        hackerName: (currentUser as any)?.hackerName || currentUser?.username
+      });
       if (roomId) {
-        websocket.send(JSON.stringify({
-          type: 'join_room',
-          payload: { roomId }
-        }));
+        websocket.emit('join_room', { roomId });
       }
     };
 
-    const handleClose = () => {
+    const handleDisconnect = () => {
       setSyncStatus(prev => ({ ...prev, connected: false }));
     };
 
-    const handleError = () => {
-      setSyncStatus(prev => ({ ...prev, connected: false }));
-    };
-
-    // Set up ping interval
     const pingInterval = setInterval(() => {
-      if (websocket.readyState === WebSocket.OPEN) {
-        websocket.send(JSON.stringify({ type: 'ping' }));
-      }
+      websocket.emit('ping');
     }, 30000);
 
-    websocket.addEventListener('message', handleMessage);
-    websocket.addEventListener('open', handleOpen);
-    websocket.addEventListener('close', handleClose);
-    websocket.addEventListener('error', handleError);
+    websocket.on('sync_status', handleSyncStatus);
+    websocket.on('operation_started', handleOperationStarted);
+    websocket.on('operation_completed', handleOperationCompleted);
+    websocket.on('pong', handlePong);
+    websocket.on('connect', handleConnect);
+    websocket.on('disconnect', handleDisconnect);
 
-    // Check initial connection state
-    if (websocket.readyState === WebSocket.OPEN) {
-      handleOpen();
+    if (websocket.connected) {
+      handleConnect();
     }
 
     return () => {
       clearInterval(pingInterval);
-      websocket.removeEventListener('message', handleMessage);
-      websocket.removeEventListener('open', handleOpen);
-      websocket.removeEventListener('close', handleClose);
-      websocket.removeEventListener('error', handleError);
+      websocket.off('sync_status', handleSyncStatus);
+      websocket.off('operation_started', handleOperationStarted);
+      websocket.off('operation_completed', handleOperationCompleted);
+      websocket.off('pong', handlePong);
+      websocket.off('connect', handleConnect);
+      websocket.off('disconnect', handleDisconnect);
     };
   }, [websocket, roomId, currentUser]);
 

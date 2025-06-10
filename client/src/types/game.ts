@@ -10,6 +10,7 @@ export interface GameState {
   isBootComplete: boolean;
   currentNetwork?: string;
   playerLevel: number;
+  experience: number;
   hydraProtocol: HydraProtocolState;
   narrativeChoices: string[];
   suspicionLevel: number;
@@ -303,7 +304,7 @@ export interface SkillNode {
   id: string;
   name: string;
   description: string;
-  category: 'offensive' | 'defensive' | 'social';
+  category: 'offensive' | 'defensive' | 'social' | 'reconnaissance' | 'exploitation' | 'persistence' | 'evasion';
   specialization: string; // Sub-category within the main category
   tier: number; // 1-5, representing skill tier/power level
   cost: number;

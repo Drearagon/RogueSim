@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { X, Play, Save, FileText, Terminal, Settings, Plus, Trash2, Copy } from 'lucide-react';
 import { scriptingSystem, Script, MacroCommand, ScriptExecution } from '@/lib/scriptingSystem';
+import { GameState } from '../types/game';
 
 interface ScriptEditorInterfaceProps {
+  gameState: GameState;
   onClose: () => void;
 }
 
-export function ScriptEditorInterface({ onClose }: ScriptEditorInterfaceProps) {
+export function ScriptEditorInterface({ gameState, onClose }: ScriptEditorInterfaceProps) {
   const [activeTab, setActiveTab] = useState<'scripts' | 'macros' | 'executions'>('scripts');
   const [scripts, setScripts] = useState<Script[]>([]);
   const [macros, setMacros] = useState<MacroCommand[]>([]);
@@ -61,6 +63,11 @@ export function ScriptEditorInterface({ onClose }: ScriptEditorInterfaceProps) {
 
   const handleExecuteScript = async (script: Script) => {
     try {
+      const errors = scriptingSystem.validateScriptForGameState(script, gameState);
+      if (errors.length > 0) {
+        alert(`Validation errors:\n${errors.join('\n')}`);
+        return;
+      }
       // Mock command executor for demo
       const mockExecutor = async (command: string) => {
         await new Promise(resolve => setTimeout(resolve, 100));
@@ -80,6 +87,12 @@ export function ScriptEditorInterface({ onClose }: ScriptEditorInterfaceProps) {
 
   const handleExecuteMacro = async (macro: MacroCommand) => {
     try {
+      const script: Script = { id: '', name: '', description: '', type: 'macro', content: { steps: macro.commands.map((c, i) => ({ id: `s${i}`, command: c, parameters: [] })) }, variables: {}, createdAt: 0, lastRun: 0, runCount: 0, success: false, errors: [] };
+      const errors = scriptingSystem.validateScriptForGameState(script, gameState);
+      if (errors.length > 0) {
+        alert(`Validation errors:\n${errors.join('\n')}`);
+        return;
+      }
       // Mock command executor for demo
       const mockExecutor = async (command: string) => {
         await new Promise(resolve => setTimeout(resolve, 100));
