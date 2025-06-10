@@ -2231,6 +2231,16 @@ export const commands: Record<string, Command> = {
     unlockLevel: 1
   },
 
+  // Alias command to list or launch mini-games
+  minigames: {
+    description: "List available mini-games",
+    usage: "minigames [list|<game_id>]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      return commands.minigame.execute(args.length ? args : ['list'], gameState);
+    },
+    unlockLevel: 1
+  },
+
   // Pattern cracking command (quick access)
   crack_pattern: {
     description: "Quick access to pattern cracking mini-game",
