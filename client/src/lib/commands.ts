@@ -1507,6 +1507,27 @@ export const commands: Record<string, Command> = {
     // No unlock level = always available
   },
 
+  hackide: {
+    description: "Open HackIDE script editor",
+    usage: "hackide",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('openScriptEditor'));
+      }, 100);
+
+      const inv = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+      const lines = [
+        '▶ Launching HackIDE...',
+        '',
+        `Available Commands: ${(gameState.unlockedCommands || []).join(', ') || 'None'}`,
+        `Hardware: ${inv.hardware.join(', ') || 'None'}`,
+        `Software: ${inv.software.join(', ') || 'None'}`,
+        ''
+      ];
+      return { output: lines, success: true };
+    }
+  },
+
   // Test command to verify system works
   test: {
     description: "Test command",
@@ -3671,7 +3692,7 @@ export const commands: Record<string, Command> = {
 export function getInitialUnlockedCommands(): string[] {
   return [
     // Essential system commands (always available)
-    "help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings", 
+    "help", "clear", "status", "scan", "connect", "shop", "hackide", "tutorial", "settings",
     "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login",
     
     // Basic utility commands (unlockLevel 0 or undefined)
