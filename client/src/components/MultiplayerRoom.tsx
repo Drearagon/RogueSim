@@ -247,6 +247,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         userId: currentUser?.id,
         username: currentUser?.username || 'Anonymous'
       });
+    }
 
     if (ws && ws.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify({
