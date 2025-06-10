@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { io, type Socket } from 'socket.io-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,77 +52,58 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   const [roomName, setRoomName] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{ user: string; message: string; time: string }>>([]);
   const [chatInput, setChatInput] = useState('');
-  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [ws, setWs] = useState<Socket | null>(null);
   const [showMissionPlanner, setShowMissionPlanner] = useState(false);
 
   useEffect(() => {
     if (currentRoom && currentUser) {
-      // Connect to real WebSocket server
+      // Connect to real WebSocket server using Socket.IO
       const connectWebSocket = () => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
-        
+        const wsUrl = `${protocol}//${window.location.host}`;
+
         try {
-          const websocket = new WebSocket(wsUrl);
-          
-          websocket.onopen = () => {
+          const socket = io(wsUrl, { path: '/ws', transports: ['websocket'] });
+
+          socket.on('connect', () => {
             console.log('Connected to WebSocket server');
-            
-            // Authenticate with the server
-            websocket.send(JSON.stringify({
-              type: 'authenticate',
-              payload: {
-                userId: currentUser.id,
-                hackerName: (currentUser as any)?.hackerName || currentUser.username
-              }
-            }));
-            
-            // Join the current room
-            websocket.send(JSON.stringify({
-              type: 'join_room',
-              payload: {
-                roomId: currentRoom.id
-              }
-            }));
-          };
-          
-          websocket.onmessage = (event) => {
-            const data = JSON.parse(event.data);
-            
-            switch (data.type) {
-              case 'chat_message':
-                setChatMessages(prev => [...prev, {
-                  user: data.payload.username,
-                  message: data.payload.message,
-                  time: new Date(data.payload.timestamp).toLocaleTimeString()
-                }]);
-                break;
-              
-              case 'player_joined':
-                toast({
-                  title: "Player Joined",
-                  description: `${data.payload.hackerName} joined the room`,
-                });
-                fetchRoomMembers();
-                break;
-              
-              case 'player_left':
-                toast({
-                  title: "Player Left",
-                  description: `${data.payload.hackerName} left the room`,
-                });
-                fetchRoomMembers();
-                break;
-            }
-          };
-          
-          websocket.onclose = () => {
+            socket.emit('authenticate', {
+              userId: currentUser.id,
+              hackerName: (currentUser as any)?.hackerName || currentUser.username
+            });
+            socket.emit('join_room', { roomId: currentRoom.id });
+          });
+
+          socket.on('chat_message', (data) => {
+            setChatMessages(prev => [...prev, {
+              user: data.username,
+              message: data.message,
+              time: new Date(data.timestamp).toLocaleTimeString()
+            }]);
+          });
+
+          socket.on('player_joined', (data) => {
+            toast({
+              title: "Player Joined",
+              description: `${data.hackerName} joined the room`,
+            });
+            fetchRoomMembers();
+          });
+
+          socket.on('player_left', (data) => {
+            toast({
+              title: "Player Left",
+              description: `${data.hackerName} left the room`,
+            });
+            fetchRoomMembers();
+          });
+
+          socket.on('disconnect', () => {
             console.log('WebSocket connection closed');
-            // Attempt to reconnect after 5 seconds
             setTimeout(connectWebSocket, 5000);
-          };
-          
-          setWs(websocket);
+          });
+
+          setWs(socket);
         } catch (error) {
           console.error('Failed to connect to WebSocket:', error);
         }
@@ -133,42 +115,10 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
 
     return () => {
       if (ws) {
-        ws.close();
+        ws.disconnect();
       }
     };
   }, [currentRoom, currentUser, toast]);
-
-  const handleWebSocketMessage = (message: any) => {
-    switch (message.type) {
-      case 'player_joined':
-        toast({
-          title: "Player Joined",
-          description: `${message.payload.hackerName} joined the room`,
-        });
-        fetchRoomMembers();
-        break;
-
-      case 'player_left':
-        toast({
-          title: "Player Left",
-          description: `${message.payload.hackerName} left the room`,
-        });
-        fetchRoomMembers();
-        break;
-
-      case 'chat_message':
-        setChatMessages(prev => [...prev, {
-          user: message.payload.hackerName,
-          message: message.payload.message,
-          time: new Date(message.payload.timestamp).toLocaleTimeString()
-        }]);
-        break;
-
-      case 'room_state':
-        setRoomMembers(message.payload.members);
-        break;
-    }
-  };
 
   const createRoom = async () => {
     if (!roomName.trim()) {
@@ -207,6 +157,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
       });
     }
   };
+
 
   const joinRoom = async () => {
     if (!roomCode.trim()) {
@@ -254,10 +205,10 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
     if (!currentRoom) return;
 
     try {
-      if (ws) {
-        ws.send(JSON.stringify({ type: 'leave_room' }));
-        ws.close();
-      }
+        if (ws) {
+          ws.emit('leave_room');
+          ws.disconnect();
+        }
 
       const response = await fetch(`/api/rooms/${currentRoom.id}/leave`, {
         method: 'POST',
@@ -288,16 +239,13 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
     if (!chatInput.trim() || !currentRoom) return;
 
     // Send message via WebSocket if connected, otherwise store locally
-    if (ws && ws.readyState === WebSocket.OPEN) {
-      ws.send(JSON.stringify({
-        type: 'send_message',
-        payload: {
-          message: chatInput.trim(),
-          channel: 'global',
-          userId: currentUser?.id,
-          username: currentUser?.username || 'Anonymous'
-        }
-      }));
+    if (ws && ws.connected) {
+      ws.emit('send_message', {
+        message: chatInput.trim(),
+        channel: 'room',
+        userId: currentUser?.id,
+        username: currentUser?.username || 'Anonymous'
+      });
     } else {
       // Fallback to local storage if WebSocket not available
       const newMessage = {
