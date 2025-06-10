@@ -1308,7 +1308,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log('Socket.IO server initialized on /ws path');
         log('✅ FINAL: API routes registered successfully');
         return server;
-
     } catch (error) {
         console.error('Failed to register routes:', error);
         throw error;
