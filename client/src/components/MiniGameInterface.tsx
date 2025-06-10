@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { MiniGameState, PatternCrackGame, SignalTraceGame, BinaryTreeGame } from '../types/game';
+import type { MiniGameState, PatternCrackGame, SignalTraceGame, BinaryTreeGame } from '../types/game';
 import { Clock, Target, Zap, ArrowUp, ArrowDown, ArrowLeft, ArrowRight } from 'lucide-react';
 
 interface MiniGameInterfaceProps {
