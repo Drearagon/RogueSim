@@ -239,6 +239,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
     if (!chatInput.trim() || !currentRoom) return;
 
     // Send message via WebSocket if connected, otherwise store locally
+
     if (ws && ws.connected) {
       ws.emit('send_message', {
         message: chatInput.trim(),
@@ -246,6 +247,18 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         userId: currentUser?.id,
         username: currentUser?.username || 'Anonymous'
       });
+
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'send_message',
+        payload: {
+          message: chatInput.trim(),
+          channel: 'room',
+          userId: currentUser?.id,
+          username: currentUser?.username || 'Anonymous'
+        }
+      }));
+
     } else {
       // Fallback to local storage if WebSocket not available
       const newMessage = {
