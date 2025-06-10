@@ -44,7 +44,7 @@ export const gameSaves = pgTable("game_saves", {
   credits: integer("credits").notNull().default(1000),
   reputation: text("reputation").notNull().default('ROOKIE'),
   completedMissions: integer("completed_missions").notNull().default(0),
-  unlockedCommands: text("unlocked_commands").array().notNull().default(['help', 'scan', 'connect', 'status', 'clear', 'man']),
+  unlockedCommands: text("unlocked_commands").array().notNull().default(['help', 'scan', 'connect', 'status', 'clear', 'shop', 'hackide', 'man']),
   missionProgress: integer("mission_progress").notNull().default(0),
   networkStatus: text("network_status").notNull().default('DISCONNECTED'),
   soundEnabled: boolean("sound_enabled").notNull().default(true),
