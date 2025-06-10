@@ -543,7 +543,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     credits: gameState?.credits || 1000,
                     reputation: gameState?.reputation || 'ROOKIE',
                     completedMissions: gameState?.completedMissions || 0,
-                    unlockedCommands: gameState?.unlockedCommands || ['help', 'scan', 'connect', 'status', 'clear'],
+                    unlockedCommands: gameState?.unlockedCommands || ['help', 'scan', 'connect', 'status', 'clear', 'shop', 'hackide'],
                     missionProgress: gameState?.missionProgress || 0,
                     networkStatus: gameState?.networkStatus || 'DISCONNECTED',
                     soundEnabled: gameState?.soundEnabled ?? true,
