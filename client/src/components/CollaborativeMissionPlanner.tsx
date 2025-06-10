@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import type { Socket } from 'socket.io-client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -43,7 +44,7 @@ interface CollaborativeMissionPlannerProps {
     id: string;
     username: string;
   };
-  websocket?: WebSocket;
+  websocket?: Socket;
   onClose: () => void;
 }
 
@@ -87,29 +88,22 @@ export function CollaborativeMissionPlanner({
 
     // Listen for WebSocket updates
     if (websocket) {
-      const handleMessage = (event: MessageEvent) => {
-        const data = JSON.parse(event.data);
-        
-        switch (data.type) {
-          case 'mission_objective_added':
-            setObjectives(prev => [...prev, data.payload]);
-            break;
-          case 'mission_objective_updated':
-            setObjectives(prev => 
-              prev.map(obj => obj.id === data.payload.id ? data.payload : obj)
-            );
-            break;
-          case 'mission_objective_deleted':
-            setObjectives(prev => prev.filter(obj => obj.id !== data.payload.id));
-            break;
-          case 'team_member_joined':
-            setTeamMembers(prev => [...prev, data.payload]);
-            break;
-        }
-      };
+      const handleAdd = (payload: any) => setObjectives(prev => [...prev, payload]);
+      const handleUpdate = (payload: any) => setObjectives(prev => prev.map(obj => obj.id === payload.id ? payload : obj));
+      const handleDelete = (payload: any) => setObjectives(prev => prev.filter(obj => obj.id !== payload.id));
+      const handleJoin = (payload: any) => setTeamMembers(prev => [...prev, payload]);
 
-      websocket.addEventListener('message', handleMessage);
-      return () => websocket.removeEventListener('message', handleMessage);
+      websocket.on('mission_objective_added', handleAdd);
+      websocket.on('mission_objective_updated', handleUpdate);
+      websocket.on('mission_objective_deleted', handleDelete);
+      websocket.on('team_member_joined', handleJoin);
+
+      return () => {
+        websocket.off('mission_objective_added', handleAdd);
+        websocket.off('mission_objective_updated', handleUpdate);
+        websocket.off('mission_objective_deleted', handleDelete);
+        websocket.off('team_member_joined', handleJoin);
+      };
     }
   }, [roomId, currentUser, websocket]);
 
@@ -131,12 +125,8 @@ export function CollaborativeMissionPlanner({
     setObjectives(prev => [...prev, objective]);
     saveMissionData([...objectives, objective]);
 
-    // Send via WebSocket
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'mission_objective_add',
-        payload: objective
-      }));
+    if (websocket) {
+      websocket.emit('mission_objective_add', objective);
     }
 
     setNewObjective({
@@ -154,13 +144,9 @@ export function CollaborativeMissionPlanner({
     setObjectives(updatedObjectives);
     saveMissionData(updatedObjectives);
 
-    // Send via WebSocket
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
+    if (websocket) {
       const updatedObjective = updatedObjectives.find(obj => obj.id === id);
-      websocket.send(JSON.stringify({
-        type: 'mission_objective_update',
-        payload: updatedObjective
-      }));
+      websocket.emit('mission_objective_update', updatedObjective);
     }
   };
 
@@ -171,13 +157,9 @@ export function CollaborativeMissionPlanner({
     setObjectives(updatedObjectives);
     saveMissionData(updatedObjectives);
 
-    // Send via WebSocket
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
+    if (websocket) {
       const updatedObjective = updatedObjectives.find(obj => obj.id === objectiveId);
-      websocket.send(JSON.stringify({
-        type: 'mission_objective_update',
-        payload: updatedObjective
-      }));
+      websocket.emit('mission_objective_update', updatedObjective);
     }
   };
 
@@ -186,12 +168,8 @@ export function CollaborativeMissionPlanner({
     setObjectives(updatedObjectives);
     saveMissionData(updatedObjectives);
 
-    // Send via WebSocket
-    if (websocket && websocket.readyState === WebSocket.OPEN) {
-      websocket.send(JSON.stringify({
-        type: 'mission_objective_delete',
-        payload: { id }
-      }));
+    if (websocket) {
+      websocket.emit('mission_objective_delete', { id });
     }
   };
 
