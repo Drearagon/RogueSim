@@ -40,6 +40,24 @@ export class DatabaseStorage implements IStorage {
         console.log('================================================');
     }
 
+    private normalizeUserRow(row: any): any {
+        if (!row) return row;
+        return {
+            ...row,
+            hackerName: row.hacker_name ?? row.hackerName,
+            profileImageUrl: row.profile_image_url ?? row.profileImageUrl,
+            createdAt: row.created_at ?? row.createdAt,
+            updatedAt: row.updated_at ?? row.updatedAt,
+            joinedAt: row.joined_at ?? row.joinedAt,
+            lastActive: row.last_active ?? row.lastActive,
+            playerLevel: row.player_level ?? row.playerLevel,
+            totalMissionsCompleted: row.total_missions_completed ?? row.totalMissionsCompleted,
+            totalCreditsEarned: row.total_credits_earned ?? row.totalCreditsEarned,
+            isOnline: row.is_online ?? row.isOnline,
+            currentMode: row.current_mode ?? row.currentMode
+        };
+    }
+
     // --- USER OPERATIONS ---
     // Change all `db.select()` to `this.drizzleDb.select()`
     // Change all `pool.query()` (if using NodePgPool) to `(this.rawPool as NodePgPool).query()`
@@ -57,11 +75,11 @@ export class DatabaseStorage implements IStorage {
             if (typeof (this.rawPool as any).query === 'function') {
                 // Neon Pool with .query() method
                 result = await (this.rawPool as any).query('SELECT * FROM users WHERE email = $1', [email]);
-                return result.rows[0];
+                return this.normalizeUserRow(result.rows[0]);
             } else {
                 // postgres.js client with template literals
                 result = await (this.rawPool as PostgresJsClient)`SELECT * FROM users WHERE email = ${email}`;
-                return result[0];
+                return this.normalizeUserRow(result[0]);
             }
         } catch (error) {
             console.error('Error in getUserByEmail:', error);
@@ -93,7 +111,7 @@ export class DatabaseStorage implements IStorage {
                 'SELECT id, email, hacker_name, profile_image_url FROM users WHERE id = $1',
                 [userData.id]
             );
-            return result.rows[0];
+            return this.normalizeUserRow(result.rows[0]);
         } else {
             // postgres.js client
             await (this.rawPool as PostgresJsClient)`
@@ -118,7 +136,7 @@ export class DatabaseStorage implements IStorage {
                 FROM users
                 WHERE id = ${userData.id}
             `;
-            return result[0] as any;
+            return this.normalizeUserRow(result[0] as any);
         }
     }
 
