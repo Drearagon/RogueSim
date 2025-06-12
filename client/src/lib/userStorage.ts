@@ -7,6 +7,7 @@ interface UserAccount {
   email: string;
   profileImageUrl?: string;
   authenticated?: boolean;
+  username?: string;
 }
 
 // Auth response interface
@@ -17,6 +18,11 @@ interface AuthResponse {
 
 // Current user cache
 let currentUserCache: UserAccount | null = null;
+
+function normalizeUser(user: UserAccount): UserAccount {
+  if (!user) return user;
+  return { ...user, username: user.hackerName };
+}
 
 // Enhanced login function that supports both email and hackername
 export async function loginUser(identifier: string, password: string): Promise<UserAccount | null> {
@@ -30,10 +36,10 @@ export async function loginUser(identifier: string, password: string): Promise<U
     });
     
     const authData: AuthResponse = await response.json();
-    currentUserCache = authData.user;
+    currentUserCache = normalizeUser(authData.user);
     
     // Store in localStorage as backup/cache
-    localStorage.setItem('roguesim_current_user', JSON.stringify(authData.user));
+    localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
     localStorage.setItem('authenticated', 'true');
     
     // Log successful connection
@@ -42,11 +48,11 @@ export async function loginUser(identifier: string, password: string): Promise<U
     
     // Trigger authentication event for React Query
     const event = new CustomEvent('userLoggedIn', {
-      detail: { user: authData.user }
+      detail: { user: currentUserCache }
     });
     window.dispatchEvent(event);
     
-    return authData.user;
+    return currentUserCache;
   } catch (error) {
     console.error('❌ Login failed:', error);
     logUserConnection(identifier, 'login_failed');
@@ -74,14 +80,14 @@ export async function registerUser(userData: {
       return null; // Triggers verification step in frontend
     } else {
       // Registration successful, user logged in immediately  
-      currentUserCache = result.user;
-      localStorage.setItem('roguesim_current_user', JSON.stringify(result.user));
+      currentUserCache = normalizeUser(result.user);
+      localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
       localStorage.setItem('authenticated', 'true');
       
       console.log(`✅ Registration successful for: ${result.user.hackerName}`);
       logUserConnection(result.user.hackerName, 'register');
       
-      return result.user;
+      return currentUserCache;
 }
   } catch (error) {
     console.error('❌ Registration failed:', error);
@@ -121,10 +127,10 @@ export async function verifyEmail(email: string, code: string): Promise<UserAcco
     });
     
     const authData: AuthResponse = await response.json();
-    currentUserCache = authData.user;
+    currentUserCache = normalizeUser(authData.user);
     
     // Store in localStorage as backup/cache
-    localStorage.setItem('roguesim_current_user', JSON.stringify(authData.user));
+    localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
     localStorage.setItem('authenticated', 'true');
     
     console.log(`✅ Email verification successful for: ${authData.user.hackerName}`);
@@ -132,11 +138,11 @@ export async function verifyEmail(email: string, code: string): Promise<UserAcco
     
     // Trigger authentication event for React Query
     const event = new CustomEvent('userVerified', {
-      detail: { user: authData.user }
+      detail: { user: currentUserCache }
     });
     window.dispatchEvent(event);
     
-    return authData.user;
+    return currentUserCache;
   } catch (error) {
     console.error('❌ Email verification failed:', error);
     return null;
@@ -162,12 +168,12 @@ export async function getCurrentUser(): Promise<UserAccount | null> {
       email: user.email
     });
     
-    currentUserCache = user;
+    currentUserCache = normalizeUser(user);
     
     // Update localStorage cache
-    localStorage.setItem('roguesim_current_user', JSON.stringify(user));
+    localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
     
-    return user;
+    return currentUserCache;
   } catch (error) {
     console.error('❌ getCurrentUser: Failed to get current user from backend:', error);
     
@@ -175,12 +181,13 @@ export async function getCurrentUser(): Promise<UserAccount | null> {
     try {
       const stored = localStorage.getItem('roguesim_current_user');
       if (stored) {
-        const user = JSON.parse(stored);
+        const user = normalizeUser(JSON.parse(stored));
         console.log('🔄 getCurrentUser: Using localStorage fallback:', {
           id: user.id,
           hackerName: user.hackerName,
           email: user.email
         });
+        currentUserCache = user;
         return user;
       }
     } catch (storageError) {
