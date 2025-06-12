@@ -35,6 +35,13 @@ import {
   getMissionScanOutput,
   getMissionPortScan
 } from './missionContext';
+import {
+  miniGames,
+  initializeMiniGame,
+  updatePatternCrack,
+  movePlayerInSignalTrace,
+  navigateBinaryTree
+} from './miniGames';
 
 const networkDatabase: Network[] = [
   { ssid: "TARGET_NET", channel: 11, power: -42, security: "WPA2" },
@@ -2169,7 +2176,6 @@ export const commands: Record<string, Command> = {
     description: "Launch interactive hacking mini-games",
     usage: "minigame [list|<game_id>]",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const { miniGames, initializeMiniGame } = require('./miniGames');
       
       if (args.length === 0 || args[0] === 'list') {
         const gameList = Object.values(miniGames).map((game: any) => 
@@ -2318,7 +2324,6 @@ export const commands: Record<string, Command> = {
       }
 
       const input = args.join(' ');
-      const { updatePatternCrack } = require('./miniGames');
       
       if (miniGameState.currentGame.type === 'pattern_crack') {
         const result = updatePatternCrack(miniGameState.gameData, input);
@@ -2380,8 +2385,6 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      const { movePlayerInSignalTrace } = require('./miniGames');
-      
       if (gameState.miniGameState.currentGame.type === 'signal_trace') {
         const result = movePlayerInSignalTrace(gameState.miniGameState.gameData, direction);
         
@@ -2443,8 +2446,6 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      const { navigateBinaryTree } = require('./miniGames');
-      
       if (gameState.miniGameState.currentGame.type === 'binary_tree') {
         const result = navigateBinaryTree(gameState.miniGameState.gameData, direction);
         
