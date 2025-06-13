@@ -287,13 +287,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 await storage.markVerificationCodeUsed(verification.id);
 
                 // Create the verified user account
-                const user = await storage.createUser(unverifiedUser);
+                const userCreationData = {
+                    ...unverifiedUser,
+                    hackerName: unverifiedUser.hackerName || (unverifiedUser as any).hacker_name
+                };
+                const user = await storage.createUser(userCreationData);
 
                 // Clean up unverified user data
                 await storage.deleteUnverifiedUser(normalizedEmail);
 
                 // Send welcome email (non-blocking)
-                sendWelcomeEmail(normalizedEmail, unverifiedUser.hackerName).catch(err => {
+                sendWelcomeEmail(normalizedEmail, userCreationData.hackerName).catch(err => {
                     console.warn("Welcome email failed to send:", err);
                 });
 
@@ -1007,8 +1011,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     userId = String(payload.userId);
                     username = String(payload.username);
                 }
-
-
+            });
         // WebSocket connection handling
         wss.on('connection', (ws, req) => {
             console.log('New WebSocket connection established');
@@ -1206,8 +1209,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 socket.join('global');
                 socket.emit('user_joined', { username, timestamp: new Date().toISOString() });
                 const playerList = Array.from(onlinePlayers, ([id, name]) => ({ id, username: name }));
+
                 io.to('global').emit('player_list_update', { players: playerList });
             });
+
+            // End of WebSocket connection handler
+        });
 
             socket.on('join_room', async ({ roomId }) => {
                 if (typeof roomId === 'number') {
