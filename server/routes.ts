@@ -283,13 +283,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ error: "User registration data not found. Please register again." });
                 }
 
+                const hackerName = unverifiedUser.hackerName || (verification as any).hackerName;
+
                 // Mark code as used only after confirming user exists
                 await storage.markVerificationCodeUsed(verification.id);
 
                 // Create the verified user account
                 const userCreationData = {
                     ...unverifiedUser,
-                    hackerName: unverifiedUser.hackerName || (unverifiedUser as any).hacker_name
+                    hackerName
                 };
                 const user = await storage.createUser(userCreationData);
 
@@ -297,7 +299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 await storage.deleteUnverifiedUser(normalizedEmail);
 
                 // Send welcome email (non-blocking)
-                sendWelcomeEmail(normalizedEmail, userCreationData.hackerName).catch(err => {
+                sendWelcomeEmail(normalizedEmail, hackerName).catch(err => {
                     console.warn("Welcome email failed to send:", err);
                 });
 
