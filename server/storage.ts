@@ -58,6 +58,17 @@ export class DatabaseStorage implements IStorage {
         };
     }
 
+    private normalizeUnverifiedUserRow(row: any): any {
+        if (!row) return row;
+        return {
+            ...row,
+            hackerName: row.hacker_name ?? row.hackerName,
+            profileImageUrl: row.profile_image_url ?? row.profileImageUrl,
+            createdAt: row.created_at ?? row.createdAt,
+            updatedAt: row.updated_at ?? row.updatedAt,
+        };
+    }
+
     // --- USER OPERATIONS ---
     // Change all `db.select()` to `this.drizzleDb.select()`
     // Change all `pool.query()` (if using NodePgPool) to `(this.rawPool as NodePgPool).query()`
@@ -516,7 +527,7 @@ export class DatabaseStorage implements IStorage {
                 const result = await (this.rawPool as any).query('SELECT * FROM unverified_users WHERE email = $1', [email]);
                 if (result && result.rows && result.rows.length > 0) {
                     log(`DEBUG: getUnverifiedUser result for ${email}: Found record with ID ${result.rows[0].id}`, 'auth');
-        return result.rows[0];
+                    return this.normalizeUnverifiedUserRow(result.rows[0]);
                 } else {
                     log(`DEBUG: getUnverifiedUser result for ${email}: Not found in DB (Neon Pool)`, 'auth');
                     return undefined;
@@ -527,7 +538,7 @@ export class DatabaseStorage implements IStorage {
                 const result = await (this.rawPool as PostgresJsClient)`SELECT * FROM unverified_users WHERE email = ${email}`;
                 if (result && result.length > 0) {
                     log(`DEBUG: getUnverifiedUser result for ${email}: Found record with ID ${result[0].id}`, 'auth');
-                    return result[0];
+                    return this.normalizeUnverifiedUserRow(result[0]);
                 } else {
                     log(`DEBUG: getUnverifiedUser result for ${email}: Not found in DB (postgres.js)`, 'auth');
                     return undefined;
