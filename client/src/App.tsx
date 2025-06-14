@@ -352,10 +352,14 @@ export default function App() {
 
   // Show login screen if not authenticated
   if (!isAuthenticated) {
-    return <LoginPage onLoginSuccess={(userData) => {
-      // Login will be handled by the backend and useAuth hook
-      window.location.reload();
-    }} />;
+    return (
+      <LoginPage
+        onLoginSuccess={() => {
+          // useAuth listens for login events, so just trigger re-fetch
+          window.dispatchEvent(new Event('userLoggedIn'));
+        }}
+      />
+    );
   }
 
   // Add effectiveUser for backward compatibility
