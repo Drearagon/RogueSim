@@ -180,6 +180,28 @@ RogueSim/
 └── package.json
 ```
 
+## Current Progress
+
+The project is currently in **Phase II** development. All core systems from Phase I
+are complete, including the terminal interface, authentication, skill trees, and
+command processing. Phase II introduces advanced mechanics, many of which are
+already implemented:
+
+- **Social Engineering Module**
+- **Dynamic Network System**
+- **Mental Load & Focus Mechanic**
+- **Advanced Terminal Scripting**
+
+Upcoming work focuses on the remaining Phase II features:
+
+- RogueNet marketplace and message boards
+- Psych profile and alignment system
+- Cross-mission world events
+- Simulated OS modes
+
+Overall, Phase II is about 60% complete. See `IMPLEMENTATION_SUMMARY.md` for
+more details.
+
 ## Contributing
 
 1. Fork the repository
