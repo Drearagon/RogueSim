@@ -229,7 +229,7 @@ export function MiniGameInterface({ miniGameState, onGameComplete, onGameExit }:
             <SignalTracingGame gameData={gameData as SignalTraceGame} />
           )}
           {game.type === 'binary_tree' && (
-            <BinaryTreeGame gameData={gameData as BinaryTreeGame} />
+            <BinaryTreeGameComponent gameData={gameData as BinaryTreeGame} />
           )}
         </div>
 
@@ -367,7 +367,7 @@ function SignalTracingGame({ gameData }: { gameData: SignalTraceGame }) {
 }
 
 // Binary Tree Game Component
-function BinaryTreeGame({ gameData }: { gameData: BinaryTreeGame }) {
+function BinaryTreeGameComponent({ gameData }: { gameData: BinaryTreeGame }) {
   const { nodes, currentNode, targetNode, path } = gameData;
   const currentNodeData = nodes.find(n => n.id === currentNode);
   const targetNodeData = nodes.find(n => n.id === targetNode);

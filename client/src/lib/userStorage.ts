@@ -154,13 +154,25 @@ export async function getCurrentUser(): Promise<UserAccount | null> {
     // Try to get user from backend
     console.log('🔄 getCurrentUser: Calling /api/auth/user...');
     const response = await apiRequest('GET', '/api/auth/user', undefined);
-    const user: UserAccount = await response.json();
+    console.log('🔄 getCurrentUser: Raw response:', response);
     
+    if (!response.ok) {
+      console.error('❌ getCurrentUser: Backend request failed:', response.status, response.statusText);
+      throw new Error(`Backend request failed: ${response.status}`);
+    }
+    
+    const user: UserAccount = await response.json();
     console.log('🔄 getCurrentUser: Backend response:', {
       id: user.id,
       hackerName: user.hackerName,
-      email: user.email
+      email: user.email,
+      authenticated: user.authenticated
     });
+    
+    if (!user.hackerName) {
+      console.error('❌ getCurrentUser: Backend returned user without hackerName');
+      throw new Error('User data missing hackerName');
+    }
     
     currentUserCache = user;
     
@@ -185,7 +197,7 @@ export async function getCurrentUser(): Promise<UserAccount | null> {
       }
     } catch (storageError) {
       console.error('❌ getCurrentUser: Failed to get user from localStorage:', storageError);
-}
+    }
 
     console.log('❌ getCurrentUser: No user found anywhere');
     return null;
