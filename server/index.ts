@@ -1,5 +1,6 @@
 // server/index.ts (PRODUCTION - FULL FRONTEND + API SERVING)
 import 'dotenv/config';
+import { env } from './config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { fileURLToPath } from 'url';
@@ -21,7 +22,7 @@ app.use(express.urlencoded({ extended: false }));
 
 // 2. CORS Middleware (BEFORE API routes)
 app.use(cors({
-    origin: process.env.CLIENT_URL || '*',
+    origin: env.CLIENT_URL || '*',
     credentials: true,
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
@@ -41,7 +42,7 @@ log('✅ CORS middleware configured.');
         log('✅ API routes registered successfully');
 
         // 5. Serve Static Files / SPA Fallback (AFTER API routes)
-    if (process.env.NODE_ENV === 'development') {
+    if (env.NODE_ENV === 'development') {
       const { setupVite } = await import('./vite.js');
       await setupVite(app, server);
             log('📁 Vite development server configured');
@@ -57,8 +58,8 @@ log('✅ CORS middleware configured.');
     });
 
         // 7. Start Server
-    const port = parseInt(process.env.PORT || "5000", 10);
-    const host = process.env.HOST || "0.0.0.0";
+    const port = parseInt(env.PORT || "5000", 10);
+    const host = env.HOST || "0.0.0.0";
     server.listen(port, host, () => {
             log(`🚀 Production server running on http://${host}:${port}`);
             log(`🎯 Frontend and API routes active!`);
