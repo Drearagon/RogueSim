@@ -116,6 +116,14 @@ The application will be available at `http://localhost:5000`
 - **Run migrations**: `npm run db:migrate`
 - **Open database studio**: `npm run db:studio`
 
+## Testing
+
+Run all automated tests with:
+
+```bash
+npm test
+```
+
 ## Optional Features
 
 ### Email Service (SendGrid)

@@ -125,7 +125,8 @@ export const verificationCodes = pgTable("verification_codes", {
   id: serial("id").primaryKey(),
   email: varchar("email").notNull(),
   hackerName: varchar("hacker_name"),
-  code: varchar("code", { length: 6 }).notNull(),
+  // Store a hashed verification code (SHA-256 hex string)
+  code: varchar("code", { length: 64 }).notNull(),
   expiresAt: timestamp("expires_at").notNull(),
   used: boolean("used").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
