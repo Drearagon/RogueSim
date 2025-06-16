@@ -15,10 +15,12 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import csurf from "csurf";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger"; // Make sure these are defined/imported correctly
 import { log } from "./vite"; // Your custom logger
 import crypto from "crypto"; // Add crypto import for secure random generation
+import rateLimit from "express-rate-limit";
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -41,10 +43,19 @@ let rawPoolForSessionStore: any; // Type should be Pool or Client from 'pg' or '
 export async function registerRoutes(app: Express): Promise<Server> {
     try {
         // --- NEON MIGRATION: Proper DatabaseStorage instantiation ---
-        const db = getDb(); // Get initialized Drizzle instance
-        const pool = getPool(); // Get initialized raw pool
-        storage = new DatabaseStorage(db, pool); // Instantiate with both clients
-        log('📊 DatabaseStorage instantiated with Neon/PostgreSQL clients', 'db');
+        let db: any;
+        let pool: any;
+        if (isUsingLocalFallback()) {
+            const { getLocalDb } = await import('./localDB');
+            db = getLocalDb();
+            pool = getLocalDb();
+            log('📊 DatabaseStorage instantiated with local fallback', 'db');
+        } else {
+            db = getDb();
+            pool = getPool();
+            log('📊 DatabaseStorage instantiated with Neon/PostgreSQL clients', 'db');
+        }
+        storage = new DatabaseStorage(db, pool);
         
         // COMMENTED OUT OLD APPROACH:
         // storage = getStorage(); // Get storage instance (handles main/local fallback automatically)
@@ -110,6 +121,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         log('✅ Session middleware configured successfully');
 
+ codex/implement-rate-limiting-for-auth-routes
+        const authLimiter = rateLimit({
+            windowMs: 60 * 1000, // 1 minute
+            max: 5,
+            standardHeaders: true,
+            legacyHeaders: false,
+            handler: (req, res) => {
+                authLogger.warn({ ip: req.ip, path: req.path }, 'Rate limit exceeded');
+                res.status(429).json({ error: 'Too many requests, please try again later.' });
+            }
+
+        // --- CSRF PROTECTION MIDDLEWARE ---
+        const csrfProtection = csurf();
+        app.use(csrfProtection);
+
+        // Endpoint to retrieve CSRF token
+        app.get('/api/csrf', (req, res) => {
+            res.json({ csrfToken: req.csrfToken() });
+ main
+        });
+
         // --- DEBUG TEST ENDPOINT ---
         app.get('/api/test', (req, res) => {
             log('DEBUG: /api/test route HIT!', 'debug');
@@ -144,7 +176,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // --- CUSTOM AUTHENTICATION ROUTES ---
-        app.post('/api/auth/register', async (req, res) => {
+        app.post('/api/auth/register', authLimiter, async (req, res) => {
             log('DEBUG: /api/auth/register route HIT!', 'auth'); // NEW LOG
             try {
                 const { hackerName, email, password } = req.body;
@@ -226,7 +258,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
-        app.post('/api/auth/verify', async (req, res) => {
+        app.post('/api/auth/verify', authLimiter, async (req, res) => {
             log('DEBUG: /api/auth/verify route HIT!', 'auth'); // NEW LOG
             try {
                 const { email, code } = req.body;
@@ -324,7 +356,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
-        app.post('/api/auth/login', async (req, res) => {
+        app.post('/api/auth/login', authLimiter, async (req, res) => {
             let identifier: string | undefined;
 
             try {
@@ -448,7 +480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Send verification code endpoint - EXACT COPY of /api/auth/register
         // This endpoint does exactly the same thing as register for compatibility
-        app.post('/api/auth/send-verification', async (req, res) => {
+        app.post('/api/auth/send-verification', authLimiter, async (req, res) => {
             log('DEBUG: /api/auth/send-verification route HIT! (IDENTICAL TO REGISTER)', 'auth');
             try {
                 const { hackerName, email, password } = req.body;
@@ -1022,7 +1054,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let userId: string | null = null;
             let username: string | null = null;
 
-            ws.on('message', (data) => {
+            ws.on('message', async (data) => {
                 try {
                     const message = JSON.parse(data.toString());
                     const { type, payload } = message;

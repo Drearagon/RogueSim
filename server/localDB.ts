@@ -5,6 +5,7 @@ import * as schema from '@shared/schema';
 import { log } from './vite';
 import * as fs from 'fs';
 import * as path from 'path';
+import crypto from 'crypto';
 
 // Local database instance
 let localDb: any = null;
@@ -213,6 +214,10 @@ function saveJSONStorage(): void {
 export class LocalDatabaseStorage {
     private useJSON = !sqliteDb;
 
+    private hashCode(code: string): string {
+        return crypto.createHash('sha256').update(code).digest('hex');
+    }
+
     async createUser(userData: {
         id: string;
         hackerName: string;
@@ -329,12 +334,13 @@ export class LocalDatabaseStorage {
     async createVerificationCode(email: string, code: string, expiresAt: Date): Promise<any> {
         try {
             const id = `verify_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+            const hashedCode = this.hashCode(code);
 
             if (this.useJSON) {
                 jsonStorage.verificationCodes[id] = {
                     id,
                     email,
-                    code,
+                    code: hashedCode,
                     expiresAt: expiresAt.toISOString(),
                     used: false,
                     createdAt: new Date().toISOString()
@@ -346,7 +352,7 @@ export class LocalDatabaseStorage {
             const result = await localDb.insert(schema.verificationCodes).values({
                 id,
                 email,
-                code,
+                code: hashedCode,
                 expiresAt,
                 used: false,
                 createdAt: new Date()
@@ -363,15 +369,16 @@ export class LocalDatabaseStorage {
 
     async getVerificationCode(email: string, code: string): Promise<any | null> {
         try {
+            const hashedCode = this.hashCode(code);
             if (this.useJSON) {
-                const verification = Object.values(jsonStorage.verificationCodes).find((v: any) => 
-                    v.email === email && v.code === code
+                const verification = Object.values(jsonStorage.verificationCodes).find((v: any) =>
+                    v.email === email && v.code === hashedCode
                 );
                 return verification || null;
             }
 
             const result = await localDb.select().from(schema.verificationCodes)
-                .where(sql`email = ${email} AND code = ${code}`)
+                .where(sql`email = ${email} AND code = ${hashedCode}`)
                 .limit(1);
             return result[0] || null;
 
