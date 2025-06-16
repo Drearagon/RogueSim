@@ -41,10 +41,19 @@ let rawPoolForSessionStore: any; // Type should be Pool or Client from 'pg' or '
 export async function registerRoutes(app: Express): Promise<Server> {
     try {
         // --- NEON MIGRATION: Proper DatabaseStorage instantiation ---
-        const db = getDb(); // Get initialized Drizzle instance
-        const pool = getPool(); // Get initialized raw pool
-        storage = new DatabaseStorage(db, pool); // Instantiate with both clients
-        log('📊 DatabaseStorage instantiated with Neon/PostgreSQL clients', 'db');
+        let db: any;
+        let pool: any;
+        if (isUsingLocalFallback()) {
+            const { getLocalDb } = await import('./localDB');
+            db = getLocalDb();
+            pool = getLocalDb();
+            log('📊 DatabaseStorage instantiated with local fallback', 'db');
+        } else {
+            db = getDb();
+            pool = getPool();
+            log('📊 DatabaseStorage instantiated with Neon/PostgreSQL clients', 'db');
+        }
+        storage = new DatabaseStorage(db, pool);
         
         // COMMENTED OUT OLD APPROACH:
         // storage = getStorage(); // Get storage instance (handles main/local fallback automatically)
@@ -1022,7 +1031,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             let userId: string | null = null;
             let username: string | null = null;
 
-            ws.on('message', (data) => {
+            ws.on('message', async (data) => {
                 try {
                     const message = JSON.parse(data.toString());
                     const { type, payload } = message;
