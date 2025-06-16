@@ -60,10 +60,16 @@ A full-stack web-based cyberpunk hacking simulation game featuring terminal-styl
    cp env.example .env
    ```
    
-   Edit `.env` with your configuration:
+   Edit `.env` with your configuration. The server validates these variables on
+   startup via `server/config.ts` and will exit if the required ones are missing:
    ```env
    DATABASE_URL=postgresql://username:password@hostname:5432/roguesim
    SESSION_SECRET=your-super-secret-session-key-at-least-32-characters-long
+   # Optional email service
+   SENDGRID_API_KEY=your-sendgrid-api-key
+   FROM_EMAIL=noreply@yourdomain.com
+   # Optional AI mission generation
+   OPENAI_API_KEY=your-openai-api-key
    NODE_ENV=development
    PORT=5000
    ```
