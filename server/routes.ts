@@ -19,6 +19,7 @@ import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger"; // Make sure these are defined/imported correctly
 import { log } from "./vite"; // Your custom logger
 import crypto from "crypto"; // Add crypto import for secure random generation
+import rateLimit from "express-rate-limit";
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -110,6 +111,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         log('✅ Session middleware configured successfully');
 
+        const authLimiter = rateLimit({
+            windowMs: 60 * 1000, // 1 minute
+            max: 5,
+            standardHeaders: true,
+            legacyHeaders: false,
+            handler: (req, res) => {
+                authLogger.warn({ ip: req.ip, path: req.path }, 'Rate limit exceeded');
+                res.status(429).json({ error: 'Too many requests, please try again later.' });
+            }
+        });
+
         // --- DEBUG TEST ENDPOINT ---
         app.get('/api/test', (req, res) => {
             log('DEBUG: /api/test route HIT!', 'debug');
@@ -144,7 +156,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // --- CUSTOM AUTHENTICATION ROUTES ---
-        app.post('/api/auth/register', async (req, res) => {
+        app.post('/api/auth/register', authLimiter, async (req, res) => {
             log('DEBUG: /api/auth/register route HIT!', 'auth'); // NEW LOG
             try {
                 const { hackerName, email, password } = req.body;
@@ -226,7 +238,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
-        app.post('/api/auth/verify', async (req, res) => {
+        app.post('/api/auth/verify', authLimiter, async (req, res) => {
             log('DEBUG: /api/auth/verify route HIT!', 'auth'); // NEW LOG
             try {
                 const { email, code } = req.body;
@@ -324,7 +336,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
-        app.post('/api/auth/login', async (req, res) => {
+        app.post('/api/auth/login', authLimiter, async (req, res) => {
             let identifier: string | undefined;
 
             try {
@@ -448,7 +460,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // Send verification code endpoint - EXACT COPY of /api/auth/register
         // This endpoint does exactly the same thing as register for compatibility
-        app.post('/api/auth/send-verification', async (req, res) => {
+        app.post('/api/auth/send-verification', authLimiter, async (req, res) => {
             log('DEBUG: /api/auth/send-verification route HIT! (IDENTICAL TO REGISTER)', 'auth');
             try {
                 const { hackerName, email, password } = req.body;
