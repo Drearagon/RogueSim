@@ -15,6 +15,7 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import csurf from "csurf";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger"; // Make sure these are defined/imported correctly
 import { log } from "./vite"; // Your custom logger
@@ -109,6 +110,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }));
 
         log('✅ Session middleware configured successfully');
+
+        // --- CSRF PROTECTION MIDDLEWARE ---
+        const csrfProtection = csurf();
+        app.use(csrfProtection);
+
+        // Endpoint to retrieve CSRF token
+        app.get('/api/csrf', (req, res) => {
+            res.json({ csrfToken: req.csrfToken() });
+        });
 
         // --- DEBUG TEST ENDPOINT ---
         app.get('/api/test', (req, res) => {
