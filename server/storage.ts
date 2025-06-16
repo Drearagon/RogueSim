@@ -16,6 +16,7 @@ import { PgColumn } from "drizzle-orm/pg-core"; // For Column types in Drizzle
 
 import { eq, and, desc } from "drizzle-orm"; // Drizzle ORM functions
 import { log } from "./vite"; // Import log function for consistent logging
+import crypto from "crypto"; // For hashing verification codes
 
 export interface IStorage {
     // ... (your existing IStorage interface) ...
@@ -38,6 +39,10 @@ export class DatabaseStorage implements IStorage {
         console.log('rawPool constructor:', rawPool?.constructor?.name);
         console.log('rawPool is function:', typeof rawPool === 'function');
         console.log('================================================');
+    }
+
+    private hashCode(code: string): string {
+        return crypto.createHash('sha256').update(code).digest('hex');
     }
 
     private normalizeUserRow(row: any): any {
@@ -428,31 +433,33 @@ export class DatabaseStorage implements IStorage {
 
     // Email verification operations
     async storeVerificationCode(data: any): Promise<void> {
-        console.log(`DEBUG: Storing verification code - email: ${data.email}, hacker_name: ${data.hackerName}, code: ${data.code}, expires_at: ${data.expiresAt}`);
+        const hashedCode = this.hashCode(data.code);
+        console.log(`DEBUG: Storing verification code - email: ${data.email}, hacker_name: ${data.hackerName}, hashed`,);
         if (typeof (this.rawPool as any).query === 'function') {
             // Neon Pool
             await (this.rawPool as any).query(
                 'INSERT INTO verification_codes (email, hacker_name, code, expires_at, used) VALUES ($1, $2, $3, $4, false)',
-                [data.email, data.hackerName, data.code, data.expiresAt]
+                [data.email, data.hackerName, hashedCode, data.expiresAt]
             );
             console.log(`DEBUG: Verification code stored successfully using Neon Pool`);
         } else {
             // postgres.js client
             await (this.rawPool as PostgresJsClient)`
                 INSERT INTO verification_codes (email, hacker_name, code, expires_at, used)
-                VALUES (${data.email}, ${data.hackerName}, ${data.code}, ${data.expiresAt}, false)
+                VALUES (${data.email}, ${data.hackerName}, ${hashedCode}, ${data.expiresAt}, false)
             `;
             console.log(`DEBUG: Verification code stored successfully using postgres.js`);
         }
     }
 
     async getVerificationCode(email: string, code: string): Promise<any> {
-        console.log(`DEBUG: Looking up verification code - email: ${email}, code: ${code}`);
+        const hashedCode = this.hashCode(code);
+        console.log(`DEBUG: Looking up verification code - email: ${email}`);
         if (typeof (this.rawPool as any).query === 'function') {
             // Neon Pool
             const result = await (this.rawPool as any).query(
                 'SELECT * FROM verification_codes WHERE email = $1 AND code = $2 AND used = false ORDER BY created_at DESC LIMIT 1',
-                [email, code]
+                [email, hashedCode]
             );
             console.log(`DEBUG: Neon Pool query result:`, result.rows[0] ? 'Found' : 'Not found', result.rows[0] || 'No record');
             return result.rows[0];
@@ -460,7 +467,7 @@ export class DatabaseStorage implements IStorage {
             // postgres.js client
             const result = await (this.rawPool as PostgresJsClient)`
             SELECT * FROM verification_codes
-                WHERE email = ${email} AND code = ${code} AND used = false
+                WHERE email = ${email} AND code = ${hashedCode} AND used = false
             ORDER BY created_at DESC LIMIT 1
         `;
             console.log(`DEBUG: postgres.js query result:`, result[0] ? 'Found' : 'Not found', result[0] || 'No record');
