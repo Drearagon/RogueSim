@@ -119,7 +119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     email,
                     hackerName,
                     password: hashedPassword,
-                    verificationCode,
+                    verificationCode: verificationCode,
                     expiresAt,
                 });
 
