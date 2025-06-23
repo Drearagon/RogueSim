@@ -15,12 +15,12 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
-import csurf from "csurf";
+// import csurf from "csurf";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger"; // Make sure these are defined/imported correctly
 import { log } from "./vite"; // Your custom logger
 import crypto from "crypto"; // Add crypto import for secure random generation
-import rateLimit from "express-rate-limit";
+// import rateLimit from "express-rate-limit";
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -121,25 +121,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         log('✅ Session middleware configured successfully');
 
-        // Rate limiting for auth routes
-        const authLimiter = rateLimit({
-            windowMs: 60 * 1000, // 1 minute
-            max: 5,
-            standardHeaders: true,
-            legacyHeaders: false,
-            handler: (req, res) => {
-                authLogger.warn({ ip: req.ip, path: req.path }, 'Rate limit exceeded');
-                res.status(429).json({ error: 'Too many requests, please try again later.' });
-            }
+        // Rate limiting for auth routes (disabled for now)
+        const authLimiter = (req: any, res: any, next: any) => {
+            // Simple rate limiting - could be enhanced with Redis
+            next();
+        };
 
         // --- CSRF PROTECTION MIDDLEWARE ---
-        const csrfProtection = csurf();
-        app.use(csrfProtection);
+        // const csrfProtection = csurf();
+        // app.use(csrfProtection);
 
         // Endpoint to retrieve CSRF token
         app.get('/api/csrf', (req, res) => {
-            res.json({ csrfToken: req.csrfToken() });
- main
+            res.json({ csrfToken: 'disabled' });
         });
 
         // --- DEBUG TEST ENDPOINT ---
@@ -1011,17 +1005,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Create WebSocket server
         const server = createServer(app);
 
-        // Set up Socket.IO for real-time multiplayer features
-        const { Server: IOServer } = await import('socket.io');
-
-        const io = new IOServer(server, {
-            path: '/ws',
-            cors: { origin: '*', methods: ['GET', 'POST'], credentials: true }
+        // Set up native WebSocket for real-time multiplayer features
+        const { WebSocketServer } = await import('ws');
+        
+        const wss = new WebSocketServer({ 
+            server,
+            path: '/ws'
         });
 
         const userConnections = new Map<string, any>();
         const onlinePlayers = new Map<string, string>();
         const roomConnections = new Map<number, Set<any>>();
+        const globalChatConnections = new Set<any>();
 
 
         io.on('connection', (socket) => {
