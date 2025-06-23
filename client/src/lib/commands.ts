@@ -35,6 +35,13 @@ import {
   getMissionScanOutput,
   getMissionPortScan
 } from './missionContext';
+import {
+  miniGames,
+  initializeMiniGame,
+  updatePatternCrack,
+  movePlayerInSignalTrace,
+  navigateBinaryTree
+} from './miniGames';
 
 const networkDatabase: Network[] = [
   { ssid: "TARGET_NET", channel: 11, power: -42, security: "WPA2" },
@@ -179,26 +186,26 @@ export const commands: Record<string, Command> = {
       } else {
         // Default extraction for story missions
         extractionResults = [
-          '> INITIALIZING DATA EXTRACTION PROTOCOL...',
-          '> Scanning target filesystem...',
-          '> [████████████████████████] 100%',
-          '',
-          '┌─ EXTRACTED DATA SUMMARY ─┐',
-          '│ Files recovered: 247      │',
-          '│ Database entries: 1,832   │',
-          '│ Encrypted files: 23       │',
-          '│ Sensitive docs: 12        │',
-          '└───────────────────────────┘',
-          '',
-          `> Data extraction from ${target} completed successfully.`,
-          '> Use "file_recovery" to restore deleted files.',
-          ''
-        ];
+        '> INITIALIZING DATA EXTRACTION PROTOCOL...',
+        '> Scanning target filesystem...',
+        '> [████████████████████████] 100%',
+        '',
+        '┌─ EXTRACTED DATA SUMMARY ─┐',
+        '│ Files recovered: 247      │',
+        '│ Database entries: 1,832   │',
+        '│ Encrypted files: 23       │',
+        '│ Sensitive docs: 12        │',
+        '└───────────────────────────┘',
+        '',
+        `> Data extraction from ${target} completed successfully.`,
+        '> Use "file_recovery" to restore deleted files.',
+        ''
+      ];
 
-        // Only award credits if this command is completing a mission step
-        const shouldAwardCredits = shouldAwardCommandCredits('extract_data', args, true, gameState);
+      // Only award credits if this command is completing a mission step
+      const shouldAwardCredits = shouldAwardCommandCredits('extract_data', args, true, gameState);
         updateGameState = shouldAwardCredits ? {
-          credits: gameState.credits + 150
+        credits: gameState.credits + 150
         } : {};
       }
 
@@ -208,6 +215,65 @@ export const commands: Record<string, Command> = {
         updateGameState,
         soundEffect: 'success'
       };
+    }
+  },
+
+  inventory: {
+    description: "View owned items",
+    usage: "inventory",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const inv = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+      const lines = [
+        '┌─ INVENTORY ─┐',
+        `│ Hardware: ${inv.hardware.join(', ') || 'None'} │`,
+        `│ Software: ${inv.software.join(', ') || 'None'} │`,
+        `│ Payloads: ${inv.payloads.join(', ') || 'None'} │`,
+        `│ Intel: ${inv.intel.join(', ') || 'None'} │`,
+        '└─────────────┘',
+        ''
+      ];
+      return { output: lines, success: true };
+    }
+  },
+
+  whoami: {
+    description: "Display user profile",
+    usage: "whoami",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const profileLines = [
+        '┌─ USER PROFILE ─┐',
+        `│ Level: ${gameState.playerLevel} │`,
+        `│ XP: ${gameState.experience} │`,
+        `│ Credits: ${gameState.credits} │`,
+        gameState.activeFaction ? `│ Faction: ${gameState.activeFaction} │` : '│ Faction: None │',
+        '└───────────────┘',
+        ''
+      ];
+      return { output: profileLines, success: true };
+    }
+  },
+
+  fortune: {
+    description: "Get a random hacker quote",
+    usage: "fortune",
+    execute: (): CommandResult => {
+      const quotes = [
+        'Knowledge is power.',
+        'The quieter you become, the more you hear.',
+        'There is no patch for human stupidity.',
+        'Hack the planet!'
+      ];
+      const line = quotes[Math.floor(Math.random() * quotes.length)];
+      return { output: [line, ''], success: true };
+    }
+  },
+
+  lore: {
+    description: "Reveal rogue network lore",
+    usage: "lore",
+    execute: (): CommandResult => {
+      const text = 'Whispers speak of an AI born from forgotten code, lurking in the dark net.';
+      return { output: [text, ''], success: true };
     }
   },
 
@@ -558,15 +624,22 @@ export const commands: Record<string, Command> = {
         }
       }
       
-      const availableCommands = Object.keys(commands).filter(cmd => 
+      const availableCommands = Object.keys(commands).filter(cmd =>
         gameState.unlockedCommands.includes(cmd)
       );
+      const aliasInfo = {
+        inv: 'inventory',
+        stat: 'status'
+      };
       
       return {
         output: [
           '┌─ AVAILABLE COMMANDS ─┐',
           ...availableCommands.map(cmd => `│ ${cmd.padEnd(10)} - ${commands[cmd].description.substring(0, 20)} │`),
           '└─────────────────────┘',
+          '',
+          'Aliases:',
+          ...Object.entries(aliasInfo).map(([alias, full]) => `  ${alias} -> ${full}`),
           '',
           'Type "man <cmd>" for help',
           ''
@@ -642,10 +715,10 @@ export const commands: Record<string, Command> = {
       const isHighSecurity = target?.hostileDetection === 'High' || target?.hostileDetection === 'Extreme' || target?.hostileDetection === 'Maximum';
       
       let connectionOutput = [
-        `▶ Attempting connection to '${ssid}'...`,
-        '▶ Analyzing security protocols...',
-        '▶ Executing handshake...',
-        '▶ Establishing encrypted tunnel...',
+          `▶ Attempting connection to '${ssid}'...`,
+          '▶ Analyzing security protocols...',
+          '▶ Executing handshake...',
+          '▶ Establishing encrypted tunnel...',
         ''
       ];
       
@@ -684,12 +757,15 @@ export const commands: Record<string, Command> = {
     description: "Display system status",
     usage: "status",
     execute: (args: string[], gameState: GameState): CommandResult => {
+      const nextLevelXp = (gameState.playerLevel + 1) * 1000;
       const output = [
         '┌─ SYSTEM STATUS ─┐',
         `│ ESP32: ONLINE    │`,
         `│ WiFi: ${gameState.networkStatus.substring(0, 10).padEnd(10)} │`,
         `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
         `│ Rep: ${gameState.reputation.substring(0, 10).padEnd(10)} │`,
+        `│ Level: ${gameState.playerLevel.toString().padEnd(6)} │`,
+        `│ XP: ${gameState.experience}/${nextLevelXp} │`,
         `│ Missions: ${gameState.completedMissions}/∞    │`,
         '└─────────────────┘'
       ];
@@ -728,6 +804,7 @@ export const commands: Record<string, Command> = {
   inject: {
     description: "Inject payload into target",
     usage: "inject <payload_name>",
+    unlockLevel: 0, // Basic command available from start
     execute: (args: string[], gameState: GameState): CommandResult => {
       if (args.length === 0) {
         return {
@@ -1083,8 +1160,8 @@ export const commands: Record<string, Command> = {
       // Check if there's an active narrative event
       const currentEvent = getNextNarrativeEvent(gameState);
       if (!currentEvent) {
-        return {
-          output: [
+            return {
+              output: [
             'No active choices available',
             '',
             'Choices become available during:',
@@ -1435,6 +1512,27 @@ export const commands: Record<string, Command> = {
       };
     }
     // No unlock level = always available
+  },
+
+  hackide: {
+    description: "Open HackIDE script editor",
+    usage: "hackide",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('openScriptEditor'));
+      }, 100);
+
+      const inv = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+      const lines = [
+        '▶ Launching HackIDE...',
+        '',
+        `Available Commands: ${(gameState.unlockedCommands || []).join(', ') || 'None'}`,
+        `Hardware: ${inv.hardware.join(', ') || 'None'}`,
+        `Software: ${inv.software.join(', ') || 'None'}`,
+        ''
+      ];
+      return { output: lines, success: true };
+    }
   },
 
   // Test command to verify system works
@@ -2078,7 +2176,6 @@ export const commands: Record<string, Command> = {
     description: "Launch interactive hacking mini-games",
     usage: "minigame [list|<game_id>]",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const { miniGames, initializeMiniGame } = require('./miniGames');
       
       if (args.length === 0 || args[0] === 'list') {
         const gameList = Object.values(miniGames).map((game: any) => 
@@ -2161,6 +2258,16 @@ export const commands: Record<string, Command> = {
     unlockLevel: 1
   },
 
+  // Alias command to list or launch mini-games
+  minigames: {
+    description: "List available mini-games",
+    usage: "minigames [list|<game_id>]",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      return commands.minigame.execute(args.length ? args : ['list'], gameState);
+    },
+    unlockLevel: 1
+  },
+
   // Pattern cracking command (quick access)
   crack_pattern: {
     description: "Quick access to pattern cracking mini-game",
@@ -2217,7 +2324,6 @@ export const commands: Record<string, Command> = {
       }
 
       const input = args.join(' ');
-      const { updatePatternCrack } = require('./miniGames');
       
       if (miniGameState.currentGame.type === 'pattern_crack') {
         const result = updatePatternCrack(miniGameState.gameData, input);
@@ -2279,8 +2385,6 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      const { movePlayerInSignalTrace } = require('./miniGames');
-      
       if (gameState.miniGameState.currentGame.type === 'signal_trace') {
         const result = movePlayerInSignalTrace(gameState.miniGameState.gameData, direction);
         
@@ -2342,8 +2446,6 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      const { navigateBinaryTree } = require('./miniGames');
-      
       if (gameState.miniGameState.currentGame.type === 'binary_tree') {
         const result = navigateBinaryTree(gameState.miniGameState.gameData, direction);
         
@@ -2555,8 +2657,8 @@ export const commands: Record<string, Command> = {
           
           const currentFactionName = gameState.activeFaction.replace('_', ' ').toUpperCase();
           
-          return {
-            output: [
+            return {
+              output: [
               `▶ LEFT FACTION: ${currentFactionName} ▶`,
               '',
               `✓ You have left ${currentFactionName}`,
@@ -2574,7 +2676,7 @@ export const commands: Record<string, Command> = {
                   ...gameState.factionStandings[gameState.activeFaction],
                   isActive: false
                 }
-              }
+                }
             },
             soundEffect: 'success'
           };
@@ -2590,8 +2692,8 @@ export const commands: Record<string, Command> = {
             };
           }
           
-          return {
-            output: [
+            return {
+              output: [
               `▶ ${gameState.activeFaction.replace('_', ' ').toUpperCase()} MISSIONS ▶`,
               '',
               '┌─ AVAILABLE MISSIONS ─┐',
@@ -2730,7 +2832,11 @@ export const commands: Record<string, Command> = {
               ...gameState.factionStandings[gameState.activeFaction],
               reputation: gameState.factionStandings[gameState.activeFaction].reputation + mission.reputationReward,
               missionsCompleted: gameState.factionStandings[gameState.activeFaction].missionsCompleted + 1,
-              creditsEarned: gameState.factionStandings[gameState.activeFaction].creditsEarned + bonusCredits
+              creditsEarned: gameState.factionStandings[gameState.activeFaction].creditsEarned + bonusCredits,
+              rank: getPlayerFactionRank(
+                gameState.activeFaction,
+                gameState.factionStandings[gameState.activeFaction].reputation + mission.reputationReward
+              )
             }
           },
           completedFactionMissions: [...gameState.completedFactionMissions, mission.id],
@@ -3495,8 +3601,136 @@ export const commands: Record<string, Command> = {
     }
   },
 
+  login: {
+    description: 'Access user authentication and account management',
+    usage: 'login [username] [password] | login status | login logout',
+    category: 'system',
+    execute: (args: string[], gameState: GameState) => {
+      const action = args[0]?.toLowerCase();
+      
+      if (action === 'status') {
+        return {
+          success: true,
+          output: [
+            '🔐 AUTHENTICATION STATUS',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'Current Session: Active',
+            'User: Authenticated',
+            'Backend Connection: Connected',
+            'Data Sync: Enabled',
+            '',
+            'Use "login logout" to end session',
+            'Game progress is automatically saved to server',
+            ''
+          ]
+        };
+      }
+      
+      if (action === 'logout') {
+        // Trigger logout through the game interface
+        setTimeout(() => {
+          const event = new CustomEvent('userLogout');
+          window.dispatchEvent(event);
+        }, 100);
+        
+        return {
+          success: true,
+          output: [
+            '👋 LOGGING OUT...',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            '✓ Saving current progress...',
+            '✓ Closing active connections...',
+            '✓ Clearing session data...',
+            '',
+            'You will be redirected to the login screen.',
+            ''
+          ]
+        };
+      }
+      
+      if (args.length >= 2) {
+        const username = args[0];
+        const password = args[1];
+        
+        return {
+          success: false,
+          output: [
+            '⚠️  SECURITY WARNING',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'Do not enter credentials in the terminal!',
+            'Use the secure login interface instead.',
+            '',
+            'Credentials entered in terminal are visible',
+            'and may be logged in command history.',
+            '',
+            'Please use the web interface for authentication.',
+            ''
+          ]
+        };
+      }
+      
+      return {
+        success: true,
+        output: [
+          '🔐 USER AUTHENTICATION',
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          'Authentication is handled through the web interface.',
+          '',
+          'Available commands:',
+          '• login status    - Check authentication status',  
+          '• login logout    - End current session',
+          '',
+          'Your game progress is automatically saved when',
+          'you are logged in to your account.',
+          ''
+        ]
+      };
+    }
+  },
+
 };
 
 export function getInitialUnlockedCommands(): string[] {
-  return ["help", "clear", "status", "scan", "connect", "shop", "tutorial", "settings"];
+  return [
+    // Essential system commands (always available)
+    "help", "clear", "status", "scan", "connect", "shop", "hackide", "tutorial", "settings",
+    "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login",
+    
+    // Basic utility commands (unlockLevel 0 or undefined)
+    "man", "reboot", "ping", "ls", "cd", "pwd", "cat", "whoami", "ps", "inventory", "fortune", "lore",
+    
+    // Basic hacking commands (unlockLevel 0)
+    "inject",
+    
+    // Game features (always available)
+    "minigame", "faction", "leaderboard", "easter", "reset_shop"
+  ];
+}
+
+// Command availability checker
+export function isCommandAvailable(commandName: string, gameState: GameState): boolean {
+  const command = commands[commandName];
+  if (!command) return false;
+  
+  // Commands without unlockLevel are always available (like basic system commands)
+  if (command.unlockLevel === undefined || command.unlockLevel === 0) {
+    return true;
+  }
+  
+  // Check if command is explicitly unlocked
+  if (gameState.unlockedCommands && gameState.unlockedCommands.includes(commandName)) {
+    return true;
+  }
+  
+  // Check level-based unlocking
+  if (gameState.playerLevel && gameState.playerLevel >= command.unlockLevel) {
+    return true;
+  }
+  
+  // Check if purchased from shop (for shop-exclusive commands)
+  if (command.unlockLevel === 999) {
+    return gameState.unlockedCommands && gameState.unlockedCommands.includes(commandName);
+  }
+  
+  return false;
 }

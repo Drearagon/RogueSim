@@ -60,10 +60,16 @@ A full-stack web-based cyberpunk hacking simulation game featuring terminal-styl
    cp env.example .env
    ```
    
-   Edit `.env` with your configuration:
+   Edit `.env` with your configuration. The server validates these variables on
+   startup via `server/config.ts` and will exit if the required ones are missing:
    ```env
    DATABASE_URL=postgresql://username:password@hostname:5432/roguesim
    SESSION_SECRET=your-super-secret-session-key-at-least-32-characters-long
+   # Optional email service
+   SENDGRID_API_KEY=your-sendgrid-api-key
+   FROM_EMAIL=noreply@yourdomain.com
+   # Optional AI mission generation
+   OPENAI_API_KEY=your-openai-api-key
    NODE_ENV=development
    PORT=5000
    ```
@@ -115,6 +121,14 @@ The application will be available at `http://localhost:5000`
 - **Push schema changes**: `npm run db:push`
 - **Run migrations**: `npm run db:migrate`
 - **Open database studio**: `npm run db:studio`
+
+## Testing
+
+Run all automated tests with:
+
+```bash
+npm test
+```
 
 ## Optional Features
 
@@ -179,6 +193,28 @@ RogueSim/
 │   └── schema.ts           # Database schema and types
 └── package.json
 ```
+
+## Current Progress
+
+The project is currently in **Phase II** development. All core systems from Phase I
+are complete, including the terminal interface, authentication, skill trees, and
+command processing. Phase II introduces advanced mechanics, many of which are
+already implemented:
+
+- **Social Engineering Module**
+- **Dynamic Network System**
+- **Mental Load & Focus Mechanic**
+- **Advanced Terminal Scripting**
+
+Upcoming work focuses on the remaining Phase II features:
+
+- RogueNet marketplace and message boards
+- Psych profile and alignment system
+- Cross-mission world events
+- Simulated OS modes
+
+Overall, Phase II is about 60% complete. See `IMPLEMENTATION_SUMMARY.md` for
+more details.
 
 ## Contributing
 

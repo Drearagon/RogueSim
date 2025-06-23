@@ -1,6 +1,8 @@
 import { GameState } from '../types/game';
 import { apiRequest } from './queryClient';
-import { createDefaultSkillTree } from './skillTree';
+import { initializeSkillTree } from './skillSystem';
+import { getCurrentUser } from './userStorage';
+import { getInitialUnlockedCommands } from './commands';
 
 const STORAGE_KEY = 'roguesim_game_state';
 const SESSION_KEY = 'roguesim_session_id';
@@ -10,12 +12,13 @@ const defaultGameState: GameState = {
   credits: 500,
   reputation: 'UNKNOWN',
   completedMissions: 0,
-  unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear'],
+  unlockedCommands: getInitialUnlockedCommands(),
   missionProgress: 0,
   networkStatus: 'DISCONNECTED',
   soundEnabled: true,
   isBootComplete: false,
   playerLevel: 1,
+  experience: 0,
   hydraProtocol: {
     discovered: false,
     access_level: 0,
@@ -27,7 +30,7 @@ const defaultGameState: GameState = {
   },
   narrativeChoices: [],
   suspicionLevel: 0,
-  skillTree: createDefaultSkillTree(),
+  skillTree: initializeSkillTree(),
   inventory: {
     hardware: [],
     software: [],
@@ -41,7 +44,21 @@ const defaultGameState: GameState = {
   },
   missionSteps: {},
   branchChoices: {},
-  dynamicMissionSteps: {}
+  dynamicMissionSteps: {},
+  // Faction system state
+  factionStandings: {},
+  factionEvents: [],
+  completedFactionMissions: [],
+  factionMissionCooldowns: {},
+  activeFactionWars: [],
+  factionAchievements: [],
+  // Enhanced Mission System
+  availableMissions: [],
+  completedMissionIds: [],
+  failedMissionIds: [],
+  missionHistory: [],
+  missionCooldowns: {},
+  emergencyMissions: []
 };
 
 // Generate or get persistent session ID per user session
@@ -63,7 +80,32 @@ function getSessionId(): string {
 
 export async function loadGameState(): Promise<GameState> {
   try {
-    // Try to load from localStorage first
+    // Check if user is authenticated first
+    const user = await getCurrentUser();
+    
+    if (user) {
+      // Try to load from backend if user is authenticated
+      try {
+        const response = await apiRequest('GET', '/api/game/load/single', undefined);
+        const savedState = await response.json();
+        
+        if (savedState && savedState.gameState) {
+          console.log('Game state loaded from backend successfully');
+          // Ensure all required properties exist by merging with default
+          const gameState = { ...defaultGameState, ...savedState.gameState };
+          
+          // Also update localStorage cache
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
+          
+          return gameState;
+        }
+      } catch (error) {
+        console.warn('Failed to load game state from backend:', error);
+        // Fall through to localStorage
+      }
+    }
+    
+    // Try to load from localStorage as fallback
     const savedState = localStorage.getItem(STORAGE_KEY);
     if (savedState) {
       const parsedState = JSON.parse(savedState);
@@ -71,10 +113,10 @@ export async function loadGameState(): Promise<GameState> {
       return { ...defaultGameState, ...parsedState };
     }
   } catch (error) {
-    console.error("Failed to load game state from localStorage:", error);
+    console.error("Failed to load game state:", error);
   }
   
-  // Return default state if loading fails or no saved state exists
+  // Return default state if all loading fails
   return defaultGameState;
 }
 
@@ -85,24 +127,57 @@ export async function saveGameState(gameState: GameState): Promise<void> {
       throw new Error('Invalid game state object');
     }
     
+    // Always save to localStorage first for immediate availability
     localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
-    console.log('Game state saved successfully');
+    
+    // Try to save to backend if user is authenticated
+    try {
+      const user = await getCurrentUser();
+      if (user) {
+        await apiRequest('POST', '/api/game/save', {
+          gameState: gameState,
+          sessionId: 'current', // This will be set by the backend
+          gameMode: 'single'
+        });
+        console.log('Game state saved to backend successfully');
+      } else {
+        console.log('Game state saved to localStorage only (not authenticated)');
+      }
+    } catch (backendError) {
+      console.warn('Failed to save to backend, saved to localStorage only:', backendError);
+    }
   } catch (error: unknown) {
-    console.error("Local storage failed:", error);
+    console.error("Game save failed:", error);
     
     // Provide user-friendly feedback for storage issues
     if (error instanceof Error && error.name === 'QuotaExceededError') {
       alert("Game save failed! Your browser storage is full. Please clear some space.");
     } else {
-      alert("Game save failed! Check browser settings and try again.");
+      console.error("Game save error:", error);
     }
     
-    // Still throw the error so calling code can handle it
     throw error;
   }
 }
 
 export async function logCommand(command: string, args: string[], success: boolean): Promise<void> {
-  // For deployment stability, just log to console
-  console.log(`Command executed: ${command} ${args.join(' ')} - ${success ? 'SUCCESS' : 'FAILED'}`);
+  try {
+    // Try to log to backend if user is authenticated
+    const user = await getCurrentUser();
+    if (user) {
+      await apiRequest('POST', '/api/commands/log', {
+        command: command,
+        args: args,
+        success: success,
+        executedAt: new Date().toISOString()
+      });
+    } else {
+      // Fall back to console logging
+      console.log(`Command executed: ${command} ${args.join(' ')} - ${success ? 'SUCCESS' : 'FAILED'}`);
+    }
+  } catch (error) {
+    // Always fall back to console logging if backend fails
+    console.log(`Command executed: ${command} ${args.join(' ')} - ${success ? 'SUCCESS' : 'FAILED'}`);
+    console.warn('Failed to log command to backend:', error);
+  }
 }

@@ -44,7 +44,7 @@ export const gameSaves = pgTable("game_saves", {
   credits: integer("credits").notNull().default(1000),
   reputation: text("reputation").notNull().default('ROOKIE'),
   completedMissions: integer("completed_missions").notNull().default(0),
-  unlockedCommands: text("unlocked_commands").array().notNull().default(['help', 'scan', 'connect', 'status', 'clear', 'man']),
+  unlockedCommands: text("unlocked_commands").array().notNull().default(['help', 'scan', 'connect', 'status', 'clear', 'shop', 'hackide', 'man']),
   missionProgress: integer("mission_progress").notNull().default(0),
   networkStatus: text("network_status").notNull().default('DISCONNECTED'),
   soundEnabled: boolean("sound_enabled").notNull().default(true),
@@ -120,6 +120,28 @@ export const commandLogs = pgTable("command_logs", {
   executedAt: timestamp("executed_at").notNull().defaultNow(),
 });
 
+// Email verification tables
+export const verificationCodes = pgTable("verification_codes", {
+  id: serial("id").primaryKey(),
+  email: varchar("email").notNull(),
+  hackerName: varchar("hacker_name"),
+  // Store a hashed verification code (SHA-256 hex string)
+  code: varchar("code", { length: 64 }).notNull(),
+  expiresAt: timestamp("expires_at").notNull(),
+  used: boolean("used").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export const unverifiedUsers = pgTable("unverified_users", {
+  id: varchar("id").primaryKey().notNull(),
+  email: varchar("email").unique().notNull(),
+  hackerName: varchar("hacker_name").notNull(),
+  password: varchar("password").notNull(),
+  profileImageUrl: varchar("profile_image_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+});
+
 // Schema validations
 export const upsertUserSchema = createInsertSchema(users).omit({
   createdAt: true,
@@ -157,6 +179,16 @@ export const insertPlayerStatsSchema = createInsertSchema(playerStats).omit({
   updatedAt: true,
 });
 
+export const insertVerificationCodeSchema = createInsertSchema(verificationCodes).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUnverifiedUserSchema = createInsertSchema(unverifiedUsers).omit({
+  createdAt: true,
+  updatedAt: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -172,3 +204,7 @@ export type RoomMember = typeof roomMembers.$inferSelect;
 export type InsertRoomMember = z.infer<typeof insertRoomMemberSchema>;
 export type PlayerStats = typeof playerStats.$inferSelect;
 export type InsertPlayerStats = z.infer<typeof insertPlayerStatsSchema>;
+export type VerificationCode = typeof verificationCodes.$inferSelect;
+export type InsertVerificationCode = z.infer<typeof insertVerificationCodeSchema>;
+export type UnverifiedUser = typeof unverifiedUsers.$inferSelect;
+export type InsertUnverifiedUser = z.infer<typeof insertUnverifiedUserSchema>;

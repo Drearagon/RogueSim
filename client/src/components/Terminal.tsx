@@ -9,6 +9,7 @@ import { MissionCompleteNotification } from './MissionCompleteNotification';
 import { trackMissionProgress, checkStepCompletion } from '../lib/missionTracker';
 import { TerminalSettings } from './TerminalSettings';
 import { ResponsiveUserProfile } from './ResponsiveUserProfile';
+import { getCurrentUser } from '@/lib/userStorage';
 import { focusSystem } from '../lib/focusSystem';
 import { Brain, ChevronDown, ChevronUp, Coffee, Heart, Zap, Pause, AlertTriangle } from 'lucide-react';
 
@@ -60,6 +61,61 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     typingSpeed: 5
   });
   const { playKeypress, playError, playSuccess } = useSound();
+  const [currentUser, setCurrentUser] = useState<any>(null);
+
+  // Load command history from localStorage
+  useEffect(() => {
+    const saved = localStorage.getItem('roguesim_history');
+    if (saved) {
+      try {
+        setCommandHistory(JSON.parse(saved));
+      } catch {}
+    }
+  }, []);
+
+  // Persist command history
+  useEffect(() => {
+    localStorage.setItem('roguesim_history', JSON.stringify(commandHistory.slice(-50)));
+  }, [commandHistory]);
+
+  // Load current user on component mount and when profile updates
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        console.log('🔄 Terminal: Loaded user:', user?.hackerName || 'None');
+        setCurrentUser(user);
+      } catch (error) {
+        console.log('No authenticated user found');
+        setCurrentUser(null);
+      }
+    };
+    
+    loadUser();
+    
+    // Listen for profile updates and authentication events
+    const handleProfileUpdate = () => {
+      console.log('🔄 Terminal: Profile update event received');
+      loadUser();
+    };
+    
+    const handleAuthChange = () => {
+      console.log('🔄 Terminal: Authentication change event received');
+      loadUser();
+    };
+    
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    window.addEventListener('userLoggedIn', handleAuthChange);
+    window.addEventListener('userLoggedOut', handleAuthChange);
+    window.addEventListener('userVerified', handleAuthChange);
+    
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+      window.removeEventListener('userLoggedIn', handleAuthChange);
+      window.removeEventListener('userLoggedOut', handleAuthChange);
+      window.removeEventListener('userVerified', handleAuthChange);
+    };
+  }, []);
 
   // Listen for mission completion events
   useEffect(() => {
@@ -188,8 +244,9 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     setCommandHistory(prev => [...prev, input]);
     setHistoryIndex(-1);
 
-    // Add command to output
-    setOutput(prev => [...prev, `shadow@roguesim:~$ ${input}`]);
+    // Add command to output  
+    const promptName = currentUser?.hackerName || 'shadow';
+    setOutput(prev => [...prev, `${promptName}@roguesim:~$ ${input}`]);
 
     // Check for easter eggs first!
     const easterEgg = checkEasterEgg(input, gameState);
@@ -200,7 +257,14 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
 
     // Parse command
     const parts = input.trim().split(' ');
-    const commandName = parts[0].toLowerCase();
+    const commandAliases: Record<string, string> = {
+      inv: 'inventory',
+      stat: 'status',
+      minigames: 'minigame'
+    };
+
+    let commandName = parts[0].toLowerCase();
+    commandName = commandAliases[commandName] || commandName;
     const args = parts.slice(1);
 
     // Check if command exists and is unlocked
@@ -433,12 +497,16 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           <span className="truncate" style={{ color: terminalSettings.textColor }}>{gameState.networkStatus}</span>
           <ResponsiveUserProfile
             user={{
-              username: 'CyberOp_' + (gameState.playerLevel || 1),
-              avatar: '/default-avatar.png',
-              reputation: gameState.reputation || 'Rookie',
+              username: currentUser?.hackerName || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
+              hackerName: currentUser?.hackerName || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
+              email: currentUser?.email || 'unknown@roguesim.net',
+              avatar: currentUser?.profileImageUrl || '/default-avatar.png',
+              reputation: gameState.reputation || 'NOVICE',
               level: gameState.playerLevel || 1,
               credits: gameState.credits || 0,
-              specialization: 'Network Infiltration'
+              specialization: 'Network Infiltration',
+              id: currentUser?.id || 'guest',
+              bio: currentUser?.bio || 'Elite hacker in the shadow network.'
             }}
             gameState={{
               completedMissions: gameState.completedMissions || 0,
@@ -454,7 +522,24 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
             }}
             onLogout={() => {
               console.log('Logout triggered from terminal profile');
-              // Could trigger logout logic here
+              // Trigger the main logout function directly
+              const handleLogout = async () => {
+                try {
+                  const { logoutUser } = await import('../lib/userStorage');
+                  await logoutUser();
+                  
+                  // Also trigger the custom event for other components
+                  window.dispatchEvent(new CustomEvent('userLoggedOut'));
+                  
+                  // Reload page to reset state
+                  window.location.reload();
+                } catch (error) {
+                  console.error('Logout error:', error);
+                  // Force reload on error
+                  window.location.reload();
+                }
+              };
+              handleLogout();
             }}
             terminalSettings={{
               primaryColor: terminalSettings.primaryColor,
@@ -598,7 +683,9 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           
           {/* Current input line */}
           <div className="flex items-center w-full" style={{ maxWidth: '100%' }}>
-            <span className="flex-shrink-0" style={{ color: terminalSettings.primaryColor }}>shadow@roguesim:~$ </span>
+            <span className="flex-shrink-0" style={{ color: terminalSettings.primaryColor }}>
+              {currentUser?.hackerName || 'shadow'}@roguesim:~$ 
+            </span>
             <div className="flex items-center flex-1 min-w-0">
               <span className="break-all" style={{ overflowWrap: 'break-word' }}>{currentInput}</span>
               <span 

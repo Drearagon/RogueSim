@@ -6,9 +6,10 @@ import { Leaderboard } from './components/Leaderboard';
 import { UserProfile } from './components/UserProfile';
 import { MatrixRain } from './components/MatrixRain';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
-import { Landing } from './pages/Landing';
+import { LoginPage } from './components/LoginPage';
 import { AuthScreen } from './components/AuthScreen';
 import { UsernameSetup } from './components/UsernameSetup';
+import { MiniGameInterface } from './components/MiniGameInterface';
 import { useGameState } from './hooks/useGameState';
 import { useSound } from './hooks/useSound';
 import { useAuth } from './hooks/useAuth';
@@ -18,38 +19,21 @@ import { FactionInterface } from './components/FactionInterface';
 import { SkillTreeInterface } from './components/SkillTreeInterface';
 import { MissionInterface } from './components/MissionInterface';
 import { initializeSkillTree, purchaseSkill } from './lib/skillSystem';
-import { GameState, Mission } from './types/game';
+import { GameState, Mission, MiniGameState } from './types/game';
 
 export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
   const { setEnabled } = useSound();
-  // Use simple localStorage-based authentication for independent deployment
-  const [user, setUser] = useState<any>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [authLoading, setAuthLoading] = useState(true);
+  // Use proper backend authentication system
+  const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [needsUsername, setNeedsUsername] = useState(false);
-
-  // Check authentication state on app load
-  useEffect(() => {
-    const checkAuth = () => {
-      const savedUser = localStorage.getItem('user');
-      const savedAuth = localStorage.getItem('authenticated');
-      
-      if (savedUser && savedAuth === 'true') {
-        setUser(JSON.parse(savedUser));
-        setIsAuthenticated(true);
-      }
-      setAuthLoading(false);
-    };
-    
-    checkAuth();
-  }, []);
   const [currentView, setCurrentView] = useState<'auth' | 'game' | 'multiplayer' | 'leaderboard' | 'profile' | 'onboarding'>('auth');
   const [userProfile, setUserProfile] = useState<any>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [showFactionInterface, setShowFactionInterface] = useState(false);
   const [showSkillTreeInterface, setShowSkillTreeInterface] = useState(false);
   const [showMissionInterface, setShowMissionInterface] = useState(false);
+  const [activeMiniGame, setActiveMiniGame] = useState<MiniGameState | null>(null);
 
   // Load user profile and handle onboarding
   useEffect(() => {
@@ -73,7 +57,7 @@ export default function App() {
           } else {
             // Create new profile for first-time user
             const newProfile = await userProfileManager.createProfile({
-              hackerName: user.hackerName || 'Anonymous_Hacker',
+              hackerName: user.hackerName,
               email: user.email || '',
               profileImageUrl: user.profileImageUrl || ''
             });
@@ -116,17 +100,20 @@ export default function App() {
     const handleShowLeaderboard = () => setCurrentView('leaderboard');
     const handleShowProfile = () => setCurrentView('profile');
     const handleShowFactionInterface = () => setShowFactionInterface(true);
+    const handleUserLogout = () => handleLogout();
 
     window.addEventListener('showMultiplayer', handleShowMultiplayer);
     window.addEventListener('showLeaderboard', handleShowLeaderboard);
     window.addEventListener('showProfile', handleShowProfile);
     window.addEventListener('showFactionInterface', handleShowFactionInterface);
+    window.addEventListener('userLogout', handleUserLogout);
 
     return () => {
       window.removeEventListener('showMultiplayer', handleShowMultiplayer);
       window.removeEventListener('showLeaderboard', handleShowLeaderboard);
       window.removeEventListener('showProfile', handleShowProfile);
       window.removeEventListener('showFactionInterface', handleShowFactionInterface);
+      window.removeEventListener('userLogout', handleUserLogout);
     };
   }, []);
 
@@ -144,6 +131,20 @@ export default function App() {
       window.removeEventListener('showFactionInterface', handleShowFactionInterface);
       window.removeEventListener('showSkillTree', handleShowSkillTree);
       window.removeEventListener('showMissionInterface', handleShowMissionInterface);
+    };
+  }, []);
+
+  // Mini-game event listener
+  useEffect(() => {
+    const handleStartMiniGame = (event: CustomEvent) => {
+      const { miniGameState } = event.detail;
+      setActiveMiniGame(miniGameState);
+    };
+
+    window.addEventListener('startMiniGame', handleStartMiniGame as EventListener);
+    
+    return () => {
+      window.removeEventListener('startMiniGame', handleStartMiniGame as EventListener);
     };
   }, []);
 
@@ -213,25 +214,13 @@ export default function App() {
     );
   }
 
-  // Show authentication screen if not logged in
-  if (!isAuthenticated) {
-    return <AuthScreen onAuthSuccess={(user) => {
-      // Update authentication state immediately
-      setUser(user);
-      setIsAuthenticated(true);
-      
-      // Check if user needs to set a username
-      if (!user.hackerName) {
-        setNeedsUsername(true);
-      }
-    }} />;
-  }
-
-  // Show username setup if needed
-  if (needsUsername) {
+  // Show username setup if needed (for backward compatibility)
+  if (needsUsername && user && !user.hackerName) {
     return <UsernameSetup onUsernameSet={(username) => {
-      setUser({ ...user, hackerName: username });
+      // Username update will be handled by the backend
       setNeedsUsername(false);
+      // Trigger a re-fetch of user data
+      window.location.reload();
     }} />;
   }
 
@@ -243,11 +232,18 @@ export default function App() {
     setCurrentView('game');
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
     console.log('handleLogout called in App.tsx');
-    // Clear authentication state
-    setUser(null);
-    setIsAuthenticated(false);
+    
+    try {
+      // Use the enhanced logout function
+      const { logoutUser } = await import('./lib/userStorage');
+      await logoutUser();
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
+    
+    // Clear profile and UI state
     setUserProfile(null);
     setNeedsOnboarding(false);
     setCurrentView('auth');
@@ -255,11 +251,10 @@ export default function App() {
     // Clear localStorage
     localStorage.removeItem('user');
     localStorage.removeItem('authenticated');
+    localStorage.removeItem('roguesim_current_user');
     
-    // Try to call the logout API, but don't depend on it
-    fetch('/api/logout', { method: 'POST' }).catch(() => {
-      // Ignore errors - we've already cleared local state
-    });
+    // Refresh page to reset authentication state
+    window.location.reload();
   };
 
   const handleShowProfile = () => {
@@ -338,14 +333,37 @@ export default function App() {
     setShowMissionInterface(false);
   };
 
-  // Use real authentication for all users to ensure individual profiles
-  const effectiveUser = user;
-  const effectiveAuth = isAuthenticated;
-  
-  // Show landing page if not authenticated
-  if (!effectiveAuth) {
-    return <Landing />;
+  const handleMiniGameComplete = (success: boolean, score: number) => {
+    if (activeMiniGame && activeMiniGame.currentGame) {
+      const game = activeMiniGame.currentGame;
+      if (success) {
+        updateGameState({
+          credits: gameState.credits + game.reward.credits,
+          experience: gameState.experience + (game.reward.experience || 10)
+        });
+      }
+    }
+    setActiveMiniGame(null);
+  };
+
+  const handleMiniGameExit = () => {
+    setActiveMiniGame(null);
+  };
+
+  // Show login screen if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <LoginPage
+        onLoginSuccess={() => {
+          // useAuth listens for login events, so just trigger re-fetch
+          window.dispatchEvent(new Event('userLoggedIn'));
+        }}
+      />
+    );
   }
+
+  // Add effectiveUser for backward compatibility
+  const effectiveUser = user;
 
   if (!gameState.isBootComplete) {
     return <BootScreen onBootComplete={handleBootComplete} />;
@@ -431,12 +449,22 @@ export default function App() {
 
       {/* Mission Interface */}
       {showMissionInterface && (
-        <MissionInterface
-          gameState={gameState}
+        <MissionInterface       
+          gameState={gameState} 
           onMissionStart={handleMissionStart}
           onClose={() => setShowMissionInterface(false)}
         />
       )}
+
+      {/* Mini-Game Interface */}
+      {activeMiniGame && (
+        <MiniGameInterface
+          miniGameState={activeMiniGame}
+          onGameComplete={handleMiniGameComplete}
+          onGameExit={handleMiniGameExit}
+        />
+      )}
+
     </div>
   );
 }

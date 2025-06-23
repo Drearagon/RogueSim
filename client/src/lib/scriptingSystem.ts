@@ -1,3 +1,12 @@
+import { GameState, PlayerInventory } from '../types/game';
+import { isCommandAvailable } from './commands';
+
+const commandRequirements: Record<string, { hardware?: string[]; software?: string[] }> = {
+  extended_scan: { hardware: ['wifi_adapter'] },
+  iot_hack: { hardware: ['esp32_dev'] },
+  usb_attack: { hardware: ['usb_killer'] }
+};
+
 export interface Script {
   id: string;
   name: string;
@@ -637,6 +646,41 @@ export class ScriptingSystem {
       conditions: script.content.conditions,
       loops: script.content.loops
     }, null, 2);
+  }
+
+  validateScriptForGameState(script: Script, gameState: GameState): string[] {
+    const errors: string[] = [];
+    const inv: PlayerInventory = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+
+    for (const step of script.content.steps) {
+      const macro = this.parseMacroCommand(step.command);
+      const commandsToCheck = macro ? (this.macros.get(macro.alias)?.commands || []) : [step.command];
+      for (const cmd of commandsToCheck) {
+        const cmdName = cmd.split(' ')[0];
+        if (!isCommandAvailable(cmdName, gameState)) {
+          errors.push(`Step ${step.id} requires command '${cmdName}' which is not unlocked.`);
+        }
+        const req = commandRequirements[cmdName];
+        if (req) {
+          if (req.hardware) {
+            for (const h of req.hardware) {
+              if (!inv.hardware.includes(h)) {
+                errors.push(`Hardware '${h}' required for command '${cmdName}'.`);
+              }
+            }
+          }
+          if (req.software) {
+            for (const s of req.software) {
+              if (!inv.software.includes(s)) {
+                errors.push(`Software '${s}' required for command '${cmdName}'.`);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return Array.from(new Set(errors));
   }
 
   // Check if command is a macro

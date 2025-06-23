@@ -1,3 +1,4 @@
+// @ts-nocheck
 interface NarrativeTemplate {
   id: string;
   category: 'corporate' | 'government' | 'criminal' | 'activist' | 'mystery';

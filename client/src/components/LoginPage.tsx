@@ -4,9 +4,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
-import { User, Lock, Mail, Eye, EyeOff, Terminal, Shield } from 'lucide-react';
+import { User, Lock, Mail, Eye, EyeOff, Terminal, Shield, Key, CheckCircle } from 'lucide-react';
 import { MatrixRain } from './MatrixRain';
-import { loginUser, createUserAccount } from '@/lib/userStorage';
+import { loginUser, registerUser, /*sendVerificationCode*/ verifyEmail } from '@/lib/userStorage';
 
 interface LoginPageProps {
   onLoginSuccess: (user: any) => void;
@@ -33,64 +33,259 @@ const avatarOptions = [
 export function LoginPage({ onLoginSuccess }: LoginPageProps) {
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
-  const [currentStep, setCurrentStep] = useState<'auth' | 'setup'>('auth');
+  const [currentStep, setCurrentStep] = useState<'auth' | 'setup' | 'verification'>('auth');
   const [loading, setLoading] = useState(false);
+  const [message, setMessage] = useState('');
   
   // Auth form data
-  const [email, setEmail] = useState('');
+  const [identifier, setIdentifier] = useState(''); // Can be email or hackername
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   
   // Profile setup data
   const [username, setUsername] = useState('');
+  const [email, setEmail] = useState('');
   const [selectedAvatar, setSelectedAvatar] = useState(avatarOptions[0]);
   const [selectedSpecialization, setSelectedSpecialization] = useState('network');
   const [bio, setBio] = useState('');
+  const [requireVerification, setRequireVerification] = useState(true);
+  
+  // Verification data
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const handleAuthSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    setMessage('');
 
     try {
       if (isLogin) {
-        // Attempt to login with stored account data
-        setTimeout(() => {
-          const user = loginUser(email, password);
-          if (user) {
-            onLoginSuccess(user);
-          } else {
-            alert('Account not found. Please register first.');
-          }
-          setLoading(false);
-        }, 1000);
+        // Support login with either email or hackername
+        const user = await loginUser(identifier, password);
+        if (user) {
+          onLoginSuccess(user);
+        } else {
+          setMessage('Invalid credentials. Check your email/hackername and password.');
+        }
       } else {
-        // Proceed to setup for new users
+        // Registration flow
         if (password !== confirmPassword) {
-          alert('Passwords do not match');
+          setMessage('Passwords do not match');
           setLoading(false);
           return;
         }
+        
+        if (password.length < 8) {
+          setMessage('Password must be at least 8 characters long');
+          setLoading(false);
+          return;
+        }
+        
+        // Move to setup step for registration
+        // Auto-fill email if identifier was an email
+        if (identifier.includes('@')) {
+          setEmail(identifier);
+        }
         setCurrentStep('setup');
-        setLoading(false);
       }
     } catch (error) {
       console.error('Auth error:', error);
-      alert('Authentication failed. Please try again.');
+      setMessage('Authentication failed. Please try again.');
+    } finally {
       setLoading(false);
     }
   };
 
-  const handleSetupComplete = () => {
+  const handleSetupComplete = async () => {
     if (!username.trim()) {
-      alert('Please enter a username');
+      setMessage('Please enter a hackername');
+      return;
+    }
+    
+    if (!email.trim()) {
+      setMessage('Please enter your email address');
+      return;
+    }
+
+    if (username.length < 3) {
+      setMessage('Hackername must be at least 3 characters long');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_-]+$/.test(username)) {
+      setMessage('Hackername can only contain letters, numbers, underscores, and hyphens');
       return;
     }
 
     setLoading(true);
+    setMessage('');
     
-    // Navigate to Replit authentication
-    window.location.href = '/api/login';
+    try {
+      if (requireVerification) {
+        // Use full registration with verification flow
+        const user = await registerUser({
+          hackerName: username,
+          email: email,
+          password: password,
+          requireVerification: true
+        });
+        
+        if (user === null) {
+          // Registration successful, need verification
+          setVerificationSent(true);
+          setCurrentStep('verification');
+          setMessage('Registration successful! Check your email for verification code.');
+        } else {
+          // Should not happen with requireVerification: true
+          onLoginSuccess(user);
+        }
+      } else {
+        // Register without verification
+        const user = await registerUser({
+          hackerName: username,
+          email: email,
+          password: password,
+          requireVerification: false
+        });
+        
+        if (user) {
+          onLoginSuccess(user);
+        } else {
+          setMessage('Registration failed. Hackername or email may already be taken.');
+        }
+      }
+    } catch (error) {
+      console.error('Setup error:', error);
+      setMessage('Registration failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleVerification = async () => {
+    if (!verificationCode.trim()) {
+      setMessage('Please enter the verification code');
+      return;
+    }
+
+    setLoading(true);
+    setMessage('');
+
+    try {
+      const user = await verifyEmail(email, verificationCode);
+      if (user) {
+        onLoginSuccess(user);
+      } else {
+        setMessage('Invalid or expired verification code. Please try again.');
+      }
+    } catch (error) {
+      console.error('Verification error:', error);
+      setMessage('Verification failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const resendVerificationCode = async () => {
+    setLoading(true);
+    try {
+      // Use the same registration flow as initial registration
+      const result = await registerUser({
+        hackerName: username,
+        email: email,
+        password: password,
+        requireVerification: true
+      });
+      
+      if (result === null) {
+        setMessage('New verification code sent to your email.');
+      } else {
+        setMessage('Failed to resend verification code.');
+      }
+    } catch (error) {
+      setMessage('Failed to resend verification code.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (currentStep === 'verification') {
+    return (
+      <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center">
+        <MatrixRain />
+        
+        <Card className="w-full max-w-md bg-black/90 border-green-400 backdrop-blur-sm relative z-10">
+          <CardHeader className="text-center">
+            <div className="flex items-center justify-center gap-2 mb-4">
+              <Key className="h-8 w-8 text-green-400" />
+              <h1 className="text-2xl font-mono font-bold text-green-400">EMAIL VERIFICATION</h1>
+            </div>
+            <CardTitle className="text-green-400 font-mono">Enter Verification Code</CardTitle>
+            <p className="text-green-400/70 font-mono text-sm">
+              Check your email for the 6-digit verification code
+            </p>
+          </CardHeader>
+          
+          <CardContent className="space-y-4">
+            {message && (
+              <div className={`text-center text-sm font-mono p-2 border rounded ${
+                message.includes('sent') ? 'text-green-400 border-green-400' : 'text-red-400 border-red-400'
+              }`}>
+                {message}
+              </div>
+            )}
+
+            <div className="space-y-2">
+              <label className="text-green-400 font-mono text-sm">VERIFICATION CODE</label>
+              <div className="relative">
+                <Key className="absolute left-3 top-3 h-4 w-4 text-green-400" />
+                <Input
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  className="pl-10 bg-black border-green-400 text-green-400 font-mono text-center text-lg"
+                  maxLength={6}
+                  required
+                />
+              </div>
+            </div>
+
+            <div className="flex gap-3">
+              <Button 
+                type="button"
+                variant="outline"
+                onClick={() => setCurrentStep('setup')}
+                className="flex-1 border-green-400 text-green-400 hover:bg-green-400 hover:text-black"
+                disabled={loading}
+              >
+                BACK
+              </Button>
+              <Button 
+                onClick={handleVerification}
+                className="flex-1 bg-green-400 text-black hover:bg-green-500 font-mono"
+                disabled={loading || verificationCode.length !== 6}
+              >
+                {loading ? 'VERIFYING...' : 'VERIFY'}
+              </Button>
+            </div>
+
+            <div className="text-center">
+              <button
+                type="button"
+                onClick={resendVerificationCode}
+                className="text-green-400 hover:text-green-300 text-sm font-mono underline"
+                disabled={loading}
+              >
+                Didn't receive code? Resend
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   if (currentStep === 'setup') {
     return (
@@ -107,6 +302,12 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
           </CardHeader>
           
           <CardContent className="space-y-6">
+            {message && (
+              <div className="text-center text-red-400 text-sm font-mono p-2 border border-red-400 rounded">
+                {message}
+              </div>
+            )}
+
             <div className="flex justify-center">
               <Avatar className="w-24 h-24 border-2 border-green-400">
                 <AvatarImage src={selectedAvatar} />
@@ -116,17 +317,37 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               </Avatar>
             </div>
 
-            <div className="space-y-2">
-              <label className="text-green-400 font-mono text-sm">USERNAME</label>
-              <div className="relative">
-                <User className="absolute left-3 top-3 h-4 w-4 text-green-400" />
-                <Input
-                  placeholder="Enter your hacker alias"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  className="pl-10 bg-black border-green-400 text-green-400 font-mono"
-                  required
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-green-400 font-mono text-sm">HACKERNAME *</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-3 h-4 w-4 text-green-400" />
+                  <Input
+                    placeholder="Enter your hacker alias"
+                    value={username}
+                    onChange={(e) => setUsername(e.target.value.replace(/[^a-zA-Z0-9_-]/g, ''))}
+                    className="pl-10 bg-black border-green-400 text-green-400 font-mono"
+                    required
+                  />
+                </div>
+                <p className="text-green-400/60 text-xs font-mono">
+                  3+ chars, letters, numbers, _ and - only
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-green-400 font-mono text-sm">EMAIL ADDRESS *</label>
+                <div className="relative">
+                  <Mail className="absolute left-3 top-3 h-4 w-4 text-green-400" />
+                  <Input
+                    type="email"
+                    placeholder="your.email@example.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    className="pl-10 bg-black border-green-400 text-green-400 font-mono"
+                    required
+                  />
+                </div>
               </div>
             </div>
 
@@ -190,21 +411,37 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
               />
             </div>
 
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-green-400 font-mono text-sm">
+                <input
+                  type="checkbox"
+                  checked={requireVerification}
+                  onChange={(e) => setRequireVerification(e.target.checked)}
+                  className="rounded border-green-400"
+                />
+                EMAIL VERIFICATION (RECOMMENDED)
+              </label>
+              <p className="text-green-400/60 text-xs font-mono ml-6">
+                Verify your email to secure your account and enable password recovery
+              </p>
+            </div>
+
             <div className="flex gap-3">
               <Button 
                 type="button"
                 variant="outline"
                 onClick={() => setCurrentStep('auth')}
                 className="border-green-400 text-green-400 hover:bg-green-400 hover:text-black"
+                disabled={loading}
               >
                 BACK
               </Button>
               <Button 
                 onClick={handleSetupComplete}
                 className="flex-1 bg-green-400 text-black hover:bg-green-500 font-mono"
-                disabled={loading}
+                disabled={loading || !username.trim() || !email.trim()}
               >
-                {loading ? 'CREATING ACCOUNT...' : 'ENTER THE MATRIX'}
+                {loading ? 'CREATING...' : requireVerification ? 'SEND VERIFICATION' : 'CREATE ACCOUNT'}
               </Button>
             </div>
           </CardContent>
@@ -251,18 +488,29 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
             </TabsList>
             
             <form onSubmit={handleAuthSubmit} className="space-y-4 mt-6">
+              {message && (
+                <div className="text-center text-red-400 text-sm font-mono p-2 border border-red-400 rounded">
+                  {message}
+                </div>
+              )}
+
               <div className="space-y-2">
                 <div className="relative">
-                  <Mail className="absolute left-3 top-3 h-4 w-4 text-green-400" />
+                  <User className="absolute left-3 top-3 h-4 w-4 text-green-400" />
                   <Input
-                    type="email"
-                    placeholder="Email address"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
+                    type="text"
+                    placeholder={isLogin ? "Email or Hackername" : "Email address"}
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
                     className="pl-10 bg-black border-green-400 text-green-400 font-mono placeholder:text-green-400/50"
                     required
                   />
                 </div>
+                {isLogin && (
+                  <p className="text-green-400/60 text-xs font-mono">
+                    You can login with either your email or hackername
+                  </p>
+                )}
               </div>
               
               <div className="space-y-2">
@@ -285,29 +533,32 @@ export function LoginPage({ onLoginSuccess }: LoginPageProps) {
                   </button>
                 </div>
               </div>
-              
+
               {!isLogin && (
                 <div className="space-y-2">
                   <div className="relative">
                     <Lock className="absolute left-3 top-3 h-4 w-4 text-green-400" />
                     <Input
-                      type="password"
-                      placeholder="Confirm password"
+                      type={showPassword ? 'text' : 'password'}
+                      placeholder="Confirm Password"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
                       className="pl-10 bg-black border-green-400 text-green-400 font-mono placeholder:text-green-400/50"
                       required
                     />
                   </div>
+                  <p className="text-green-400/60 text-xs font-mono">
+                    Password must be at least 8 characters long
+                  </p>
                 </div>
               )}
-              
-              <Button 
-                type="submit" 
-                className="w-full bg-green-400 text-black hover:bg-green-500 font-mono"
+
+              <Button
+                type="submit"
+                className="w-full bg-green-400 text-black hover:bg-green-500 font-mono font-bold"
                 disabled={loading}
               >
-                {loading ? 'PROCESSING...' : (isLogin ? 'ACCESS GRANTED' : 'CREATE ACCOUNT')}
+                {loading ? (isLogin ? 'ACCESSING...' : 'VALIDATING...') : (isLogin ? 'ACCESS NETWORK' : 'NEXT STEP')}
               </Button>
             </form>
           </Tabs>

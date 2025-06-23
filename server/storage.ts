@@ -15,6 +15,8 @@ import { PgDatabase } from "drizzle-orm/pg-core"; // For Drizzle DB instance typ
 import { PgColumn } from "drizzle-orm/pg-core"; // For Column types in Drizzle
 
 import { eq, and, desc } from "drizzle-orm"; // Drizzle ORM functions
+import { log } from "./vite"; // Import log function for consistent logging
+import crypto from "crypto"; // For hashing verification codes
 
 export interface IStorage {
     // ... (your existing IStorage interface) ...
@@ -23,9 +25,53 @@ export interface IStorage {
 export class DatabaseStorage implements IStorage {
     // Constructor now takes the fully initialized dbClient (which is `db` from db.ts and `pool` from db.ts)
     // You are passing both the Drizzle instance (`db`) and the raw client (`pool`)
-    constructor(private drizzleDb: PgDatabase<any, any>, private rawPool: PostgresJsClient) {
+    constructor(private drizzleDb: PgDatabase<any, any>, private rawPool: PostgresJsClient | NodePgPool) {
         // `this.drizzleDb` will be your Drizzle instance (`db` from `db.ts`)
         // `this.rawPool` will be your postgres.js client (`pool` from `db.ts`)
+        
+        // DEBUG: Log what we're actually receiving
+        console.log('=== DatabaseStorage Constructor Debug ===');
+        console.log('drizzleDb type:', typeof drizzleDb);
+        console.log('drizzleDb defined:', !!drizzleDb);
+        console.log('rawPool type:', typeof rawPool);
+        console.log('rawPool defined:', !!rawPool);
+        console.log('rawPool.query type:', typeof (rawPool as any)?.query);
+        console.log('rawPool constructor:', rawPool?.constructor?.name);
+        console.log('rawPool is function:', typeof rawPool === 'function');
+        console.log('================================================');
+    }
+
+    private hashCode(code: string): string {
+        return crypto.createHash('sha256').update(code).digest('hex');
+    }
+
+    private normalizeUserRow(row: any): any {
+        if (!row) return row;
+        return {
+            ...row,
+            hackerName: row.hacker_name ?? row.hackerName,
+            profileImageUrl: row.profile_image_url ?? row.profileImageUrl,
+            createdAt: row.created_at ?? row.createdAt,
+            updatedAt: row.updated_at ?? row.updatedAt,
+            joinedAt: row.joined_at ?? row.joinedAt,
+            lastActive: row.last_active ?? row.lastActive,
+            playerLevel: row.player_level ?? row.playerLevel,
+            totalMissionsCompleted: row.total_missions_completed ?? row.totalMissionsCompleted,
+            totalCreditsEarned: row.total_credits_earned ?? row.totalCreditsEarned,
+            isOnline: row.is_online ?? row.isOnline,
+            currentMode: row.current_mode ?? row.currentMode
+        };
+    }
+
+    private normalizeUnverifiedUserRow(row: any): any {
+        if (!row) return row;
+        return {
+            ...row,
+            hackerName: row.hacker_name ?? row.hackerName,
+            profileImageUrl: row.profile_image_url ?? row.profileImageUrl,
+            createdAt: row.created_at ?? row.createdAt,
+            updatedAt: row.updated_at ?? row.updatedAt,
+        };
     }
 
     // --- USER OPERATIONS ---
@@ -39,9 +85,22 @@ export class DatabaseStorage implements IStorage {
     }
 
     async getUserByEmail(email: string): Promise<any> {
-        // This query uses the raw postgres.js client (template literal syntax)
-        const result = await this.rawPool`SELECT * FROM users WHERE email = ${email}`;
-        return result[0]; // postgres.js returns an array of rows
+        // Handle both Neon Pool and postgres.js client
+        try {
+            let result: any;
+            if (typeof (this.rawPool as any).query === 'function') {
+                // Neon Pool with .query() method
+                result = await (this.rawPool as any).query('SELECT * FROM users WHERE email = $1', [email]);
+                return this.normalizeUserRow(result.rows[0]);
+            } else {
+                // postgres.js client with template literals
+                result = await (this.rawPool as PostgresJsClient)`SELECT * FROM users WHERE email = ${email}`;
+                return this.normalizeUserRow(result[0]);
+            }
+        } catch (error) {
+            console.error('Error in getUserByEmail:', error);
+            throw error;
+        }
     }
 
     async getUserByHackerName(hackerName: string): Promise<User | undefined> {
@@ -50,8 +109,28 @@ export class DatabaseStorage implements IStorage {
     }
 
     async createUser(userData: any): Promise<User> {
-        // Use direct SQL with template literal for postgres.js client
-        const insertQuery = `
+        if (typeof (this.rawPool as any).query === 'function') {
+            // Neon Pool
+            await (this.rawPool as any).query(`
+                INSERT INTO users (
+                    id, email, password, hacker_name,
+                    player_level, total_missions_completed, total_credits_earned,
+                    reputation, created_at, updated_at, joined_at, last_active,
+                    is_online, current_mode
+                ) VALUES (
+                    $1, $2, $3, $4, 1, 0, 0, 'ROOKIE',
+                    NOW(), NOW(), NOW(), NOW(), false, 'single'
+                )
+            `, [userData.id, userData.email, userData.password, userData.hackerName]);
+
+            const result = await (this.rawPool as any).query(
+                'SELECT id, email, hacker_name, profile_image_url FROM users WHERE id = $1',
+                [userData.id]
+            );
+            return this.normalizeUserRow(result.rows[0]);
+        } else {
+            // postgres.js client
+            await (this.rawPool as PostgresJsClient)`
             INSERT INTO users (
                 id, email, password, hacker_name,
                 player_level, total_missions_completed, total_credits_earned,
@@ -67,11 +146,14 @@ export class DatabaseStorage implements IStorage {
                 false, 'single'
             )
         `;
-        await this.rawPool`${insertQuery}`; // Use rawPool for this query
 
-        const selectQuery = `SELECT id, email, hacker_name, profile_image_url FROM users WHERE id = ${userData.id}`;
-        const result = await this.rawPool`${selectQuery}`;
-        return result[0]; // postgres.js returns array of rows for select
+            const result = await (this.rawPool as PostgresJsClient)`
+                SELECT id, email, hacker_name, profile_image_url
+                FROM users
+                WHERE id = ${userData.id}
+            `;
+            return this.normalizeUserRow(result[0] as any);
+        }
     }
 
     async updateHackerName(userId: string, hackerName: string): Promise<User> {
@@ -257,6 +339,7 @@ export class DatabaseStorage implements IStorage {
                 email: profileData.email,
                 hackerName: profileData.hackerName,
                 profileImageUrl: profileData.profileImageUrl,
+                password: profileData.password || ''
             })
             .onConflictDoUpdate({
                 target: users.id,
@@ -289,7 +372,7 @@ export class DatabaseStorage implements IStorage {
         const stats = await this.getPlayerStats(userId);
         return {
             id: user.id,
-            hackerName: user.firstName || 'Anonymous_Hacker',
+            hackerName: user.hackerName || 'Anonymous_Hacker',
             email: user.email,
             profileImageUrl: user.profileImageUrl,
             joinDate: user.createdAt?.toISOString(),
@@ -301,10 +384,9 @@ export class DatabaseStorage implements IStorage {
             credits: user.totalCreditsEarned || 1000,
 
             totalMissions: stats?.totalMissions || 0,
-            successfulMissions: stats?.successfulMissions || 0,
-            failedMissions: (stats?.totalMissions || 0) - (stats?.successfulMissions || 0),
-            currentStreak: stats?.currentStreak || 0,
-            longestStreak: stats?.longestStreak || 0,
+            multiplayerWins: stats?.multiplayerWins || 0,
+            multiplayerLosses: stats?.multiplayerLosses || 0,
+            bestCompletionTime: stats?.bestCompletionTime || null,
             totalPlayTime: stats?.totalPlayTime || 0,
 
             hasCompletedTutorial: false,
@@ -313,7 +395,7 @@ export class DatabaseStorage implements IStorage {
             preferredGameMode: 'single',
 
             unlockedAchievements: stats?.achievementsUnlocked || [],
-            unlockedCommands: ['help', 'scan', 'connect', 'missions'],
+            unlockedCommands: ['help', 'scan', 'connect', 'status', 'clear', 'shop', 'hackide'],
             unlockedPayloads: ['basic_payload'],
 
             currentGameState: null,
@@ -351,48 +433,138 @@ export class DatabaseStorage implements IStorage {
 
     // Email verification operations
     async storeVerificationCode(data: any): Promise<void> {
-        const query = `
-            INSERT INTO verification_codes (email, hacker_name, code, expires_at)
-            VALUES ($1, $2, $3, $4)
-        `;
-        await (this.rawPool as NodePgPool).query(query, [data.email, data.hackerName, data.code, data.expiresAt]);
+        const hashedCode = this.hashCode(data.code);
+        console.log(`DEBUG: Storing verification code - email: ${data.email}, hacker_name: ${data.hackerName}, hashed`,);
+        if (typeof (this.rawPool as any).query === 'function') {
+            // Neon Pool
+            await (this.rawPool as any).query(
+                'INSERT INTO verification_codes (email, hacker_name, code, expires_at, used) VALUES ($1, $2, $3, $4, false)',
+                [data.email, data.hackerName, hashedCode, data.expiresAt]
+            );
+            console.log(`DEBUG: Verification code stored successfully using Neon Pool`);
+        } else {
+            // postgres.js client
+            await (this.rawPool as PostgresJsClient)`
+                INSERT INTO verification_codes (email, hacker_name, code, expires_at, used)
+                VALUES (${data.email}, ${data.hackerName}, ${hashedCode}, ${data.expiresAt}, false)
+            `;
+            console.log(`DEBUG: Verification code stored successfully using postgres.js`);
+        }
     }
 
     async getVerificationCode(email: string, code: string): Promise<any> {
-        const query = `
+        const hashedCode = this.hashCode(code);
+        console.log(`DEBUG: Looking up verification code - email: ${email}`);
+        if (typeof (this.rawPool as any).query === 'function') {
+            // Neon Pool
+            const result = await (this.rawPool as any).query(
+                'SELECT * FROM verification_codes WHERE email = $1 AND code = $2 AND used = false ORDER BY created_at DESC LIMIT 1',
+                [email, hashedCode]
+            );
+            console.log(`DEBUG: Neon Pool query result:`, result.rows[0] ? 'Found' : 'Not found', result.rows[0] || 'No record');
+            return result.rows[0];
+        } else {
+            // postgres.js client
+            const result = await (this.rawPool as PostgresJsClient)`
             SELECT * FROM verification_codes
-            WHERE email = $1 AND code = $2 AND used = false
+                WHERE email = ${email} AND code = ${hashedCode} AND used = false
             ORDER BY created_at DESC LIMIT 1
         `;
-        const result = await (this.rawPool as NodePgPool).query(query, [email, code]);
-        return result.rows[0];
+            console.log(`DEBUG: postgres.js query result:`, result[0] ? 'Found' : 'Not found', result[0] || 'No record');
+            return result[0];
+        }
     }
 
     async markVerificationCodeUsed(id: number): Promise<void> {
-        const query = `UPDATE verification_codes SET used = true WHERE id = $1`;
-        await (this.rawPool as NodePgPool).query(query, [id]);
+        if (typeof (this.rawPool as any).query === 'function') {
+            // Neon Pool
+            await (this.rawPool as any).query('UPDATE verification_codes SET used = true WHERE id = $1', [id]);
+        } else {
+            // postgres.js client
+            await (this.rawPool as PostgresJsClient)`UPDATE verification_codes SET used = true WHERE id = ${id}`;
+        }
     }
 
     async storeUnverifiedUser(userData: any): Promise<void> {
-        const query = `
+        try {
+            log(`DEBUG: Attempting to store unverified user: ${userData.email}. User ID: ${userData.id}`, 'auth');
+            console.log(`DEBUG: storeUnverifiedUser - Raw data:`, {
+                id: userData.id,
+                hackerName: userData.hackerName,
+                email: userData.email,
+                password: userData.password ? '[REDACTED]' : 'MISSING',
+                profileImageUrl: userData.profileImageUrl || null
+            });
+
+            if (typeof (this.rawPool as any).query === 'function') {
+                // Neon Pool
+                console.log(`DEBUG: Using Neon Pool for storeUnverifiedUser`);
+                await (this.rawPool as any).query(`
+                    INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
+                    VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
+                    ON CONFLICT (email) DO UPDATE SET
+                        id = $1, hacker_name = $2, password = $4, profile_image_url = $5, updated_at = NOW()
+                `, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl]);
+                log(`DEBUG: Unverified user stored successfully using Neon Pool for email: ${userData.email}`, 'auth');
+            } else {
+                // postgres.js client
+                console.log(`DEBUG: Using postgres.js client for storeUnverifiedUser`);
+                await (this.rawPool as PostgresJsClient)`
             INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    VALUES (${userData.id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, NOW(), NOW())
             ON CONFLICT (email) DO UPDATE SET
-                id = $1, hacker_name = $2, password = $4, updated_at = $7
-        `;
-        await (this.rawPool as NodePgPool).query(query, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl, userData.createdAt, userData.updatedAt]);
+                        id = ${userData.id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, profile_image_url = ${userData.profileImageUrl}, updated_at = NOW()
+                `;
+                log(`DEBUG: Unverified user stored successfully using postgres.js for email: ${userData.email}`, 'auth');
+            }
+
+        } catch (error) {
+            log(`CRITICAL ERROR: Failed to store unverified user: ${userData.email} - ${(error as Error).message}`, 'error');
+            console.error("FULL STACK ERROR: Storing unverified user failed:", error);
+            throw error; // Re-throw to ensure it's caught by register route and results in a 500
+        }
     }
 
     async getUnverifiedUser(email: string): Promise<any> {
-        const query = `SELECT * FROM unverified_users WHERE email = $1`;
-        const result = await (this.rawPool as NodePgPool).query(query, [email]);
-        return result.rows[0];
+        log(`DEBUG: Attempting to retrieve unverified user for email: ${email}`, 'auth');
+        try {
+            if (typeof (this.rawPool as any).query === 'function') {
+                // Neon Pool
+                console.log(`DEBUG: Using Neon Pool for getUnverifiedUser`);
+                const result = await (this.rawPool as any).query('SELECT * FROM unverified_users WHERE email = $1', [email]);
+                if (result && result.rows && result.rows.length > 0) {
+                    log(`DEBUG: getUnverifiedUser result for ${email}: Found record with ID ${result.rows[0].id}`, 'auth');
+                    return this.normalizeUnverifiedUserRow(result.rows[0]);
+                } else {
+                    log(`DEBUG: getUnverifiedUser result for ${email}: Not found in DB (Neon Pool)`, 'auth');
+                    return undefined;
+                }
+            } else {
+                // postgres.js client
+                console.log(`DEBUG: Using postgres.js client for getUnverifiedUser`);
+                const result = await (this.rawPool as PostgresJsClient)`SELECT * FROM unverified_users WHERE email = ${email}`;
+                if (result && result.length > 0) {
+                    log(`DEBUG: getUnverifiedUser result for ${email}: Found record with ID ${result[0].id}`, 'auth');
+                    return this.normalizeUnverifiedUserRow(result[0]);
+                } else {
+                    log(`DEBUG: getUnverifiedUser result for ${email}: Not found in DB (postgres.js)`, 'auth');
+                    return undefined;
+                }
+            }
+        } catch (error) {
+            log(`ERROR: Failed to retrieve unverified user: ${email} - ${(error as Error).message}`, 'error');
+            console.error("FULL STACK ERROR: Retrieving unverified user failed:", error);
+            throw error;
+        }
     }
 
     async deleteUnverifiedUser(email: string): Promise<void> {
-        const query = `DELETE FROM unverified_users WHERE email = $1`;
-        await (this.rawPool as NodePgPool).query(query, [email]);
+        if (typeof (this.rawPool as any).query === 'function') {
+            // Neon Pool
+            await (this.rawPool as any).query('DELETE FROM unverified_users WHERE email = $1', [email]);
+        } else {
+            // postgres.js client
+            await (this.rawPool as PostgresJsClient)`DELETE FROM unverified_users WHERE email = ${email}`;
+        }
     }
 }
-
-export const storage = new DatabaseStorage();

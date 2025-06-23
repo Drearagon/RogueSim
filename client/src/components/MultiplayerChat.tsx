@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { io, type Socket } from 'socket.io-client';
 import { Send, MessageSquare, Users, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
+import { getCurrentUser } from '../lib/userStorage';
 
 interface ChatMessage {
   id: string;
@@ -32,108 +34,149 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
   const [isOpen, setIsOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
   const [currentInput, setCurrentInput] = useState('');
-  const [messages, setMessages] = useState<ChatMessage[]>([
-    {
-      id: '1',
-      userId: 'system',
-      username: 'NETWORK',
-      message: 'Welcome to The Shadow Network. Secure communications established.',
-      timestamp: new Date().toISOString(),
-      type: 'system'
-    },
-    {
-      id: '2',
-      userId: 'ghost_hacker',
-      username: 'Ghost_Hacker',
-      message: 'Anyone up for a corp infiltration mission?',
-      timestamp: new Date(Date.now() - 300000).toISOString(),
-      type: 'chat'
-    },
-    {
-      id: '3',
-      userId: 'socialeng_x',
-      username: 'SocialEng_X',
-      message: 'I can provide social engineering support',
-      timestamp: new Date(Date.now() - 180000).toISOString(),
-      type: 'team'
-    }
-  ]);
-  const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([
-    {
-      id: 'ghost_hacker',
-      username: 'Ghost_Hacker',
-      level: 15,
-      status: 'online',
-      currentMission: undefined
-    },
-    {
-      id: 'socialeng_x',
-      username: 'SocialEng_X',
-      level: 8,
-      status: 'online',
-      currentMission: undefined
-    },
-    {
-      id: 'data_miner',
-      username: 'Data_Miner',
-      level: 20,
-      status: 'in-mission',
-      currentMission: 'Corp Database Raid'
-    },
-    {
-      id: 'zeroday_kid',
-      username: 'ZeroDay_Kid',
-      level: 5,
-      status: 'away',
-      currentMission: undefined
-    }
-  ]);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
   const [activeChannel, setActiveChannel] = useState<'global' | 'team' | 'whisper'>('global');
-  const [ws, setWs] = useState<WebSocket | null>(null);
+  const [ws, setWs] = useState<Socket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting');
+  const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
-  const currentUser = user as { id?: string; username?: string } | null;
+  const currentUser = user as { id?: string; username?: string; hackerName?: string } | null;
+
+  // Get current user info for chat
+  const [chatUser, setChatUser] = useState<any>(null);
+  useEffect(() => {
+    const loadChatUser = async () => {
+      try {
+        const userData = await getCurrentUser();
+        setChatUser(userData);
+      } catch (error) {
+        console.warn('Could not load user data for chat');
+      }
+    };
+    
+    loadChatUser();
+    
+    // Listen for profile updates to reload user data
+    const handleProfileUpdate = () => {
+      loadChatUser();
+    };
+    
+    window.addEventListener('profileUpdated', handleProfileUpdate);
+    return () => {
+      window.removeEventListener('profileUpdated', handleProfileUpdate);
+    };
+  }, []);
+
+  const getUserDisplayName = () => {
+    return chatUser?.hackerName || 
+           currentUser?.hackerName || 
+           currentUser?.username || 
+           gameState.playerId || 
+           'CyberOp_' + (gameState.playerLevel || 1);
+  };
+
+  const getUserId = () => {
+    return chatUser?.id || 
+           currentUser?.id || 
+           gameState.playerId || 
+           'player_' + Date.now();
+  };
 
   useEffect(() => {
     // Initialize WebSocket connection for real-time chat
     const initWebSocket = () => {
       try {
-        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}/ws`;
-        const websocket = new WebSocket(wsUrl);
+        const isLocalTunnel = window.location.hostname.includes('.loca.lt');
+        const protocol = window.location.protocol === 'https:' || isLocalTunnel ? 'wss:' : 'ws:';
 
-        websocket.onopen = () => {
+        let wsUrl;
+        if (isLocalTunnel) {
+          wsUrl = `${protocol}//${window.location.host}`;
+        } else {
+          wsUrl = 'ws://localhost:5000';
+        }
+
+        console.log(`🔌 Attempting WebSocket connection to: ${wsUrl}`);
+        const socket = io(wsUrl, { path: '/ws', transports: ['websocket'] });
+
+        socket.on('connect', () => {
           setConnectionStatus('connected');
-          websocket.send(JSON.stringify({
-            type: 'join_global_chat',
-            payload: {
-              userId: gameState.playerId || currentUser?.id || 'guest_' + Date.now(),
-              username: gameState.playerId || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
-              level: gameState.playerLevel || 1
-            }
-          }));
-        };
+          const timestamp = new Date().toISOString();
+          const username = getUserDisplayName();
+          
+          // Log player connection
+          console.log(`🔄 [${timestamp}] PLAYER_CONNECT: ${username}`);
+          console.log('✅ Chat WebSocket connected to multiplayer network');
+          
+          // Send join message
+          socket.emit('join_global_chat', {
+            userId: getUserId(),
+            username: username,
+            level: gameState.playerLevel || 1,
+            timestamp
+          });
 
-        websocket.onmessage = (event) => {
-          const data = JSON.parse(event.data);
-          handleWebSocketMessage(data);
-        };
+          // Show welcome message only once when first connecting
+          if (!hasShownWelcome) {
+            setMessages(prev => [...prev, {
+              id: Date.now().toString(),
+              userId: 'system',
+              username: 'SYSTEM',
+              message: `🌐 Connected to The Shadow Network. Welcome, ${username}! Secure communications established.`,
+              timestamp: timestamp,
+              type: 'system'
+            }]);
+            setHasShownWelcome(true);
+          }
+        });
 
-        websocket.onclose = () => {
+        socket.on('chat_message', handleWebSocketMessage);
+        socket.on('player_list_update', handleWebSocketMessage);
+        socket.on('system_message', handleWebSocketMessage);
+        socket.on('user_joined', handleWebSocketMessage);
+        socket.on('user_left', handleWebSocketMessage);
+
+        socket.on('disconnect', (reason) => {
           setConnectionStatus('offline');
-          // Try to reconnect after 5 seconds
-          setTimeout(initWebSocket, 5000);
-        };
+          const timestamp = new Date().toISOString();
+          const username = getUserDisplayName();
 
-        websocket.onerror = () => {
+          console.log(`🔄 [${timestamp}] PLAYER_DISCONNECT: ${username}`);
+          console.log('⚠️ Chat WebSocket connection closed');
+
+          if (reason !== 'io client disconnect') {
+            setTimeout(initWebSocket, 5000);
+          }
+        });
+
+        socket.on('error', (error) => {
           setConnectionStatus('offline');
-        };
+          const timestamp = new Date().toISOString();
+          const username = getUserDisplayName();
 
-        setWs(websocket);
+          console.log(`🔄 [${timestamp}] PLAYER_CONNECTION_ERROR: ${username}`);
+          console.error('❌ Chat WebSocket error:', error);
+        });
+
+        setWs(socket);
       } catch (error) {
         console.log('WebSocket connection failed, using offline mode');
         setConnectionStatus('offline');
+        
+        // Still show welcome message in offline mode
+        if (!hasShownWelcome) {
+          setMessages(prev => [...prev, {
+            id: Date.now().toString(),
+            userId: 'system',
+            username: 'SYSTEM',
+            message: 'Chat initialized in offline mode. Messages will be local only.',
+            timestamp: new Date().toISOString(),
+            type: 'system'
+          }]);
+          setHasShownWelcome(true);
+        }
       }
     };
 
@@ -141,9 +184,11 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
     setTimeout(initWebSocket, 1000);
 
     return () => {
-      if (ws) ws.close();
+      if (ws) {
+        ws.disconnect();
+      }
     };
-  }, [user, gameState.playerLevel]);
+  }, [chatUser, gameState.playerLevel]);
 
   // Listen for the multiplayer command to auto-open chat
   useEffect(() => {
@@ -157,8 +202,8 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
       
       const newMessage: ChatMessage = {
         id: Date.now().toString(),
-        userId: currentUser?.id || 'player_1',
-        username: username,
+        userId: getUserId(),
+        username: username || getUserDisplayName(),
         message: message,
         timestamp: new Date(timestamp).toISOString(),
         type: channel === 'team' ? 'team' : 'chat'
@@ -169,16 +214,12 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
       // Try to send via WebSocket if connected
       if (ws && connectionStatus === 'connected') {
-        const wsMessage = {
-          type: 'send_message',
-          payload: {
-            message: message,
-            channel: channel,
-            userId: currentUser?.id || 'player_1',
-            username: username
-          }
-        };
-        ws.send(JSON.stringify(wsMessage));
+        ws.emit('send_message', {
+          message,
+          channel,
+          userId: getUserId(),
+          username: username || getUserDisplayName()
+        });
       }
 
       // Auto-open chat if closed
@@ -195,13 +236,13 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
       window.removeEventListener('openMultiplayerChat', handleOpenMultiplayerChat);
       window.removeEventListener('sendChatMessage', handleSendChatMessage as EventListener);
     };
-  }, [isOpen, ws, connectionStatus, user]);
+  }, [isOpen, ws, connectionStatus, chatUser]);
 
   const handleWebSocketMessage = (data: any) => {
     switch (data.type) {
       case 'chat_message':
         setMessages(prev => [...prev, {
-          id: data.payload.id,
+          id: data.payload.id || Date.now().toString(),
           userId: data.payload.userId,
           username: data.payload.username,
           message: data.payload.message,
@@ -211,7 +252,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
         break;
       
       case 'player_list_update':
-        setOnlinePlayers(data.payload.players);
+        setOnlinePlayers(data.payload.players || []);
         break;
       
       case 'system_message':
@@ -220,6 +261,28 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
           userId: 'system',
           username: 'SYSTEM',
           message: data.payload.message,
+          timestamp: new Date().toISOString(),
+          type: 'system'
+        }]);
+        break;
+        
+      case 'user_joined':
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          userId: 'system',
+          username: 'SYSTEM',
+          message: `${data.payload.username} joined the network`,
+          timestamp: new Date().toISOString(),
+          type: 'system'
+        }]);
+        break;
+        
+      case 'user_left':
+        setMessages(prev => [...prev, {
+          id: Date.now().toString(),
+          userId: 'system',
+          username: 'SYSTEM',
+          message: `${data.payload.username} left the network`,
           timestamp: new Date().toISOString(),
           type: 'system'
         }]);
@@ -236,8 +299,8 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
     const newMessage: ChatMessage = {
       id: Date.now().toString(),
-      userId: currentUser?.id || 'player_1',
-      username: gameState.playerId || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
+      userId: getUserId(),
+      username: getUserDisplayName(),
       message: currentInput.trim(),
       timestamp: new Date().toISOString(),
       type: activeChannel === 'team' ? 'team' : 'chat'
@@ -248,16 +311,12 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
     // Try to send via WebSocket if connected
     if (ws && connectionStatus === 'connected') {
-      const message = {
-        type: 'send_message',
-        payload: {
-          message: currentInput.trim(),
-          channel: activeChannel,
-          userId: currentUser?.id || 'player_1',
-          username: gameState.playerId || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1)
-        }
-      };
-      ws.send(JSON.stringify(message));
+      ws.emit('send_message', {
+        message: currentInput.trim(),
+        channel: activeChannel,
+        userId: getUserId(),
+        username: getUserDisplayName()
+      });
     }
 
     setCurrentInput('');
@@ -396,32 +455,41 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
           {/* Messages Area */}
           <div className="flex-1 h-48 overflow-y-auto p-2 text-xs font-mono space-y-1">
-            {messages
-              .filter(msg => activeChannel === 'global' || msg.type === activeChannel)
-              .map((msg) => (
-                <div key={msg.id} className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <span 
-                      className="text-xs opacity-60"
+            {messages.length === 0 ? (
+              <div 
+                className="text-center opacity-60 mt-8"
+                style={{ color: terminalSettings.textColor }}
+              >
+                No messages yet. Start a conversation!
+              </div>
+            ) : (
+              messages
+                .filter(msg => activeChannel === 'global' || msg.type === activeChannel)
+                .map((msg) => (
+                  <div key={msg.id} className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span 
+                        className="text-xs opacity-60"
+                        style={{ color: terminalSettings.textColor }}
+                      >
+                        {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false })}
+                      </span>
+                      <span 
+                        className="font-bold"
+                        style={{ color: getMessageTypeColor(msg.type) }}
+                      >
+                        {msg.username}:
+                      </span>
+                    </div>
+                    <div 
+                      className="ml-4 break-words"
                       style={{ color: terminalSettings.textColor }}
                     >
-                      {new Date(msg.timestamp).toLocaleTimeString('en-US', { hour12: false })}
-                    </span>
-                    <span 
-                      className="font-bold"
-                      style={{ color: getMessageTypeColor(msg.type) }}
-                    >
-                      {msg.username}:
-                    </span>
+                      {msg.message}
+                    </div>
                   </div>
-                  <div 
-                    className="ml-4 break-words"
-                    style={{ color: terminalSettings.textColor }}
-                  >
-                    {msg.message}
-                  </div>
-                </div>
-              ))}
+                ))
+            )}
             <div ref={messagesEndRef} />
           </div>
 
@@ -434,33 +502,42 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
               Online Players ({onlinePlayers.length})
             </div>
             <div className="max-h-16 overflow-y-auto space-y-1">
-              {onlinePlayers.map((player) => (
-                <div key={player.id} className="flex items-center justify-between text-xs">
-                  <div className="flex items-center gap-2">
-                    <div 
-                      className="w-2 h-2 rounded-full"
-                      style={{ backgroundColor: getPlayerStatusColor(player.status) }}
-                    />
-                    <span style={{ color: terminalSettings.textColor }}>
-                      {player.username}
-                    </span>
-                    <span 
-                      className="opacity-60"
-                      style={{ color: terminalSettings.textColor }}
-                    >
-                      Lv.{player.level}
-                    </span>
-                  </div>
-                  {player.currentMission && (
-                    <span 
-                      className="text-xs opacity-80"
-                      style={{ color: terminalSettings.primaryColor }}
-                    >
-                      {player.currentMission}
-                    </span>
-                  )}
+              {onlinePlayers.length === 0 ? (
+                <div 
+                  className="text-xs opacity-60"
+                  style={{ color: terminalSettings.textColor }}
+                >
+                  No other players online
                 </div>
-              ))}
+              ) : (
+                onlinePlayers.map((player) => (
+                  <div key={player.id} className="flex items-center justify-between text-xs">
+                    <div className="flex items-center gap-2">
+                      <div 
+                        className="w-2 h-2 rounded-full"
+                        style={{ backgroundColor: getPlayerStatusColor(player.status) }}
+                      />
+                      <span style={{ color: terminalSettings.textColor }}>
+                        {player.username}
+                      </span>
+                      <span 
+                        className="opacity-60"
+                        style={{ color: terminalSettings.textColor }}
+                      >
+                        Lv.{player.level}
+                      </span>
+                    </div>
+                    {player.currentMission && (
+                      <span 
+                        className="text-xs opacity-80"
+                        style={{ color: terminalSettings.primaryColor }}
+                      >
+                        {player.currentMission}
+                      </span>
+                    )}
+                  </div>
+                ))
+              )}
             </div>
           </div>
 
@@ -475,15 +552,21 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
                 value={currentInput}
                 onChange={(e) => setCurrentInput(e.target.value)}
                 onKeyDown={handleKeyPress}
-                placeholder={`Message ${activeChannel}...`}
-                className="flex-1 bg-transparent border-none outline-none text-xs font-mono"
-                style={{ color: terminalSettings.textColor }}
+                placeholder={`Type your message to ${activeChannel}...`}
+                className="flex-1 bg-transparent border rounded px-2 py-1 outline-none text-xs font-mono placeholder:opacity-50"
+                style={{ 
+                  color: terminalSettings.textColor,
+                  borderColor: `${terminalSettings.primaryColor}40`,
+                  backgroundColor: `${terminalSettings.backgroundColor}40`
+                }}
                 maxLength={200}
+                autoComplete="off"
               />
               <button
                 onClick={sendMessage}
                 disabled={!currentInput.trim()}
                 className="p-1 hover:opacity-80 transition-opacity disabled:opacity-30"
+                title="Send message (Enter)"
               >
                 <Send className="w-4 h-4" style={{ color: terminalSettings.primaryColor }} />
               </button>

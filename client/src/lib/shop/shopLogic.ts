@@ -1,6 +1,6 @@
 import { GameState } from '../../types/game';
 import { ShopItem, PurchaseResult, ItemCategory } from './types';
-import { getItemById } from './items';
+import { getItemById, getItemsByCategory, ALL_SHOP_ITEMS } from './items';
 
 export class ShopManager {
   private gameState: GameState;
@@ -115,14 +115,11 @@ export class ShopManager {
   }
 
   getAvailableItems(category?: ItemCategory): ShopItem[] {
-    const items = getItemById ? 
-      Object.values(require('./items')).flat().filter((item: any) => item.id) :
-      [];
-    
-    return items.filter((item: ShopItem) => {
-      if (category && item.category !== category) return false;
-      return this.meetsPrerequisites(item.id);
-    });
+    const items: ShopItem[] = category
+      ? getItemsByCategory(category)
+      : ALL_SHOP_ITEMS;
+
+    return items.filter(item => this.meetsPrerequisites(item.id));
   }
 
   getRarityColor(rarity: string): string {

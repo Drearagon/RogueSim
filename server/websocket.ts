@@ -1,6 +1,6 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { Server } from 'http';
-import { storage } from './storage';
+// import { DatabaseStorage } from './storage'; // Commented out since this class is not currently used
 
 interface GameWebSocket extends WebSocket {
   userId?: string;
@@ -8,12 +8,17 @@ interface GameWebSocket extends WebSocket {
   hackerName?: string;
 }
 
+// Temporarily commenting out this class since it's not currently used
+// The actual WebSocket implementation uses Socket.IO in routes.ts
+/*
 export class MultiplayerWebSocketServer {
   private wss: WebSocketServer;
   private rooms: Map<number, Set<GameWebSocket>> = new Map();
   private userSockets: Map<string, GameWebSocket> = new Map();
+  private storage: any; // DatabaseStorage;
 
-  constructor(server: Server) {
+  constructor(server: Server, storage: any) { // DatabaseStorage) {
+    this.storage = storage;
     this.wss = new WebSocketServer({ 
       server, 
       path: '/ws',
@@ -113,7 +118,7 @@ export class MultiplayerWebSocketServer {
     }, ws);
 
     // Send current room state to the new player
-    const members = await storage.getRoomMembers(payload.roomId);
+    const members = await this.storage.getRoomMembers(payload.roomId);
     ws.send(JSON.stringify({
       type: 'room_state',
       payload: { members, roomId: payload.roomId }
@@ -224,3 +229,4 @@ export class MultiplayerWebSocketServer {
     this.broadcastToRoom(roomId, message);
   }
 }
+*/

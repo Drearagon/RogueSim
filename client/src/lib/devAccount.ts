@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { GameState } from '../types/game';
 
 export const createDevAccount = (): GameState => {

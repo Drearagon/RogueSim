@@ -1,8 +1,13 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useEffect } from "react";
+import { getCurrentUser } from "../lib/userStorage";
 
 export function useAuth() {
-  const { data: user, isLoading, error } = useQuery({
+  const queryClient = useQueryClient();
+
+  const { data: user, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/auth/user"],
+    queryFn: getCurrentUser,
     retry: (failureCount, error: any) => {
       // Don't retry on authentication errors (401/403)
       if (error?.status === 401 || error?.status === 403) {
@@ -16,6 +21,26 @@ export function useAuth() {
     throwOnError: false,
   });
 
+  // Listen for authentication events to refetch user data
+  useEffect(() => {
+    const handleAuthChange = () => {
+      console.log('🔄 Authentication state changed, refetching user data...');
+      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+      refetch();
+    };
+
+    // Listen for login/logout events
+    window.addEventListener('userLoggedIn', handleAuthChange);
+    window.addEventListener('userLoggedOut', handleAuthChange);
+    window.addEventListener('userVerified', handleAuthChange);
+
+    return () => {
+      window.removeEventListener('userLoggedIn', handleAuthChange);
+      window.removeEventListener('userLoggedOut', handleAuthChange);
+      window.removeEventListener('userVerified', handleAuthChange);
+    };
+  }, [queryClient, refetch]);
+
   // Enhanced authentication state with detailed error tracking
   const isAuthenticated = !!user && !error;
   const authError = error ? 
@@ -26,6 +51,7 @@ export function useAuth() {
     user,
     isLoading,
     isAuthenticated,
-    error: authError
+    error: authError,
+    refetch
   };
 }
