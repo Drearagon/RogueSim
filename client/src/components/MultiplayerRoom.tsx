@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { io, type Socket } from 'socket.io-client';
+// Removed socket.io-client import - using native WebSocket instead
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -52,18 +52,18 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   const [roomName, setRoomName] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{ user: string; message: string; time: string }>>([]);
   const [chatInput, setChatInput] = useState('');
-  const [ws, setWs] = useState<Socket | null>(null);
+  const [ws, setWs] = useState<WebSocket | null>(null);
   const [showMissionPlanner, setShowMissionPlanner] = useState(false);
 
   useEffect(() => {
     if (currentRoom && currentUser) {
-      // Connect to real WebSocket server using Socket.IO
+      // Connect to real WebSocket server
       const connectWebSocket = () => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
 
         try {
-          const socket = io(wsUrl, { path: '/ws', transports: ['websocket'] });
+          const websocket = new WebSocket(wsUrl);
 
           socket.on('connect', () => {
             console.log('Connected to WebSocket server');

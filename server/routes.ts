@@ -121,7 +121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         log('✅ Session middleware configured successfully');
 
- codex/implement-rate-limiting-for-auth-routes
+        // Rate limiting for auth routes
         const authLimiter = rateLimit({
             windowMs: 60 * 1000, // 1 minute
             max: 5,
