@@ -99,7 +99,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
         }
 
         console.log(`🔌 Attempting WebSocket connection to: ${wsUrl}`);
-        const socket = io(wsUrl, { path: '/ws', transports: ['websocket'] });
+        const socket = new WebSocket(wsUrl);
 
         socket.on('connect', () => {
           setConnectionStatus('connected');
@@ -138,7 +138,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
         socket.on('user_joined', handleWebSocketMessage);
         socket.on('user_left', handleWebSocketMessage);
 
-        socket.on('disconnect', (reason) => {
+        socket.onclose = () => {
           setConnectionStatus('offline');
           const timestamp = new Date().toISOString();
           const username = getUserDisplayName();
@@ -146,19 +146,17 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
           console.log(`🔄 [${timestamp}] PLAYER_DISCONNECT: ${username}`);
           console.log('⚠️ Chat WebSocket connection closed');
 
-          if (reason !== 'io client disconnect') {
-            setTimeout(initWebSocket, 5000);
-          }
-        });
+          setTimeout(initWebSocket, 5000);
+        };
 
-        socket.on('error', (error) => {
+        socket.onerror = (error) => {
           setConnectionStatus('offline');
           const timestamp = new Date().toISOString();
           const username = getUserDisplayName();
 
           console.log(`🔄 [${timestamp}] PLAYER_CONNECTION_ERROR: ${username}`);
           console.error('❌ Chat WebSocket error:', error);
-        });
+        };
 
         setWs(socket);
       } catch (error) {
@@ -185,7 +183,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
     return () => {
       if (ws) {
-        ws.disconnect();
+        ws.close();
       }
     };
   }, [chatUser, gameState.playerLevel]);
@@ -214,12 +212,13 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
       // Try to send via WebSocket if connected
       if (ws && connectionStatus === 'connected') {
-        ws.emit('send_message', {
+        ws.send(JSON.stringify({
+          type: 'send_message',
           message,
           channel,
           userId: getUserId(),
           username: username || getUserDisplayName()
-        });
+        }));
       }
 
       // Auto-open chat if closed
@@ -311,12 +310,13 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
     // Try to send via WebSocket if connected
     if (ws && connectionStatus === 'connected') {
-      ws.emit('send_message', {
+      ws.send(JSON.stringify({
+        type: 'send_message',
         message: currentInput.trim(),
         channel: activeChannel,
         userId: getUserId(),
         username: getUserDisplayName()
-      });
+      }));
     }
 
     setCurrentInput('');
