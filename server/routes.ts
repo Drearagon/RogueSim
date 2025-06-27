@@ -357,6 +357,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
+        // Admin dashboard for security monitoring
+        app.get('/api/admin/security-stats', isAuthenticated, async (req: any, res) => {
+            try {
+                // Check if user has admin privileges (implement based on your requirements)
+                const user = await storage.getUser(req.session.userId);
+                if (!user || !user.email?.includes('admin')) {
+                    return res.status(403).json({ error: 'Admin access required' });
+                }
+
+                const stats = SecurityMiddleware.getSecurityStats();
+                const auditLogs = SecurityAuditLogger.getLogs(50);
+                
+                res.json({
+                    security: stats,
+                    recentLogs: auditLogs,
+                    timestamp: new Date().toISOString()
+                });
+            } catch (error) {
+                console.error('Security stats error:', error);
+                res.status(500).json({ error: 'Failed to fetch security stats' });
+            }
+        });
+
+        // Enhanced game analytics endpoint
+        app.get('/api/admin/game-analytics', isAuthenticated, async (req: any, res) => {
+            try {
+                const user = await storage.getUser(req.session.userId);
+                if (!user || !user.email?.includes('admin')) {
+                    return res.status(403).json({ error: 'Admin access required' });
+                }
+
+                // Get game analytics (implement based on your data structure)
+                const analytics = {
+                    totalUsers: 0, // Implement with actual query
+                    activeUsers: 0,
+                    completedMissions: 0,
+                    averageSessionTime: 0,
+                    popularCommands: [],
+                    missionCompletionRates: {},
+                    timestamp: new Date().toISOString()
+                };
+
+                res.json(analytics);
+            } catch (error) {
+                console.error('Game analytics error:', error);
+                res.status(500).json({ error: 'Failed to fetch game analytics' });
+            }
+        });
+
+        // Password strength validation endpoint
+        app.post('/api/auth/validate-password', (req, res) => {
+            const { password } = req.body;
+            if (!password) {
+                return res.status(400).json({ error: 'Password is required' });
+            }
+
+            const validation = PasswordValidator.validate(password);
+            res.json(validation);
+        });
+
         // Create HTTP server
         const server = createServer(app);
 
