@@ -37,7 +37,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
   const [activeChannel, setActiveChannel] = useState<'global' | 'team' | 'whisper'>('global');
-  const [ws, setWs] = useState<Socket | null>(null);
+  const [ws, setWs] = useState<WebSocket | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'offline'>('connecting');
   const [hasShownWelcome, setHasShownWelcome] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
