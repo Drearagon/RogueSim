@@ -65,45 +65,53 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
         try {
           const websocket = new WebSocket(wsUrl);
 
-          socket.on('connect', () => {
+          websocket.onopen = () => {
             console.log('Connected to WebSocket server');
-            socket.emit('authenticate', {
+            websocket.send(JSON.stringify({
+              type: 'authenticate',
               userId: currentUser.id,
               hackerName: (currentUser as any)?.hackerName || currentUser.username
-            });
-            socket.emit('join_room', { roomId: currentRoom.id });
-          });
+            }));
+            websocket.send(JSON.stringify({
+              type: 'join_room',
+              roomId: currentRoom.id
+            }));
+          };
 
-          socket.on('chat_message', (data) => {
-            setChatMessages(prev => [...prev, {
-              user: data.username,
-              message: data.message,
-              time: new Date(data.timestamp).toLocaleTimeString()
-            }]);
-          });
+          websocket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'chat_message') {
+              setChatMessages(prev => [...prev, {
+                user: data.username,
+                message: data.message,
+                time: new Date(data.timestamp).toLocaleTimeString()
+              }]);
+            } else if (data.type === 'player_joined') {
+              toast({
+                title: "Player Joined",
+                description: `${data.hackerName} joined the room`,
+              });
+              fetchRoomMembers();
+            } else if (data.type === 'player_left') {
+              toast({
+                title: "Player Left",
+                description: `${data.hackerName} left the room`,
+              });
+              fetchRoomMembers();
+            }
+          };
 
-          socket.on('player_joined', (data) => {
-            toast({
-              title: "Player Joined",
-              description: `${data.hackerName} joined the room`,
-            });
-            fetchRoomMembers();
-          });
-
-          socket.on('player_left', (data) => {
-            toast({
-              title: "Player Left",
-              description: `${data.hackerName} left the room`,
-            });
-            fetchRoomMembers();
-          });
-
-          socket.on('disconnect', () => {
+          websocket.onclose = () => {
             console.log('WebSocket connection closed');
             setTimeout(connectWebSocket, 5000);
-          });
+          };
 
-          setWs(socket);
+          websocket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+          };
+
+          setWs(websocket as any);
         } catch (error) {
           console.error('Failed to connect to WebSocket:', error);
         }
@@ -115,7 +123,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
 
     return () => {
       if (ws) {
-        ws.disconnect();
+        ws.close();
       }
     };
   }, [currentRoom, currentUser, toast]);
@@ -205,9 +213,12 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
     if (!currentRoom) return;
 
     try {
-        if (ws) {
-          ws.emit('leave_room');
-          ws.disconnect();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'leave_room',
+            roomId: currentRoom.id
+          }));
+          ws.close();
         }
 
       const response = await fetch(`/api/rooms/${currentRoom.id}/leave`, {
@@ -240,13 +251,14 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
 
     // Send message via WebSocket if connected, otherwise store locally
 
-    if (ws && ws.connected) {
-      ws.emit('send_message', {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'send_message',
         message: chatInput.trim(),
         channel: 'room',
         userId: currentUser?.id,
         username: currentUser?.username || 'Anonymous'
-      });
+      }));
     }
 
     if (ws && ws.readyState === WebSocket.OPEN) {
