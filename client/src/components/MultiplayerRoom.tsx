@@ -10,8 +10,8 @@ import { Users, MessageSquare, Trophy, Settings, Copy, User, Crown, Target, Map 
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { CollaborativeMissionPlanner } from './CollaborativeMissionPlanner';
-import { RealTimeSync } from './RealTimeSync';
+import { CollaborativeMissionPlanner } from './CollaborativeMissionPlanner_Fixed';
+import { RealTimeSync } from './RealTimeSync_Fixed';
 
 interface Room {
   id: number;

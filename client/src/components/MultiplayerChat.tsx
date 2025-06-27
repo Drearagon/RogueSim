@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-// import { io, type Socket } from 'socket.io-client';
+// Fallback to fixed version until WebSocket issues are resolved
+export { MultiplayerChat } from './MultiplayerChat_Fixed';
 import { Send, MessageSquare, Users, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getCurrentUser } from '../lib/userStorage';
