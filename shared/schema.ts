@@ -25,7 +25,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
   
   // Game-specific profile fields
-  hackerName: varchar("hacker_name").unique(), // In-game username
+  hackerName: varchar("hacker_name").unique().notNull(), // In-game username
   playerLevel: integer("player_level").notNull().default(1),
   totalMissionsCompleted: integer("total_missions_completed").notNull().default(0),
   totalCreditsEarned: integer("total_credits_earned").notNull().default(0),
