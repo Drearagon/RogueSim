@@ -66,8 +66,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         log('✅ Session middleware configured successfully');
 
-        // Simple rate limiting middleware
+        // Enhanced rate limiting middleware
+        const rateLimitStore = new Map();
         const authLimiter = (req: any, res: any, next: any) => {
+            const ip = req.ip || req.connection.remoteAddress;
+            const key = `${ip}-${req.path}`;
+            const now = Date.now();
+            const windowMs = 15 * 60 * 1000; // 15 minutes
+            const maxAttempts = req.path.includes('login') ? 5 : 10;
+
+            if (!rateLimitStore.has(key)) {
+                rateLimitStore.set(key, { count: 1, firstAttempt: now });
+                return next();
+            }
+
+            const record = rateLimitStore.get(key);
+            if (now - record.firstAttempt > windowMs) {
+                rateLimitStore.set(key, { count: 1, firstAttempt: now });
+                return next();
+            }
+
+            if (record.count >= maxAttempts) {
+                return res.status(429).json({ 
+                    error: 'Too many attempts', 
+                    retryAfter: Math.ceil((windowMs - (now - record.firstAttempt)) / 1000)
+                });
+            }
+
+            record.count++;
             next();
         };
 
@@ -124,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 });
 
                 // Send verification email
-                const emailSent = await sendVerificationEmail(email, verificationCode, hackerName);
+                const emailSent = await sendVerificationEmail(email, verificationCode, hackerName || 'Agent');
 
                 if (!emailSent) {
                     return res.status(500).json({ error: 'Failed to send verification email' });
@@ -184,7 +210,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 req.session.hackerName = newUser.hackerName;
 
                 // Send welcome email
-                await sendWelcomeEmail(newUser.email, newUser.hackerName);
+                await sendWelcomeEmail(newUser.email, newUser.hackerName || 'Agent');
 
                 res.json({ 
                     message: 'Email verified successfully. Account created!', 
@@ -255,7 +281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Protected routes
         app.get('/api/auth/me', isAuthenticated, async (req: any, res) => {
             try {
-                const user = await storage.getUserById(req.session.userId);
+                const user = await storage.getUser(req.session.userId);
                 if (!user) {
                     return res.status(404).json({ error: 'User not found' });
                 }
@@ -268,6 +294,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (error) {
                 console.error('Get user error:', error);
                 res.status(500).json({ error: 'Internal server error' });
+            }
+        });
+
+        // Frontend expects this endpoint for authentication checks
+        app.get('/api/auth/user', async (req: any, res) => {
+            try {
+                if (!req.session?.userId) {
+                    return res.status(401).json({ error: 'Not authenticated', code: 'NO_SESSION' });
+                }
+
+                const user = await storage.getUser(req.session.userId);
+                if (!user) {
+                    req.session.destroy((err: any) => {
+                        if (err) console.error('Session destroy error:', err);
+                    });
+                    return res.status(401).json({ error: 'User not found', code: 'INVALID_USER' });
+                }
+
+                // Return secure user data
+                const safeUser = {
+                    id: user.id,
+                    email: user.email,
+                    hackerName: user.hackerName,
+                    profileImageUrl: user.profileImageUrl,
+                    createdAt: user.createdAt,
+                };
+
+                res.json(safeUser);
+            } catch (error) {
+                console.error('Get user error:', error);
+                res.status(500).json({ error: 'Internal server error', code: 'SERVER_ERROR' });
             }
         });
 
