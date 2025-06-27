@@ -13,6 +13,7 @@ import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger";
 import { log } from "./vite";
 import crypto from "crypto";
+import { SecurityMiddleware, PasswordValidator, SecurityAuditLogger } from "./security";
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -66,36 +67,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         log('✅ Session middleware configured successfully');
 
-        // Enhanced rate limiting middleware
-        const rateLimitStore = new Map();
-        const authLimiter = (req: any, res: any, next: any) => {
-            const ip = req.ip || req.connection.remoteAddress;
-            const key = `${ip}-${req.path}`;
-            const now = Date.now();
-            const windowMs = 15 * 60 * 1000; // 15 minutes
-            const maxAttempts = req.path.includes('login') ? 5 : 10;
+        // Enhanced security middleware
+        app.use(SecurityMiddleware.sanitizeInput());
+        app.use(SecurityMiddleware.honeypotProtection());
+        app.use(SecurityMiddleware.enhanceSessionSecurity());
 
-            if (!rateLimitStore.has(key)) {
-                rateLimitStore.set(key, { count: 1, firstAttempt: now });
-                return next();
-            }
+        // Advanced rate limiting for authentication routes
+        const authLimiter = SecurityMiddleware.advancedRateLimit({
+            windowMs: 15 * 60 * 1000,
+            maxAttempts: 5,
+            blockDuration: 30 * 60 * 1000,
+            progressiveDelay: true
+        });
 
-            const record = rateLimitStore.get(key);
-            if (now - record.firstAttempt > windowMs) {
-                rateLimitStore.set(key, { count: 1, firstAttempt: now });
-                return next();
-            }
-
-            if (record.count >= maxAttempts) {
-                return res.status(429).json({ 
-                    error: 'Too many attempts', 
-                    retryAfter: Math.ceil((windowMs - (now - record.firstAttempt)) / 1000)
-                });
-            }
-
-            record.count++;
-            next();
-        };
+        // General rate limiting for API routes
+        const apiLimiter = SecurityMiddleware.advancedRateLimit({
+            windowMs: 1 * 60 * 1000,
+            maxAttempts: 30,
+            blockDuration: 5 * 60 * 1000,
+            progressiveDelay: false
+        });
 
         // CSRF token endpoint
         app.get('/api/csrf', (req, res) => {
@@ -210,7 +201,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 req.session.hackerName = newUser.hackerName;
 
                 // Send welcome email
-                await sendWelcomeEmail(newUser.email, newUser.hackerName || 'Agent');
+                if (newUser.email && newUser.hackerName) {
+                    await sendWelcomeEmail(newUser.email, newUser.hackerName);
+                }
 
                 res.json({ 
                     message: 'Email verified successfully. Account created!', 
@@ -339,7 +332,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     sessionId: gameData.sessionId || uuidv4(),
                     gameMode: gameData.gameMode || 'single',
                     gameData: gameData,
-                    lastSaved: new Date(),
                 });
 
                 res.json({ message: 'Game saved successfully', gameSave });
