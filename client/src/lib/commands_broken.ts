@@ -773,8 +773,7 @@ export const commands: Record<string, Command> = {
         ],
         success: true
       };
-    },
-    unlockLevel: 0
+    }
   },
 
   inject: {
