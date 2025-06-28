@@ -758,44 +758,19 @@ export const commands: Record<string, Command> = {
     usage: "status",
     execute: (args: string[], gameState: GameState): CommandResult => {
       const nextLevelXp = (gameState.playerLevel + 1) * 1000;
-      const output = [
-        '┌─ SYSTEM STATUS ─┐',
-        `│ ESP32: ONLINE    │`,
-        `│ WiFi: ${gameState.networkStatus.substring(0, 10).padEnd(10)} │`,
-        `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
-        `│ Rep: ${gameState.reputation.substring(0, 10).padEnd(10)} │`,
-        `│ Level: ${gameState.playerLevel.toString().padEnd(6)} │`,
-        `│ XP: ${gameState.experience}/${nextLevelXp} │`,
-        `│ Missions: ${gameState.completedMissions}/∞    │`,
-        '└─────────────────┘'
-      ];
-
-      // Add Hydra Protocol status if discovered
-      if (gameState.hydraProtocol.discovered) {
-        output.push(
-          '',
-          '┌─ HYDRA PROTOCOL ─┐',
-          `│ Status: ${gameState.hydraProtocol.shadow_org_standing.substring(0, 8).padEnd(8)}  │`,
-          `│ Level: ${gameState.hydraProtocol.access_level}         │`,
-          `│ Suspicion: ${gameState.suspicionLevel}%   │`,
-          '└─────────────────┘'
-        );
-      }
-
-      // Check for active narrative events
-      const activeEvent = getNextNarrativeEvent(gameState);
-      if (activeEvent) {
-        output.push(
-          '',
-          '⚠ INCOMING TRANSMISSION',
-          'Use "frequency 433.92" to decode'
-        );
-      }
-
-      output.push('');
-
+      
       return {
-        output,
+        output: [
+          '┌─ SYSTEM STATUS ─┐',
+          `│ ESP32: ONLINE    │`,
+          `│ WiFi: ${gameState.networkStatus?.substring(0, 10).padEnd(10) || 'OFFLINE   '} │`,
+          `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
+          `│ Rep: ${gameState.reputation?.substring(0, 10).padEnd(10) || 'NOVICE    '} │`,
+          `│ Level: ${gameState.playerLevel.toString().padEnd(6)} │`,
+          `│ XP: ${gameState.experience}/${nextLevelXp} │`,
+          `│ Missions: ${gameState.completedMissions}/∞    │`,
+          '└─────────────────┘'
+        ],
         success: true
       };
     }
