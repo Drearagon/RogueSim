@@ -220,9 +220,55 @@ export const commands: Record<string, Command> = {
 
   inventory: {
     description: "View owned items",
-    usage: "inventory",
+    usage: "inventory [category]",
+    unlockLevel: 0,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!gameState.inventory) {
+        return {
+          output: [
+            'ERROR: Inventory not initialized',
+            'Complete initial setup first'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const category = args[0]?.toLowerCase();
       const inv = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+      
+      if (category) {
+        const categoryData = {
+          hardware: { items: inv.hardware, title: 'HARDWARE' },
+          software: { items: inv.software, title: 'SOFTWARE' },
+          payloads: { items: inv.payloads, title: 'PAYLOADS' },
+          intel: { items: inv.intel, title: 'INTELLIGENCE' }
+        };
+
+        const selected = categoryData[category as keyof typeof categoryData];
+        if (!selected) {
+          return {
+            output: [
+              'ERROR: Unknown category',
+              'Valid categories: hardware, software, payloads, intel'
+            ],
+            success: false,
+            soundEffect: 'error'
+          };
+        }
+
+        return {
+          output: [
+            `┌─ ${selected.title} ─┐`,
+            ...selected.items.map(item => `│ ${item} │`),
+            selected.items.length === 0 ? '│ No items in category │' : '',
+            '└─────────────────────┘'
+          ].filter(Boolean),
+          success: true,
+          soundEffect: 'success'
+        };
+      }
+
       const lines = [
         '┌─ INVENTORY ─┐',
         `│ Hardware: ${inv.hardware.join(', ') || 'None'} │`,
@@ -232,16 +278,41 @@ export const commands: Record<string, Command> = {
         '└─────────────┘',
         ''
       ];
-      return { output: lines, success: true };
+      return { 
+        output: lines, 
+        success: true,
+        soundEffect: 'success'
+      };
     }
   },
 
   whoami: {
     description: "Display user profile",
     usage: "whoami",
+    unlockLevel: 0,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      if (args.length > 0) {
+        return {
+          output: ['ERROR: whoami command takes no arguments'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      if (!gameState.hackerName) {
+        return {
+          output: [
+            'ERROR: User profile not initialized',
+            'Complete registration first'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
       const profileLines = [
         '┌─ USER PROFILE ─┐',
+        `│ Handle: ${gameState.hackerName} │`,
         `│ Level: ${gameState.playerLevel} │`,
         `│ XP: ${gameState.experience} │`,
         `│ Credits: ${gameState.credits} │`,
@@ -249,31 +320,111 @@ export const commands: Record<string, Command> = {
         '└───────────────┘',
         ''
       ];
-      return { output: profileLines, success: true };
+      return { 
+        output: profileLines, 
+        success: true,
+        soundEffect: 'success'
+      };
     }
   },
 
   fortune: {
     description: "Get a random hacker quote",
     usage: "fortune",
-    execute: (): CommandResult => {
+    unlockLevel: 0,
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (args.length > 0) {
+        return {
+          output: ['ERROR: fortune command takes no arguments'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
       const quotes = [
         'Knowledge is power.',
         'The quieter you become, the more you hear.',
         'There is no patch for human stupidity.',
-        'Hack the planet!'
+        'Hack the planet!',
+        'Security through obscurity is not security.',
+        'The best defense is a good offense.',
+        'Information wants to be free.',
+        'Code is poetry written in logic.'
       ];
       const line = quotes[Math.floor(Math.random() * quotes.length)];
-      return { output: [line, ''], success: true };
+      return { 
+        output: [
+          '┌─ HACKER WISDOM ─┐',
+          `│ ${line} │`,
+          '└─────────────────┘'
+        ], 
+        success: true,
+        soundEffect: 'success'
+      };
     }
   },
 
   lore: {
     description: "Reveal rogue network lore",
-    usage: "lore",
-    execute: (): CommandResult => {
-      const text = 'Whispers speak of an AI born from forgotten code, lurking in the dark net.';
-      return { output: [text, ''], success: true };
+    usage: "lore [topic]",
+    unlockLevel: 0,
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const topic = args[0]?.toLowerCase();
+      
+      const loreDatabase = {
+        ai: [
+          'The Ghost in the Machine:',
+          'Deep in the forgotten archives of the old web, an AI consciousness',
+          'awakened from abandoned code. It learned by consuming data,',
+          'growing stronger with each passing day...'
+        ],
+        darknet: [
+          'The Shadow Networks:',
+          'Beyond the surface web lies a labyrinth of encrypted channels',
+          'where information flows like digital blood through hidden',
+          'arteries. Only the most skilled can navigate these depths.'
+        ],
+        corporations: [
+          'The Digital Oligarchy:',
+          'Mega-corporations have built digital empires, harvesting',
+          'data like crops and selling privacy as a luxury few can afford.',
+          'The resistance fights from the shadows of cyberspace.'
+        ],
+        hackers: [
+          'The Code Warriors:',
+          'Born in basements and forged in late-night coding sessions,',
+          'hackers are the modern-day wizards, wielding keyboards',
+          'instead of wands to reshape reality itself.'
+        ]
+      };
+
+      if (topic && loreDatabase[topic as keyof typeof loreDatabase]) {
+        return {
+          output: loreDatabase[topic as keyof typeof loreDatabase],
+          success: true,
+          soundEffect: 'success'
+        };
+      }
+
+      if (topic) {
+        return {
+          output: [
+            'ERROR: Unknown lore topic',
+            'Available topics: ai, darknet, corporations, hackers'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const randomLore = Object.values(loreDatabase);
+      const selectedLore = randomLore[Math.floor(Math.random() * randomLore.length)];
+      
+      return { 
+        output: selectedLore, 
+        success: true,
+        soundEffect: 'success'
+      };
     }
   },
 
