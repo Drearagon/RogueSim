@@ -2239,6 +2239,13 @@ export const commands: Record<string, Command> = {
     description: "List available mini-games",
     usage: "minigames [list|<game_id>]",
     execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!commands.minigame) {
+        return {
+          output: ['ERROR: Mini-game system not available'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
       return commands.minigame.execute(args.length ? args : ['list'], gameState);
     },
     unlockLevel: 1
@@ -2251,6 +2258,14 @@ export const commands: Record<string, Command> = {
     execute: (args: string[], gameState: GameState): CommandResult => {
       const difficulty = args[0] === 'hard' ? 'hard' : 'easy';
       const gameId = `pattern_crack_${difficulty}`;
+      
+      if (!commands.minigame) {
+        return {
+          output: ['ERROR: Mini-game system not available'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
       
       // Delegate to minigame command
       return commands.minigame.execute([gameId], gameState);
@@ -2266,6 +2281,14 @@ export const commands: Record<string, Command> = {
       const difficulty = args[0] === 'expert' ? 'expert' : 'easy';
       const gameId = `signal_trace_${difficulty}`;
       
+      if (!commands.minigame) {
+        return {
+          output: ['ERROR: Mini-game system not available'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+      
       // Delegate to minigame command
       return commands.minigame.execute([gameId], gameState);
     },
@@ -2279,6 +2302,14 @@ export const commands: Record<string, Command> = {
     execute: (args: string[], gameState: GameState): CommandResult => {
       const difficulty = args[0] === 'expert' ? 'expert' : 'medium';
       const gameId = `binary_tree_${difficulty}`;
+      
+      if (!commands.minigame) {
+        return {
+          output: ['ERROR: Mini-game system not available'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
       
       // Delegate to minigame command
       return commands.minigame.execute([gameId], gameState);
