@@ -299,7 +299,9 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      if (!gameState.hackerName) {
+      const hackerName = (gameState as any).hackerName || 'ANONYMOUS';
+      
+      if (!hackerName || hackerName === 'ANONYMOUS') {
         return {
           output: [
             'ERROR: User profile not initialized',
@@ -312,7 +314,7 @@ export const commands: Record<string, Command> = {
 
       const profileLines = [
         '┌─ USER PROFILE ─┐',
-        `│ Handle: ${gameState.hackerName} │`,
+        `│ Handle: ${hackerName} │`,
         `│ Level: ${gameState.playerLevel} │`,
         `│ XP: ${gameState.experience} │`,
         `│ Credits: ${gameState.credits} │`,
@@ -1606,11 +1608,40 @@ export const commands: Record<string, Command> = {
   // Shop Interface - Always available
   shop: {
     description: "Open enhanced shop interface",
-    usage: "shop",
+    usage: "shop [category]",
+    unlockLevel: 0,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      const category = args[0]?.toLowerCase();
+      
+      if (category && !['hardware', 'software', 'payloads', 'intel'].includes(category)) {
+        return {
+          output: [
+            'ERROR: Invalid shop category',
+            'Valid categories: hardware, software, payloads, intel'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      // Check if player has enough credits for basic shopping
+      if (gameState.credits < 100) {
+        return {
+          output: [
+            'WARNING: Low credits detected',
+            'Complete missions to earn more credits',
+            'Opening shop anyway...'
+          ],
+          success: true,
+          soundEffect: 'warning'
+        };
+      }
+
       // Direct trigger without complex state updates
       setTimeout(() => {
-        const event = new CustomEvent('openEnhancedShop');
+        const event = new CustomEvent('openEnhancedShop', {
+          detail: { category }
+        });
         window.dispatchEvent(event);
       }, 100);
 
@@ -1635,10 +1666,10 @@ export const commands: Record<string, Command> = {
           '',
           'Use the interface to browse and purchase items'
         ],
-        success: true
+        success: true,
+        soundEffect: 'success'
       };
     }
-    // No unlock level = always available
   },
 
   hackide: {
