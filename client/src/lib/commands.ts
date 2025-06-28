@@ -653,15 +653,55 @@ export const commands: Record<string, Command> = {
 
   sensor_spoof: {
     description: "Spoof sensor data using ESP32 transmitters",
-    usage: "sensor_spoof [sensor_type] [value]",
+    usage: "sensor_spoof <sensor_type> <value> [--duration <sec>]",
+    unlockLevel: 3,
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const sensorType = args[0] || 'temperature';
-      const value = args[1] || 'normal';
+      if (args.length < 2) {
+        return {
+          output: [
+            'ERROR: Sensor type and value required',
+            'Usage: sensor_spoof <sensor_type> <value> [--duration <sec>]',
+            'Valid sensors: temperature, humidity, motion, pressure'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const sensorType = args[0];
+      const value = args[1];
+      const durationIndex = args.indexOf('--duration');
+      const duration = durationIndex !== -1 ? parseInt(args[durationIndex + 1]) : 60;
+
+      const validSensors = ['temperature', 'humidity', 'motion', 'pressure', 'light', 'sound'];
+      if (!validSensors.includes(sensorType)) {
+        return {
+          output: [
+            'ERROR: Unknown sensor type',
+            `Valid sensors: ${validSensors.join(', ')}`,
+            'Example: sensor_spoof temperature 25.5'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      if (gameState.playerLevel < 3) {
+        return {
+          output: [
+            'ERROR: Sensor spoofing requires Level 3+',
+            'Advanced hardware manipulation needs expertise'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
       
       const spoofResults = [
         '> ESP32 SENSOR SPOOFING INITIATED...',
         `> Target sensor: ${sensorType}`,
         `> Spoofed value: ${value}`,
+        `> Duration: ${duration} seconds`,
         '> Calibrating transmitter frequency...',
         '> [████████████████████████] 100%',
         '',
@@ -682,23 +722,72 @@ export const commands: Record<string, Command> = {
 
       return {
         output: spoofResults,
-        success: true
+        success: true,
+        soundEffect: 'success'
       };
     }
   },
 
   trace: {
-    description: "View memory trace timeline of your activities",
-    usage: "trace",
+    description: "Trace network routes and analyze connection paths",
+    usage: "trace <target> [--max-hops <num>] [--timeout <sec>]",
+    unlockLevel: 1,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      if (args.length === 0) {
+        return {
+          output: [
+            'ERROR: Target required',
+            'Usage: trace <target> [--max-hops <num>] [--timeout <sec>]',
+            'Example: trace 8.8.8.8 --max-hops 15'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const target = args[0];
+      const maxHopsIndex = args.indexOf('--max-hops');
+      const maxHops = maxHopsIndex !== -1 ? parseInt(args[maxHopsIndex + 1]) : 30;
+      const timeoutIndex = args.indexOf('--timeout');
+      const timeout = timeoutIndex !== -1 ? parseInt(args[timeoutIndex + 1]) : 5;
+
+      if (!target.match(/^[a-zA-Z0-9.-]+$/)) {
+        return {
+          output: [
+            'ERROR: Invalid target format',
+            'Use hostname or IP address only',
+            'Example: trace google.com'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      if (maxHops && (isNaN(maxHops) || maxHops < 1 || maxHops > 64)) {
+        return {
+          output: [
+            'ERROR: Invalid max hops (1-64 allowed)',
+            'Example: --max-hops 30'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
       return {
         output: [
-          '▶ Accessing memory trace...',
-          '▶ Analyzing gameplay patterns...',
-          '▶ Constructing timeline visualization...',
+          `▶ Tracing route to ${target}...`,
+          `▶ Max hops: ${maxHops}, Timeout: ${timeout}s`,
+          '▶ Analyzing network path...',
           '',
-          '✓ Memory trace interface loaded',
-          '📊 Interactive timeline available',
+          ' 1  192.168.1.1     2ms     [Gateway]',
+          ' 2  10.0.0.1        15ms    [ISP Router]',
+          ' 3  203.0.113.1     25ms    [ISP Core]',
+          ` 4  ${target}       45ms    [Target]`,
+          '',
+          '✓ Trace completed successfully',
+          '✓ 4 hops to destination',
+          '📊 Route analysis available',
           ''
         ],
         success: true,
@@ -709,11 +798,41 @@ export const commands: Record<string, Command> = {
 
   easter: {
     description: "View discovered easter eggs and hints",
-    usage: "easter [hints]",
+    usage: "easter [hints|list|search <term>]",
+    unlockLevel: 0,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      const action = args[0]?.toLowerCase();
       const stats = getEasterEggStats();
       
-      if (args[0] === 'hints') {
+      if (action === 'search' && args.length < 2) {
+        return {
+          output: [
+            'ERROR: Search term required',
+            'Usage: easter search <term>',
+            'Example: easter search konami'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      if (action === 'search') {
+        const searchTerm = args[1];
+        return {
+          output: [
+            `▶ Searching for easter eggs containing "${searchTerm}"...`,
+            '▶ Scanning hidden content...',
+            '',
+            '⚠ No matching easter eggs found',
+            'Try different search terms or discover more eggs first',
+            ''
+          ],
+          success: true,
+          soundEffect: 'success'
+        };
+      }
+      
+      if (action === 'hints') {
         const hints = getEasterEggHints();
         return {
           output: [
@@ -726,7 +845,26 @@ export const commands: Record<string, Command> = {
             '╚══════════════════════════════════════╝',
             ''
           ],
-          success: true
+          success: true,
+          soundEffect: 'success'
+        };
+      }
+
+      if (action === 'list') {
+        return {
+          output: [
+            '╔════════════════════════════════╗',
+            '║        EASTER EGG LIST         ║',
+            '╠════════════════════════════════╣',
+            '║ 1. [ ] Konami Code             ║',
+            '║ 2. [ ] Hidden Terminal         ║',
+            '║ 3. [ ] Developer Message       ║',
+            '║ 4. [ ] Secret Commands         ║',
+            '║ 5. [ ] Matrix Reference        ║',
+            '╚════════════════════════════════╝'
+          ],
+          success: true,
+          soundEffect: 'success'
         };
       }
       
@@ -741,13 +879,15 @@ export const commands: Record<string, Command> = {
         `║ Progress: ${stats.discovered}/${stats.total} discovered              ║`,
         '║                                      ║',
         '║ Use "easter hints" for clues!        ║',
+        '║ Use "easter list" to see all eggs    ║',
         '╚══════════════════════════════════════╝',
         ''
       ];
       
       return {
         output,
-        success: true
+        success: true,
+        soundEffect: 'success'
       };
     }
   },
