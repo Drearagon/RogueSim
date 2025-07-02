@@ -796,6 +796,50 @@ export const commands: Record<string, Command> = {
     }
   },
 
+  battlepass: {
+    description: "Access the Battle Pass system with premium rewards",
+    usage: "battlepass [level|cosmetics|commands]",
+    unlockLevel: 0,
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const action = args[0]?.toLowerCase();
+
+      setTimeout(() => {
+        const event = new CustomEvent('openBattlePass', {
+          detail: { section: action }
+        });
+        window.dispatchEvent(event);
+      }, 100);
+
+      const outputMessages = [
+        '> BATTLE PASS SYSTEM ACCESSED',
+        '',
+        '✓ Season progress loaded',
+        '✓ Premium rewards available',
+        '✓ Exclusive commands unlocked',
+        '✓ Cosmetic unlocks ready',
+        '',
+        '⚡ Level up by completing missions and using commands!',
+        ''
+      ];
+
+      if (action === 'level') {
+        outputMessages.push('📊 Opening level progression view...');
+      } else if (action === 'cosmetics') {
+        outputMessages.push('🎨 Opening cosmetics collection...');
+      } else if (action === 'commands') {
+        outputMessages.push('⚔️ Opening premium commands list...');
+      } else {
+        outputMessages.push('🏆 Opening battle pass overview...');
+      }
+
+      return {
+        output: outputMessages,
+        success: true,
+        soundEffect: 'success'
+      };
+    }
+  },
+
   easter: {
     description: "View discovered easter eggs and hints",
     usage: "easter [hints|list|search <term>]",
