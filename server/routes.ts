@@ -15,6 +15,7 @@ import { log } from "./vite";
 import crypto from "crypto";
 import { SecurityMiddleware, PasswordValidator, SecurityAuditLogger } from "./security";
 import Stripe from "stripe";
+import { env } from './config';
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -38,10 +39,10 @@ function generateSecureVerificationCode(): string {
 let storage: DatabaseStorage;
 
 // Initialize Stripe
-if (!process.env.STRIPE_SECRET_KEY) {
+if (!env.STRIPE_SECRET_KEY) {
     throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
     apiVersion: "2025-06-30.basil",
 });
 
