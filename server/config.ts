@@ -11,6 +11,7 @@ const envSchema = z.object({
   DOMAIN: z.string().optional(),
   CLIENT_URL: z.string().optional(),
   HOST: z.string().optional(),
+  STRIPE_SECRET_KEY: z.string().optional(),
 });
 
 const parsed = envSchema.safeParse(process.env);
