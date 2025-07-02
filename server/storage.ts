@@ -3,8 +3,11 @@
 
 import {
   users, gameSaves, missionHistory, commandLogs, multiplayerRooms, roomMembers, playerStats,
+  battlePasses, userBattlePasses, cosmetics, userCosmetics, battlePassCommands, userPremiumCommands,
   type User, type GameSave, type MissionHistory, type CommandLog, type MultiplayerRoom, type RoomMember, type PlayerStats,
   type UpsertUser, type InsertGameSave, type InsertMissionHistory, type InsertCommandLog, type InsertRoom, type InsertRoomMember, type InsertPlayerStats,
+  type BattlePass, type UserBattlePass, type Cosmetic, type UserCosmetic, type BattlePassCommand, type UserPremiumCommand,
+  type InsertBattlePass, type InsertUserBattlePass, type InsertCosmetic, type InsertUserCosmetic, type InsertBattlePassCommand, type InsertUserPremiumCommand,
 } from "@shared/schema";
 // REMOVE THIS LINE: import { db, pool } from "./db"; // <--- REMOVE THIS LINE from your actual file
 
@@ -19,7 +22,68 @@ import { log } from "./vite"; // Import log function for consistent logging
 import crypto from "crypto"; // For hashing verification codes
 
 export interface IStorage {
-    // ... (your existing IStorage interface) ...
+    // User operations
+    getUser(id: string): Promise<User | undefined>;
+    getUserByEmail(email: string): Promise<any>;
+    getUserByHackerName(hackerName: string): Promise<User | undefined>;
+    createUser(userData: any): Promise<User>;
+    updateHackerName(userId: string, hackerName: string): Promise<User>;
+    
+    // Game operations
+    getUserGameSave(userId: string, gameMode: string): Promise<GameSave | undefined>;
+    saveGameState(gameState: InsertGameSave): Promise<GameSave>;
+    loadGameState(sessionId: string): Promise<GameSave | undefined>;
+    getAllGameSaves(): Promise<GameSave[]>;
+    
+    // Mission and logging
+    saveMissionHistory(mission: InsertMissionHistory): Promise<MissionHistory>;
+    getMissionHistory(sessionId: string): Promise<MissionHistory[]>;
+    logCommand(commandLog: InsertCommandLog): Promise<CommandLog>;
+    getCommandHistory(sessionId: string): Promise<CommandLog[]>;
+    
+    // Multiplayer
+    createRoom(room: InsertRoom): Promise<MultiplayerRoom>;
+    joinRoom(roomMember: InsertRoomMember): Promise<RoomMember>;
+    leaveRoom(roomId: number, userId: string): Promise<void>;
+    getRoomByCode(roomCode: string): Promise<MultiplayerRoom | undefined>;
+    getRoomMembers(roomId: number): Promise<RoomMember[]>;
+    
+    // Player stats
+    getPlayerStats(userId: string): Promise<PlayerStats | undefined>;
+    updatePlayerStats(userId: string, stats: Partial<InsertPlayerStats>): Promise<PlayerStats>;
+    
+    // Auth and verification
+    createUserProfile(profileData: any): Promise<any>;
+    getUserProfile(userId: string): Promise<any>;
+    updateUserProfile(userId: string, updates: any): Promise<any>;
+    storeVerificationCode(data: any): Promise<void>;
+    getVerificationCode(email: string, code: string): Promise<any>;
+    markVerificationCodeUsed(id: number): Promise<void>;
+    storeUnverifiedUser(userData: any): Promise<void>;
+    getUnverifiedUser(email: string): Promise<any>;
+    deleteUnverifiedUser(email: string): Promise<void>;
+    
+    // Battle Pass operations
+    getActiveBattlePass(): Promise<BattlePass | undefined>;
+    getAllBattlePasses(): Promise<BattlePass[]>;
+    createBattlePass(battlePass: InsertBattlePass): Promise<BattlePass>;
+    getUserBattlePass(userId: string, battlePassId: number): Promise<UserBattlePass | undefined>;
+    createUserBattlePass(userBattlePass: InsertUserBattlePass): Promise<UserBattlePass>;
+    updateUserBattlePass(userId: string, battlePassId: number, updates: Partial<UserBattlePass>): Promise<UserBattlePass>;
+    addBattlePassExperience(userId: string, battlePassId: number, experience: number): Promise<UserBattlePass>;
+    
+    // Cosmetics operations
+    getUserCosmetics(userId: string): Promise<UserCosmetic[]>;
+    getAvailableCosmetics(battlePassId?: number): Promise<Cosmetic[]>;
+    unlockCosmetic(userId: string, cosmeticId: number): Promise<UserCosmetic>;
+    equipCosmetic(userId: string, cosmeticId: number): Promise<UserCosmetic>;
+    unequipCosmetic(userId: string, cosmeticId: number): Promise<void>;
+    
+    // Premium commands
+    getUserPremiumCommands(userId: string): Promise<UserPremiumCommand[]>;
+    getBattlePassCommands(battlePassId: number): Promise<BattlePassCommand[]>;
+    unlockPremiumCommand(userId: string, commandName: string, battlePassId: number): Promise<UserPremiumCommand>;
+    hasAccessToPremiumCommand(userId: string, commandName: string): Promise<boolean>;
 }
 
 export class DatabaseStorage implements IStorage {
