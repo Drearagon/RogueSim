@@ -4,7 +4,7 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { getDb, getPool, isUsingLocalFallback } from "./db";
 import { DatabaseStorage } from "./storage";
-import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema } from "@shared/schema";
+import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema, insertBattlePassSchema, insertUserBattlePassSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
@@ -14,6 +14,7 @@ import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "
 import { log } from "./vite";
 import crypto from "crypto";
 import { SecurityMiddleware, PasswordValidator, SecurityAuditLogger } from "./security";
+import Stripe from "stripe";
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -35,6 +36,14 @@ function generateSecureVerificationCode(): string {
 }
 
 let storage: DatabaseStorage;
+
+// Initialize Stripe
+if (!process.env.STRIPE_SECRET_KEY) {
+    throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
+}
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+    apiVersion: "2025-06-30.basil",
+});
 
 export async function registerRoutes(app: Express): Promise<Server> {
     try {
@@ -415,6 +424,232 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
             const validation = PasswordValidator.validate(password);
             res.json(validation);
+        });
+
+        // ============= BATTLE PASS API ROUTES =============
+
+        // Get active battle pass
+        app.get('/api/battlepass/active', async (req, res) => {
+            try {
+                const activeBattlePass = await storage.getActiveBattlePass();
+                if (!activeBattlePass) {
+                    return res.status(404).json({ error: 'No active battle pass found' });
+                }
+                res.json(activeBattlePass);
+            } catch (error) {
+                console.error('Error fetching active battle pass:', error);
+                res.status(500).json({ error: 'Failed to fetch active battle pass' });
+            }
+        });
+
+        // Get user's battle pass progress
+        app.get('/api/battlepass/progress', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.session.userId;
+                const battlePassId = req.query.battlePassId as string;
+                
+                if (!battlePassId) {
+                    return res.status(400).json({ error: 'Battle pass ID required' });
+                }
+
+                const userBattlePass = await storage.getUserBattlePass(userId, parseInt(battlePassId));
+                const battlePassCommands = await storage.getBattlePassCommands(parseInt(battlePassId));
+                const userCosmetics = await storage.getUserCosmetics(userId);
+                const userPremiumCommands = await storage.getUserPremiumCommands(userId);
+
+                res.json({
+                    battlePass: userBattlePass,
+                    commands: battlePassCommands,
+                    cosmetics: userCosmetics,
+                    premiumCommands: userPremiumCommands
+                });
+            } catch (error) {
+                console.error('Error fetching battle pass progress:', error);
+                res.status(500).json({ error: 'Failed to fetch battle pass progress' });
+            }
+        });
+
+        // Create payment intent for battle pass purchase
+        app.post('/api/battlepass/create-payment-intent', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.session.userId;
+                const { battlePassId } = req.body;
+
+                if (!battlePassId) {
+                    return res.status(400).json({ error: 'Battle pass ID required' });
+                }
+
+                // Get battle pass details
+                const battlePass = await storage.getActiveBattlePass();
+                if (!battlePass || battlePass.id !== battlePassId) {
+                    return res.status(404).json({ error: 'Battle pass not found' });
+                }
+
+                // Check if user already has premium
+                const userBattlePass = await storage.getUserBattlePass(userId, battlePassId);
+                if (userBattlePass?.hasPremium) {
+                    return res.status(400).json({ error: 'User already has premium battle pass' });
+                }
+
+                // Create payment intent
+                const paymentIntent = await stripe.paymentIntents.create({
+                    amount: battlePass.premiumPrice, // Amount in cents
+                    currency: 'usd',
+                    metadata: {
+                        userId,
+                        battlePassId: battlePassId.toString(),
+                        type: 'battle_pass_premium'
+                    }
+                });
+
+                res.json({ 
+                    clientSecret: paymentIntent.client_secret,
+                    paymentIntentId: paymentIntent.id 
+                });
+            } catch (error) {
+                console.error('Error creating payment intent:', error);
+                res.status(500).json({ error: 'Failed to create payment intent' });
+            }
+        });
+
+        // Confirm battle pass purchase
+        app.post('/api/battlepass/confirm-purchase', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.session.userId;
+                const { paymentIntentId, battlePassId } = req.body;
+
+                if (!paymentIntentId || !battlePassId) {
+                    return res.status(400).json({ error: 'Payment intent ID and battle pass ID required' });
+                }
+
+                // Verify payment with Stripe
+                const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
+                
+                if (paymentIntent.status !== 'succeeded') {
+                    return res.status(400).json({ error: 'Payment not completed' });
+                }
+
+                if (paymentIntent.metadata.userId !== userId) {
+                    return res.status(403).json({ error: 'Payment belongs to different user' });
+                }
+
+                // Check if user battle pass exists, create if not
+                let userBattlePass = await storage.getUserBattlePass(userId, battlePassId);
+                
+                if (!userBattlePass) {
+                    userBattlePass = await storage.createUserBattlePass({
+                        userId,
+                        battlePassId,
+                        currentLevel: 1,
+                        experience: 0,
+                        hasPremium: true,
+                        purchaseDate: new Date(),
+                        stripePaymentIntentId: paymentIntentId,
+                        claimedRewards: []
+                    });
+                } else {
+                    userBattlePass = await storage.updateUserBattlePass(userId, battlePassId, {
+                        hasPremium: true,
+                        purchaseDate: new Date(),
+                        stripePaymentIntentId: paymentIntentId
+                    });
+                }
+
+                res.json({ success: true, userBattlePass });
+            } catch (error) {
+                console.error('Error confirming battle pass purchase:', error);
+                res.status(500).json({ error: 'Failed to confirm purchase' });
+            }
+        });
+
+        // Add battle pass experience (called when user completes missions/commands)
+        app.post('/api/battlepass/add-experience', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.session.userId;
+                const { battlePassId, experience } = req.body;
+
+                if (!battlePassId || !experience) {
+                    return res.status(400).json({ error: 'Battle pass ID and experience amount required' });
+                }
+
+                // Check if user has battle pass access
+                let userBattlePass = await storage.getUserBattlePass(userId, battlePassId);
+                
+                if (!userBattlePass) {
+                    // Create free tier battle pass
+                    userBattlePass = await storage.createUserBattlePass({
+                        userId,
+                        battlePassId,
+                        currentLevel: 1,
+                        experience: 0,
+                        hasPremium: false,
+                        claimedRewards: []
+                    });
+                }
+
+                // Add experience
+                const updatedBattlePass = await storage.addBattlePassExperience(userId, battlePassId, experience);
+
+                res.json({ success: true, battlePass: updatedBattlePass });
+            } catch (error) {
+                console.error('Error adding battle pass experience:', error);
+                res.status(500).json({ error: 'Failed to add experience' });
+            }
+        });
+
+        // Unlock cosmetic
+        app.post('/api/battlepass/unlock-cosmetic', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.session.userId;
+                const { cosmeticId } = req.body;
+
+                if (!cosmeticId) {
+                    return res.status(400).json({ error: 'Cosmetic ID required' });
+                }
+
+                const unlockedCosmetic = await storage.unlockCosmetic(userId, cosmeticId);
+                res.json({ success: true, cosmetic: unlockedCosmetic });
+            } catch (error) {
+                console.error('Error unlocking cosmetic:', error);
+                res.status(500).json({ error: 'Failed to unlock cosmetic' });
+            }
+        });
+
+        // Equip/unequip cosmetic
+        app.post('/api/battlepass/equip-cosmetic', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.session.userId;
+                const { cosmeticId, equip } = req.body;
+
+                if (!cosmeticId) {
+                    return res.status(400).json({ error: 'Cosmetic ID required' });
+                }
+
+                if (equip) {
+                    const equippedCosmetic = await storage.equipCosmetic(userId, cosmeticId);
+                    res.json({ success: true, cosmetic: equippedCosmetic });
+                } else {
+                    await storage.unequipCosmetic(userId, cosmeticId);
+                    res.json({ success: true });
+                }
+            } catch (error) {
+                console.error('Error equipping/unequipping cosmetic:', error);
+                res.status(500).json({ error: 'Failed to update cosmetic' });
+            }
+        });
+
+        // Check premium command access
+        app.get('/api/battlepass/command-access/:commandName', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId = req.session.userId;
+                const { commandName } = req.params;
+
+                const hasAccess = await storage.hasAccessToPremiumCommand(userId, commandName);
+                res.json({ hasAccess });
+            } catch (error) {
+                console.error('Error checking command access:', error);
+                res.status(500).json({ error: 'Failed to check command access' });
+            }
         });
 
         // Create HTTP server
