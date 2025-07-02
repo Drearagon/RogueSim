@@ -631,4 +631,192 @@ export class DatabaseStorage implements IStorage {
             await (this.rawPool as PostgresJsClient)`DELETE FROM unverified_users WHERE email = ${email}`;
         }
     }
+
+    // Battle Pass operations
+    async getActiveBattlePass(): Promise<BattlePass | undefined> {
+        const [battlePass] = await this.drizzleDb
+            .select()
+            .from(battlePasses)
+            .where(eq(battlePasses.isActive, true))
+            .limit(1);
+        return battlePass;
+    }
+
+    async getAllBattlePasses(): Promise<BattlePass[]> {
+        return await this.drizzleDb
+            .select()
+            .from(battlePasses)
+            .orderBy(desc(battlePasses.seasonNumber));
+    }
+
+    async createBattlePass(battlePass: InsertBattlePass): Promise<BattlePass> {
+        const [newBattlePass] = await this.drizzleDb
+            .insert(battlePasses)
+            .values(battlePass)
+            .returning();
+        return newBattlePass;
+    }
+
+    async getUserBattlePass(userId: string, battlePassId: number): Promise<UserBattlePass | undefined> {
+        const [userBattlePass] = await this.drizzleDb
+            .select()
+            .from(userBattlePasses)
+            .where(and(
+                eq(userBattlePasses.userId, userId),
+                eq(userBattlePasses.battlePassId, battlePassId)
+            ))
+            .limit(1);
+        return userBattlePass;
+    }
+
+    async createUserBattlePass(userBattlePass: InsertUserBattlePass): Promise<UserBattlePass> {
+        const [newUserBattlePass] = await this.drizzleDb
+            .insert(userBattlePasses)
+            .values(userBattlePass)
+            .returning();
+        return newUserBattlePass;
+    }
+
+    async updateUserBattlePass(userId: string, battlePassId: number, updates: Partial<UserBattlePass>): Promise<UserBattlePass> {
+        const [updatedUserBattlePass] = await this.drizzleDb
+            .update(userBattlePasses)
+            .set({ ...updates, updatedAt: new Date() })
+            .where(and(
+                eq(userBattlePasses.userId, userId),
+                eq(userBattlePasses.battlePassId, battlePassId)
+            ))
+            .returning();
+        return updatedUserBattlePass;
+    }
+
+    async addBattlePassExperience(userId: string, battlePassId: number, experience: number): Promise<UserBattlePass> {
+        const userBattlePass = await this.getUserBattlePass(userId, battlePassId);
+        if (!userBattlePass) {
+            throw new Error('User battle pass not found');
+        }
+
+        const newExperience = userBattlePass.experience + experience;
+        const newLevel = Math.floor(newExperience / 1000) + 1; // 1000 XP per level
+
+        return await this.updateUserBattlePass(userId, battlePassId, {
+            experience: newExperience,
+            currentLevel: Math.min(newLevel, 100) // Cap at level 100
+        });
+    }
+
+    // Cosmetics operations
+    async getUserCosmetics(userId: string): Promise<UserCosmetic[]> {
+        return await this.drizzleDb
+            .select()
+            .from(userCosmetics)
+            .where(eq(userCosmetics.userId, userId));
+    }
+
+    async getAvailableCosmetics(battlePassId?: number): Promise<Cosmetic[]> {
+        if (battlePassId) {
+            return await this.drizzleDb
+                .select()
+                .from(cosmetics)
+                .where(eq(cosmetics.battlePassId, battlePassId));
+        }
+
+        return await this.drizzleDb.select().from(cosmetics);
+    }
+
+    async unlockCosmetic(userId: string, cosmeticId: number): Promise<UserCosmetic> {
+        const [userCosmetic] = await this.drizzleDb
+            .insert(userCosmetics)
+            .values({
+                userId,
+                cosmeticId,
+                unlockedAt: new Date()
+            })
+            .onConflictDoNothing()
+            .returning();
+        return userCosmetic;
+    }
+
+    async equipCosmetic(userId: string, cosmeticId: number): Promise<UserCosmetic> {
+        // First unequip any existing cosmetic of the same type
+        const cosmetic = await this.drizzleDb
+            .select()
+            .from(cosmetics)
+            .where(eq(cosmetics.id, cosmeticId))
+            .limit(1);
+
+        if (cosmetic.length > 0) {
+            await this.drizzleDb
+                .update(userCosmetics)
+                .set({ equippedAt: null })
+                .where(and(
+                    eq(userCosmetics.userId, userId),
+                    eq(userCosmetics.cosmeticId, cosmeticId)
+                ));
+        }
+
+        // Equip the new cosmetic
+        const [equippedCosmetic] = await this.drizzleDb
+            .update(userCosmetics)
+            .set({ equippedAt: new Date() })
+            .where(and(
+                eq(userCosmetics.userId, userId),
+                eq(userCosmetics.cosmeticId, cosmeticId)
+            ))
+            .returning();
+
+        return equippedCosmetic;
+    }
+
+    async unequipCosmetic(userId: string, cosmeticId: number): Promise<void> {
+        await this.drizzleDb
+            .update(userCosmetics)
+            .set({ equippedAt: null })
+            .where(and(
+                eq(userCosmetics.userId, userId),
+                eq(userCosmetics.cosmeticId, cosmeticId)
+            ));
+    }
+
+    // Premium commands operations
+    async getUserPremiumCommands(userId: string): Promise<UserPremiumCommand[]> {
+        return await this.drizzleDb
+            .select()
+            .from(userPremiumCommands)
+            .where(eq(userPremiumCommands.userId, userId));
+    }
+
+    async getBattlePassCommands(battlePassId: number): Promise<BattlePassCommand[]> {
+        return await this.drizzleDb
+            .select()
+            .from(battlePassCommands)
+            .where(eq(battlePassCommands.battlePassId, battlePassId))
+            .orderBy(battlePassCommands.unlockLevel);
+    }
+
+    async unlockPremiumCommand(userId: string, commandName: string, battlePassId: number): Promise<UserPremiumCommand> {
+        const [userPremiumCommand] = await this.drizzleDb
+            .insert(userPremiumCommands)
+            .values({
+                userId,
+                commandName,
+                battlePassId,
+                unlockedAt: new Date()
+            })
+            .onConflictDoNothing()
+            .returning();
+        return userPremiumCommand;
+    }
+
+    async hasAccessToPremiumCommand(userId: string, commandName: string): Promise<boolean> {
+        const result = await this.drizzleDb
+            .select()
+            .from(userPremiumCommands)
+            .where(and(
+                eq(userPremiumCommands.userId, userId),
+                eq(userPremiumCommands.commandName, commandName)
+            ))
+            .limit(1);
+        
+        return result.length > 0;
+    }
 }
