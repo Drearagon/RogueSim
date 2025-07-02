@@ -133,7 +133,7 @@ export const verificationCodes = pgTable("verification_codes", {
 });
 
 export const unverifiedUsers = pgTable("unverified_users", {
-  id: varchar("id").primaryKey().notNull(),
+  id: serial("id").primaryKey(),
   email: varchar("email").unique().notNull(),
   hackerName: varchar("hacker_name").notNull(),
   password: varchar("password").notNull(),
