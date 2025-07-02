@@ -18,6 +18,7 @@ import { initializeFactionStandings } from './lib/factionSystem';
 import { FactionInterface } from './components/FactionInterface';
 import { SkillTreeInterface } from './components/SkillTreeInterface';
 import { MissionInterface } from './components/MissionInterface';
+import { BattlePass } from './components/BattlePass';
 import { initializeSkillTree, purchaseSkill } from './lib/skillSystem';
 import { GameState, Mission, MiniGameState } from './types/game';
 
@@ -27,12 +28,13 @@ export default function App() {
   // Use proper backend authentication system
   const { user, isAuthenticated, isLoading: authLoading } = useAuth();
   const [needsUsername, setNeedsUsername] = useState(false);
-  const [currentView, setCurrentView] = useState<'auth' | 'game' | 'multiplayer' | 'leaderboard' | 'profile' | 'onboarding'>('auth');
+  const [currentView, setCurrentView] = useState<'auth' | 'game' | 'multiplayer' | 'leaderboard' | 'profile' | 'onboarding' | 'battlepass'>('auth');
   const [userProfile, setUserProfile] = useState<any>(null);
   const [needsOnboarding, setNeedsOnboarding] = useState(false);
   const [showFactionInterface, setShowFactionInterface] = useState(false);
   const [showSkillTreeInterface, setShowSkillTreeInterface] = useState(false);
   const [showMissionInterface, setShowMissionInterface] = useState(false);
+  const [showBattlePass, setShowBattlePass] = useState(false);
   const [activeMiniGame, setActiveMiniGame] = useState<MiniGameState | null>(null);
 
   // Load user profile and handle onboarding
@@ -145,6 +147,20 @@ export default function App() {
     
     return () => {
       window.removeEventListener('startMiniGame', handleStartMiniGame as EventListener);
+    };
+  }, []);
+
+  // BattlePass event listener
+  useEffect(() => {
+    const handleOpenBattlePass = (event: CustomEvent) => {
+      setShowBattlePass(true);
+      setCurrentView('battlepass');
+    };
+
+    window.addEventListener('openBattlePass', handleOpenBattlePass as EventListener);
+    
+    return () => {
+      window.removeEventListener('openBattlePass', handleOpenBattlePass as EventListener);
     };
   }, []);
 
@@ -405,6 +421,25 @@ export default function App() {
           reputation: gameState.reputation
         }}
       />
+    );
+  }
+
+  if (currentView === 'battlepass') {
+    return (
+      <div className="min-h-screen bg-black text-green-400 p-4">
+        <div className="max-w-6xl mx-auto">
+          <div className="mb-6 flex items-center justify-between">
+            <h1 className="text-3xl font-bold text-green-400">Battle Pass</h1>
+            <button
+              onClick={() => setCurrentView('game')}
+              className="px-4 py-2 bg-zinc-800 hover:bg-zinc-700 rounded border border-zinc-600"
+            >
+              Back to Terminal
+            </button>
+          </div>
+          <BattlePass />
+        </div>
+      </div>
     );
   }
 
