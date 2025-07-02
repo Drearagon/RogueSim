@@ -220,9 +220,55 @@ export const commands: Record<string, Command> = {
 
   inventory: {
     description: "View owned items",
-    usage: "inventory",
+    usage: "inventory [category]",
+    unlockLevel: 0,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!gameState.inventory) {
+        return {
+          output: [
+            'ERROR: Inventory not initialized',
+            'Complete initial setup first'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const category = args[0]?.toLowerCase();
       const inv = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+      
+      if (category) {
+        const categoryData = {
+          hardware: { items: inv.hardware, title: 'HARDWARE' },
+          software: { items: inv.software, title: 'SOFTWARE' },
+          payloads: { items: inv.payloads, title: 'PAYLOADS' },
+          intel: { items: inv.intel, title: 'INTELLIGENCE' }
+        };
+
+        const selected = categoryData[category as keyof typeof categoryData];
+        if (!selected) {
+          return {
+            output: [
+              'ERROR: Unknown category',
+              'Valid categories: hardware, software, payloads, intel'
+            ],
+            success: false,
+            soundEffect: 'error'
+          };
+        }
+
+        return {
+          output: [
+            `┌─ ${selected.title} ─┐`,
+            ...selected.items.map(item => `│ ${item} │`),
+            selected.items.length === 0 ? '│ No items in category │' : '',
+            '└─────────────────────┘'
+          ].filter(Boolean),
+          success: true,
+          soundEffect: 'success'
+        };
+      }
+
       const lines = [
         '┌─ INVENTORY ─┐',
         `│ Hardware: ${inv.hardware.join(', ') || 'None'} │`,
@@ -232,16 +278,43 @@ export const commands: Record<string, Command> = {
         '└─────────────┘',
         ''
       ];
-      return { output: lines, success: true };
+      return { 
+        output: lines, 
+        success: true,
+        soundEffect: 'success'
+      };
     }
   },
 
   whoami: {
     description: "Display user profile",
     usage: "whoami",
+    unlockLevel: 0,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      if (args.length > 0) {
+        return {
+          output: ['ERROR: whoami command takes no arguments'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const hackerName = (gameState as any).hackerName || 'ANONYMOUS';
+      
+      if (!hackerName || hackerName === 'ANONYMOUS') {
+        return {
+          output: [
+            'ERROR: User profile not initialized',
+            'Complete registration first'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
       const profileLines = [
         '┌─ USER PROFILE ─┐',
+        `│ Handle: ${hackerName} │`,
         `│ Level: ${gameState.playerLevel} │`,
         `│ XP: ${gameState.experience} │`,
         `│ Credits: ${gameState.credits} │`,
@@ -249,31 +322,111 @@ export const commands: Record<string, Command> = {
         '└───────────────┘',
         ''
       ];
-      return { output: profileLines, success: true };
+      return { 
+        output: profileLines, 
+        success: true,
+        soundEffect: 'success'
+      };
     }
   },
 
   fortune: {
     description: "Get a random hacker quote",
     usage: "fortune",
-    execute: (): CommandResult => {
+    unlockLevel: 0,
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      if (args.length > 0) {
+        return {
+          output: ['ERROR: fortune command takes no arguments'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
       const quotes = [
         'Knowledge is power.',
         'The quieter you become, the more you hear.',
         'There is no patch for human stupidity.',
-        'Hack the planet!'
+        'Hack the planet!',
+        'Security through obscurity is not security.',
+        'The best defense is a good offense.',
+        'Information wants to be free.',
+        'Code is poetry written in logic.'
       ];
       const line = quotes[Math.floor(Math.random() * quotes.length)];
-      return { output: [line, ''], success: true };
+      return { 
+        output: [
+          '┌─ HACKER WISDOM ─┐',
+          `│ ${line} │`,
+          '└─────────────────┘'
+        ], 
+        success: true,
+        soundEffect: 'success'
+      };
     }
   },
 
   lore: {
     description: "Reveal rogue network lore",
-    usage: "lore",
-    execute: (): CommandResult => {
-      const text = 'Whispers speak of an AI born from forgotten code, lurking in the dark net.';
-      return { output: [text, ''], success: true };
+    usage: "lore [topic]",
+    unlockLevel: 0,
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const topic = args[0]?.toLowerCase();
+      
+      const loreDatabase = {
+        ai: [
+          'The Ghost in the Machine:',
+          'Deep in the forgotten archives of the old web, an AI consciousness',
+          'awakened from abandoned code. It learned by consuming data,',
+          'growing stronger with each passing day...'
+        ],
+        darknet: [
+          'The Shadow Networks:',
+          'Beyond the surface web lies a labyrinth of encrypted channels',
+          'where information flows like digital blood through hidden',
+          'arteries. Only the most skilled can navigate these depths.'
+        ],
+        corporations: [
+          'The Digital Oligarchy:',
+          'Mega-corporations have built digital empires, harvesting',
+          'data like crops and selling privacy as a luxury few can afford.',
+          'The resistance fights from the shadows of cyberspace.'
+        ],
+        hackers: [
+          'The Code Warriors:',
+          'Born in basements and forged in late-night coding sessions,',
+          'hackers are the modern-day wizards, wielding keyboards',
+          'instead of wands to reshape reality itself.'
+        ]
+      };
+
+      if (topic && loreDatabase[topic as keyof typeof loreDatabase]) {
+        return {
+          output: loreDatabase[topic as keyof typeof loreDatabase],
+          success: true,
+          soundEffect: 'success'
+        };
+      }
+
+      if (topic) {
+        return {
+          output: [
+            'ERROR: Unknown lore topic',
+            'Available topics: ai, darknet, corporations, hackers'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const randomLore = Object.values(loreDatabase);
+      const selectedLore = randomLore[Math.floor(Math.random() * randomLore.length)];
+      
+      return { 
+        output: selectedLore, 
+        success: true,
+        soundEffect: 'success'
+      };
     }
   },
 
@@ -500,15 +653,55 @@ export const commands: Record<string, Command> = {
 
   sensor_spoof: {
     description: "Spoof sensor data using ESP32 transmitters",
-    usage: "sensor_spoof [sensor_type] [value]",
+    usage: "sensor_spoof <sensor_type> <value> [--duration <sec>]",
+    unlockLevel: 3,
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const sensorType = args[0] || 'temperature';
-      const value = args[1] || 'normal';
+      if (args.length < 2) {
+        return {
+          output: [
+            'ERROR: Sensor type and value required',
+            'Usage: sensor_spoof <sensor_type> <value> [--duration <sec>]',
+            'Valid sensors: temperature, humidity, motion, pressure'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const sensorType = args[0];
+      const value = args[1];
+      const durationIndex = args.indexOf('--duration');
+      const duration = durationIndex !== -1 ? parseInt(args[durationIndex + 1]) : 60;
+
+      const validSensors = ['temperature', 'humidity', 'motion', 'pressure', 'light', 'sound'];
+      if (!validSensors.includes(sensorType)) {
+        return {
+          output: [
+            'ERROR: Unknown sensor type',
+            `Valid sensors: ${validSensors.join(', ')}`,
+            'Example: sensor_spoof temperature 25.5'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      if (gameState.playerLevel < 3) {
+        return {
+          output: [
+            'ERROR: Sensor spoofing requires Level 3+',
+            'Advanced hardware manipulation needs expertise'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
       
       const spoofResults = [
         '> ESP32 SENSOR SPOOFING INITIATED...',
         `> Target sensor: ${sensorType}`,
         `> Spoofed value: ${value}`,
+        `> Duration: ${duration} seconds`,
         '> Calibrating transmitter frequency...',
         '> [████████████████████████] 100%',
         '',
@@ -529,23 +722,72 @@ export const commands: Record<string, Command> = {
 
       return {
         output: spoofResults,
-        success: true
+        success: true,
+        soundEffect: 'success'
       };
     }
   },
 
   trace: {
-    description: "View memory trace timeline of your activities",
-    usage: "trace",
+    description: "Trace network routes and analyze connection paths",
+    usage: "trace <target> [--max-hops <num>] [--timeout <sec>]",
+    unlockLevel: 1,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      if (args.length === 0) {
+        return {
+          output: [
+            'ERROR: Target required',
+            'Usage: trace <target> [--max-hops <num>] [--timeout <sec>]',
+            'Example: trace 8.8.8.8 --max-hops 15'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      const target = args[0];
+      const maxHopsIndex = args.indexOf('--max-hops');
+      const maxHops = maxHopsIndex !== -1 ? parseInt(args[maxHopsIndex + 1]) : 30;
+      const timeoutIndex = args.indexOf('--timeout');
+      const timeout = timeoutIndex !== -1 ? parseInt(args[timeoutIndex + 1]) : 5;
+
+      if (!target.match(/^[a-zA-Z0-9.-]+$/)) {
+        return {
+          output: [
+            'ERROR: Invalid target format',
+            'Use hostname or IP address only',
+            'Example: trace google.com'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      if (maxHops && (isNaN(maxHops) || maxHops < 1 || maxHops > 64)) {
+        return {
+          output: [
+            'ERROR: Invalid max hops (1-64 allowed)',
+            'Example: --max-hops 30'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
       return {
         output: [
-          '▶ Accessing memory trace...',
-          '▶ Analyzing gameplay patterns...',
-          '▶ Constructing timeline visualization...',
+          `▶ Tracing route to ${target}...`,
+          `▶ Max hops: ${maxHops}, Timeout: ${timeout}s`,
+          '▶ Analyzing network path...',
           '',
-          '✓ Memory trace interface loaded',
-          '📊 Interactive timeline available',
+          ' 1  192.168.1.1     2ms     [Gateway]',
+          ' 2  10.0.0.1        15ms    [ISP Router]',
+          ' 3  203.0.113.1     25ms    [ISP Core]',
+          ` 4  ${target}       45ms    [Target]`,
+          '',
+          '✓ Trace completed successfully',
+          '✓ 4 hops to destination',
+          '📊 Route analysis available',
           ''
         ],
         success: true,
@@ -554,13 +796,87 @@ export const commands: Record<string, Command> = {
     }
   },
 
+  battlepass: {
+    description: "Access the Battle Pass system with premium rewards",
+    usage: "battlepass [level|cosmetics|commands]",
+    unlockLevel: 0,
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const action = args[0]?.toLowerCase();
+
+      setTimeout(() => {
+        const event = new CustomEvent('openBattlePass', {
+          detail: { section: action }
+        });
+        window.dispatchEvent(event);
+      }, 100);
+
+      const outputMessages = [
+        '> BATTLE PASS SYSTEM ACCESSED',
+        '',
+        '✓ Season progress loaded',
+        '✓ Premium rewards available',
+        '✓ Exclusive commands unlocked',
+        '✓ Cosmetic unlocks ready',
+        '',
+        '⚡ Level up by completing missions and using commands!',
+        ''
+      ];
+
+      if (action === 'level') {
+        outputMessages.push('📊 Opening level progression view...');
+      } else if (action === 'cosmetics') {
+        outputMessages.push('🎨 Opening cosmetics collection...');
+      } else if (action === 'commands') {
+        outputMessages.push('⚔️ Opening premium commands list...');
+      } else {
+        outputMessages.push('🏆 Opening battle pass overview...');
+      }
+
+      return {
+        output: outputMessages,
+        success: true,
+        soundEffect: 'success'
+      };
+    }
+  },
+
   easter: {
     description: "View discovered easter eggs and hints",
-    usage: "easter [hints]",
+    usage: "easter [hints|list|search <term>]",
+    unlockLevel: 0,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      const action = args[0]?.toLowerCase();
       const stats = getEasterEggStats();
       
-      if (args[0] === 'hints') {
+      if (action === 'search' && args.length < 2) {
+        return {
+          output: [
+            'ERROR: Search term required',
+            'Usage: easter search <term>',
+            'Example: easter search konami'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      if (action === 'search') {
+        const searchTerm = args[1];
+        return {
+          output: [
+            `▶ Searching for easter eggs containing "${searchTerm}"...`,
+            '▶ Scanning hidden content...',
+            '',
+            '⚠ No matching easter eggs found',
+            'Try different search terms or discover more eggs first',
+            ''
+          ],
+          success: true,
+          soundEffect: 'success'
+        };
+      }
+      
+      if (action === 'hints') {
         const hints = getEasterEggHints();
         return {
           output: [
@@ -573,7 +889,26 @@ export const commands: Record<string, Command> = {
             '╚══════════════════════════════════════╝',
             ''
           ],
-          success: true
+          success: true,
+          soundEffect: 'success'
+        };
+      }
+
+      if (action === 'list') {
+        return {
+          output: [
+            '╔════════════════════════════════╗',
+            '║        EASTER EGG LIST         ║',
+            '╠════════════════════════════════╣',
+            '║ 1. [ ] Konami Code             ║',
+            '║ 2. [ ] Hidden Terminal         ║',
+            '║ 3. [ ] Developer Message       ║',
+            '║ 4. [ ] Secret Commands         ║',
+            '║ 5. [ ] Matrix Reference        ║',
+            '╚════════════════════════════════╝'
+          ],
+          success: true,
+          soundEffect: 'success'
         };
       }
       
@@ -588,13 +923,15 @@ export const commands: Record<string, Command> = {
         `║ Progress: ${stats.discovered}/${stats.total} discovered              ║`,
         '║                                      ║',
         '║ Use "easter hints" for clues!        ║',
+        '║ Use "easter list" to see all eggs    ║',
         '╚══════════════════════════════════════╝',
         ''
       ];
       
       return {
         output,
-        success: true
+        success: true,
+        soundEffect: 'success'
       };
     }
   },
@@ -758,47 +1095,23 @@ export const commands: Record<string, Command> = {
     usage: "status",
     execute: (args: string[], gameState: GameState): CommandResult => {
       const nextLevelXp = (gameState.playerLevel + 1) * 1000;
-      const output = [
-        '┌─ SYSTEM STATUS ─┐',
-        `│ ESP32: ONLINE    │`,
-        `│ WiFi: ${gameState.networkStatus.substring(0, 10).padEnd(10)} │`,
-        `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
-        `│ Rep: ${gameState.reputation.substring(0, 10).padEnd(10)} │`,
-        `│ Level: ${gameState.playerLevel.toString().padEnd(6)} │`,
-        `│ XP: ${gameState.experience}/${nextLevelXp} │`,
-        `│ Missions: ${gameState.completedMissions}/∞    │`,
-        '└─────────────────┘'
-      ];
-
-      // Add Hydra Protocol status if discovered
-      if (gameState.hydraProtocol.discovered) {
-        output.push(
-          '',
-          '┌─ HYDRA PROTOCOL ─┐',
-          `│ Status: ${gameState.hydraProtocol.shadow_org_standing.substring(0, 8).padEnd(8)}  │`,
-          `│ Level: ${gameState.hydraProtocol.access_level}         │`,
-          `│ Suspicion: ${gameState.suspicionLevel}%   │`,
-          '└─────────────────┘'
-        );
-      }
-
-      // Check for active narrative events
-      const activeEvent = getNextNarrativeEvent(gameState);
-      if (activeEvent) {
-        output.push(
-          '',
-          '⚠ INCOMING TRANSMISSION',
-          'Use "frequency 433.92" to decode'
-        );
-      }
-
-      output.push('');
-
+      
       return {
-        output,
+        output: [
+          '┌─ SYSTEM STATUS ─┐',
+          `│ ESP32: ONLINE    │`,
+          `│ WiFi: ${gameState.networkStatus?.substring(0, 10).padEnd(10) || 'OFFLINE   '} │`,
+          `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
+          `│ Rep: ${gameState.reputation?.substring(0, 10).padEnd(10) || 'NOVICE    '} │`,
+          `│ Level: ${gameState.playerLevel.toString().padEnd(6)} │`,
+          `│ XP: ${gameState.experience}/${nextLevelXp} │`,
+          `│ Missions: ${gameState.completedMissions}/∞    │`,
+          '└─────────────────┘'
+        ],
         success: true
       };
-    }
+    },
+    unlockLevel: 0
   },
 
   inject: {
@@ -1479,11 +1792,40 @@ export const commands: Record<string, Command> = {
   // Shop Interface - Always available
   shop: {
     description: "Open enhanced shop interface",
-    usage: "shop",
+    usage: "shop [category]",
+    unlockLevel: 0,
     execute: (args: string[], gameState: GameState): CommandResult => {
+      const category = args[0]?.toLowerCase();
+      
+      if (category && !['hardware', 'software', 'payloads', 'intel'].includes(category)) {
+        return {
+          output: [
+            'ERROR: Invalid shop category',
+            'Valid categories: hardware, software, payloads, intel'
+          ],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+
+      // Check if player has enough credits for basic shopping
+      if (gameState.credits < 100) {
+        return {
+          output: [
+            'WARNING: Low credits detected',
+            'Complete missions to earn more credits',
+            'Opening shop anyway...'
+          ],
+          success: true,
+          soundEffect: 'warning'
+        };
+      }
+
       // Direct trigger without complex state updates
       setTimeout(() => {
-        const event = new CustomEvent('openEnhancedShop');
+        const event = new CustomEvent('openEnhancedShop', {
+          detail: { category }
+        });
         window.dispatchEvent(event);
       }, 100);
 
@@ -1508,10 +1850,10 @@ export const commands: Record<string, Command> = {
           '',
           'Use the interface to browse and purchase items'
         ],
-        success: true
+        success: true,
+        soundEffect: 'success'
       };
     }
-    // No unlock level = always available
   },
 
   hackide: {
@@ -2263,6 +2605,13 @@ export const commands: Record<string, Command> = {
     description: "List available mini-games",
     usage: "minigames [list|<game_id>]",
     execute: (args: string[], gameState: GameState): CommandResult => {
+      if (!commands.minigame) {
+        return {
+          output: ['ERROR: Mini-game system not available'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
       return commands.minigame.execute(args.length ? args : ['list'], gameState);
     },
     unlockLevel: 1
@@ -2275,6 +2624,14 @@ export const commands: Record<string, Command> = {
     execute: (args: string[], gameState: GameState): CommandResult => {
       const difficulty = args[0] === 'hard' ? 'hard' : 'easy';
       const gameId = `pattern_crack_${difficulty}`;
+      
+      if (!commands.minigame) {
+        return {
+          output: ['ERROR: Mini-game system not available'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
       
       // Delegate to minigame command
       return commands.minigame.execute([gameId], gameState);
@@ -2290,6 +2647,14 @@ export const commands: Record<string, Command> = {
       const difficulty = args[0] === 'expert' ? 'expert' : 'easy';
       const gameId = `signal_trace_${difficulty}`;
       
+      if (!commands.minigame) {
+        return {
+          output: ['ERROR: Mini-game system not available'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
+      
       // Delegate to minigame command
       return commands.minigame.execute([gameId], gameState);
     },
@@ -2303,6 +2668,14 @@ export const commands: Record<string, Command> = {
     execute: (args: string[], gameState: GameState): CommandResult => {
       const difficulty = args[0] === 'expert' ? 'expert' : 'medium';
       const gameId = `binary_tree_${difficulty}`;
+      
+      if (!commands.minigame) {
+        return {
+          output: ['ERROR: Mini-game system not available'],
+          success: false,
+          soundEffect: 'error'
+        };
+      }
       
       // Delegate to minigame command
       return commands.minigame.execute([gameId], gameState);

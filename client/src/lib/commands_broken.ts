@@ -1,4 +1,3 @@
-// @ts-nocheck
 import { Command, CommandResult, GameState, Network, Device, MissionStep } from '../types/game';
 import { 
   getNextNarrativeEvent, 
@@ -29,6 +28,20 @@ import {
   allSkills,
   calculateSkillTreeProgress
 } from './skillSystem';
+import {
+  getMissionNetworks,
+  getMissionDevices,
+  getMissionTarget,
+  getMissionScanOutput,
+  getMissionPortScan
+} from './missionContext';
+import {
+  miniGames,
+  initializeMiniGame,
+  updatePatternCrack,
+  movePlayerInSignalTrace,
+  navigateBinaryTree
+} from './miniGames';
 
 const networkDatabase: Network[] = [
   { ssid: "TARGET_NET", channel: 11, power: -42, security: "WPA2" },
@@ -51,8 +64,128 @@ export const commands: Record<string, Command> = {
     usage: "extract_data [target]",
     execute: (args: string[], gameState: GameState): CommandResult => {
       const target = args[0] || 'default';
+      const missionTarget = getMissionTarget(gameState);
+      const activeMission = gameState.activeMission;
       
-      const extractionResults = [
+      // Mission-specific extraction results
+      let extractionResults: string[];
+      let updateGameState: any = {};
+      
+      if (missionTarget && activeMission && typeof activeMission === 'object') {
+        const missionData = activeMission as any;
+        
+        // Mission-specific extraction
+        switch (missionData.id) {
+          case 'corp_infiltration':
+            extractionResults = [
+              '> INFILTRATING MEGACORP FINANCIAL SYSTEMS...',
+              '> Bypassing executive-level encryption...',
+              '> [████████████████████████] 100%',
+              '',
+              '┌─ CORPORATE DATA EXTRACTED ─┐',
+              '│ Financial Records: 1,247   │',
+              '│ Insider Trading Docs: 34   │',
+              '│ Executive Emails: 892      │',
+              '│ Accounting Irregularities: 12 │',
+              '└─────────────────────────────┘',
+              '',
+              '> Critical evidence of financial misconduct discovered!',
+              '> CEO email chain reveals insider trading scheme',
+              '> Mission objective completed successfully',
+              ''
+            ];
+            updateGameState = {
+              credits: gameState.credits + (missionData.creditReward || 2500),
+              activeMission: null // Mission completed
+            };
+            break;
+            
+          case 'bank_heist_digital':
+            extractionResults = [
+              '> ACCESSING CENTRAL BANKING SYSTEMS...',
+              '> Penetrating quantum vault encryption...',
+              '> [████████████████████████] 100%',
+              '',
+              '┌─ FINANCIAL DATA EXTRACTED ─┐',
+              '│ Transaction Records: 50,892  │',
+              '│ Account Balances: $2.3B      │',
+              '│ Security Protocols: Bypassed │',
+              '│ Vault Access Codes: Obtained │',
+              '└──────────────────────────────┘',
+              '',
+              '> ⚠ HIGH-VALUE TARGET ACCESSED',
+              '> Digital vault successfully penetrated',
+              '> Emergency protocols activated - exfiltrating now!',
+              ''
+            ];
+            updateGameState = {
+              credits: gameState.credits + (missionData.creditReward || 5000),
+              activeMission: null
+            };
+            break;
+            
+          case 'government_leak':
+            extractionResults = [
+              '> ACCESSING CLASSIFIED GOVERNMENT SYSTEMS...',
+              '> Decrypting TOP SECRET documents...',
+              '> [████████████████████████] 100%',
+              '',
+              '┌─ CLASSIFIED DATA EXTRACTED ─┐',
+              '│ TOP SECRET Files: 147       │',
+              '│ Project SHADOW_NET: EXPOSED │',
+              '│ Corruption Evidence: 23     │',
+              '│ Cover-up Documents: 45      │',
+              '└─────────────────────────────┘',
+              '',
+              '> ⚠ CLASSIFIED INTELLIGENCE ACQUIRED',
+              '> Government corruption evidence secured',
+              '> Source protection protocols activated',
+              ''
+            ];
+            updateGameState = {
+              credits: gameState.credits + (missionData.creditReward || 3500),
+              activeMission: null
+            };
+            break;
+            
+          default:
+            // Generic mission extraction
+            extractionResults = [
+              '> INITIALIZING DATA EXTRACTION PROTOCOL...',
+              '> Scanning target filesystem...',
+              '> [████████████████████████] 100%',
+              '',
+              '┌─ EXTRACTED DATA SUMMARY ─┐',
+              '│ Files recovered: 247      │',
+              '│ Database entries: 1,832   │',
+              '│ Encrypted files: 23       │',
+              '│ Sensitive docs: 12        │',
+              '└───────────────────────────┘',
+              '',
+              `> Data extraction from ${target} completed successfully.`,
+              '> Mission objectives achieved',
+              ''
+            ];
+            updateGameState = {
+              credits: gameState.credits + (missionData.creditReward || 1000),
+              activeMission: null
+            };
+        }
+        
+        // Add mission completion events
+        setTimeout(() => {
+          const event = new CustomEvent('missionComplete', {
+            detail: {
+              missionTitle: missionData.title,
+              reward: missionData.creditReward || 1000
+            }
+          });
+          window.dispatchEvent(event);
+        }, 1000);
+        
+      } else {
+        // Default extraction for story missions
+        extractionResults = [
         '> INITIALIZING DATA EXTRACTION PROTOCOL...',
         '> Scanning target filesystem...',
         '> [████████████████████████] 100%',
@@ -71,9 +204,10 @@ export const commands: Record<string, Command> = {
 
       // Only award credits if this command is completing a mission step
       const shouldAwardCredits = shouldAwardCommandCredits('extract_data', args, true, gameState);
-      const updateGameState = shouldAwardCredits ? {
+        updateGameState = shouldAwardCredits ? {
         credits: gameState.credits + 150
-      } : undefined;
+        } : {};
+      }
 
       return {
         output: extractionResults,
@@ -81,6 +215,65 @@ export const commands: Record<string, Command> = {
         updateGameState,
         soundEffect: 'success'
       };
+    }
+  },
+
+  inventory: {
+    description: "View owned items",
+    usage: "inventory",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const inv = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+      const lines = [
+        '┌─ INVENTORY ─┐',
+        `│ Hardware: ${inv.hardware.join(', ') || 'None'} │`,
+        `│ Software: ${inv.software.join(', ') || 'None'} │`,
+        `│ Payloads: ${inv.payloads.join(', ') || 'None'} │`,
+        `│ Intel: ${inv.intel.join(', ') || 'None'} │`,
+        '└─────────────┘',
+        ''
+      ];
+      return { output: lines, success: true };
+    }
+  },
+
+  whoami: {
+    description: "Display user profile",
+    usage: "whoami",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      const profileLines = [
+        '┌─ USER PROFILE ─┐',
+        `│ Level: ${gameState.playerLevel} │`,
+        `│ XP: ${gameState.experience} │`,
+        `│ Credits: ${gameState.credits} │`,
+        gameState.activeFaction ? `│ Faction: ${gameState.activeFaction} │` : '│ Faction: None │',
+        '└───────────────┘',
+        ''
+      ];
+      return { output: profileLines, success: true };
+    }
+  },
+
+  fortune: {
+    description: "Get a random hacker quote",
+    usage: "fortune",
+    execute: (): CommandResult => {
+      const quotes = [
+        'Knowledge is power.',
+        'The quieter you become, the more you hear.',
+        'There is no patch for human stupidity.',
+        'Hack the planet!'
+      ];
+      const line = quotes[Math.floor(Math.random() * quotes.length)];
+      return { output: [line, ''], success: true };
+    }
+  },
+
+  lore: {
+    description: "Reveal rogue network lore",
+    usage: "lore",
+    execute: (): CommandResult => {
+      const text = 'Whispers speak of an AI born from forgotten code, lurking in the dark net.';
+      return { output: [text, ''], success: true };
     }
   },
 
@@ -128,31 +321,59 @@ export const commands: Record<string, Command> = {
     usage: "extended_scan [--passive]",
     execute: (args: string[], gameState: GameState): CommandResult => {
       const passive = args.includes('--passive');
+      const target = getMissionTarget(gameState);
+      const networks = getMissionNetworks(gameState);
+      
+      // Get extended networks based on mission (show additional hidden networks)
+      const extendedNetworkList = networks.filter(net => 
+        net.ssid.includes('HIDDEN') || 
+        net.ssid.includes('BACKUP') || 
+        net.security.includes('Enterprise')
+      ).slice(0, 3); // Show up to 3 extended networks
       
       const extendedNetworks = [
         '> EXTENDED RANGE WIFI SCANNING...',
         '> High-gain adapter active',
         passive ? '> Passive mode: Stealth scanning' : '> Active mode: Full spectrum',
         '> [████████████████████████] 100%',
-        '',
-        '┌─ EXTENDED SCAN RESULTS ─┐',
-        '│ SSID: CORP_INTERNAL_5G   │',
-        '│ Channel: 149 | -38 dBm   │',
-        '│ Security: WPA3-Enterprise │',
-        '│                          │',
-        '│ SSID: HIDDEN_BACKUP_NET  │',
-        '│ Channel: 165 | -45 dBm   │',
-        '│ Security: WPA2+AES       │',
-        '│                          │',
-        '│ SSID: IoT_MANAGEMENT     │',
-        '│ Channel: 44 | -52 dBm    │',
-        '│ Security: WEP (Vulnerable)│',
-        '└──────────────────────────┘',
-        '',
-        passive ? '> Extended scan completed (undetected)' : '> Extended scan completed',
-        '> Additional networks discovered outside normal range.',
         ''
       ];
+      
+      if (target) {
+        extendedNetworks.push(`> Scanning ${target.environment}...`);
+        extendedNetworks.push('');
+      }
+      
+      extendedNetworks.push('┌─ EXTENDED SCAN RESULTS ─┐');
+      
+      if (extendedNetworkList.length > 0) {
+        extendedNetworkList.forEach(net => {
+          extendedNetworks.push(`│ SSID: ${net.ssid.padEnd(16)} │`);
+          extendedNetworks.push(`│ Channel: ${net.channel} | ${net.power} dBm   │`);
+          extendedNetworks.push(`│ Security: ${net.security.padEnd(15)} │`);
+          extendedNetworks.push('│                          │');
+        });
+      } else {
+        extendedNetworks.push('│ No extended networks     │');
+        extendedNetworks.push('│ detected in range        │');
+      }
+      
+      extendedNetworks.push('└──────────────────────────┘');
+      extendedNetworks.push('');
+      
+      if (target?.hostileDetection === 'High' || target?.hostileDetection === 'Extreme' || target?.hostileDetection === 'Maximum') {
+        if (passive) {
+          extendedNetworks.push('> Extended scan completed (stealth mode - undetected)');
+        } else {
+          extendedNetworks.push('> Extended scan completed');
+          extendedNetworks.push('⚠ Active scanning may have been detected');
+        }
+      } else {
+        extendedNetworks.push(passive ? '> Extended scan completed (undetected)' : '> Extended scan completed');
+      }
+      
+      extendedNetworks.push('> Additional networks discovered outside normal range.');
+      extendedNetworks.push('');
 
       return {
         output: extendedNetworks,
@@ -167,28 +388,65 @@ export const commands: Record<string, Command> = {
     execute: (args: string[], gameState: GameState): CommandResult => {
       const channel = args[0] || '11';
       const capture = args.includes('--capture');
+      const target = getMissionTarget(gameState);
+      const networks = getMissionNetworks(gameState);
+      
+      // Calculate activity based on mission context
+      const baseActivity = networks.length * 300;
+      const activityMultiplier = target?.hostileDetection === 'Maximum' ? 3 : 
+                                target?.hostileDetection === 'Extreme' ? 2.5 :
+                                target?.hostileDetection === 'High' ? 2 : 1.2;
+      const packets = Math.floor(baseActivity * activityMultiplier);
+      const devices = Math.floor(networks.length * 1.8);
       
       const monitorResults = [
         '> STARTING WIFI MONITORING...',
         `> Monitoring channel ${channel}`,
         capture ? '> Packet capture enabled' : '> Monitor mode only',
         '> [████████████████████████] Monitoring...',
-        '',
-        '┌─ TRAFFIC ANALYSIS ─┐',
-        '│ Packets captured: 2,847   │',
-        '│ Unique devices: 23        │',
-        '│ Data frames: 1,923        │',
-        '│ Management frames: 892    │',
-        '│ Control frames: 32        │',
-        '│                           │',
-        '│ Suspicious activity:      │',
-        '│ • Deauth attacks detected │',
-        '│ • Rogue AP discovered     │',
-        '└───────────────────────────┘',
-        '',
-        capture ? '> Packets saved to capture.pcap' : '> Monitoring session completed',
         ''
       ];
+      
+      if (target) {
+        monitorResults.push(`> Monitoring ${target.environment}...`);
+        monitorResults.push('');
+      }
+      
+      monitorResults.push('┌─ TRAFFIC ANALYSIS ─┐');
+      monitorResults.push(`│ Packets captured: ${packets.toLocaleString().padStart(6)}   │`);
+      monitorResults.push(`│ Unique devices: ${devices.toString().padStart(2)}        │`);
+      monitorResults.push(`│ Data frames: ${Math.floor(packets * 0.65).toLocaleString().padStart(6)}        │`);
+      monitorResults.push(`│ Management frames: ${Math.floor(packets * 0.3).toLocaleString().padStart(6)}    │`);
+      monitorResults.push(`│ Control frames: ${Math.floor(packets * 0.05).toString().padStart(2)}        │`);
+      monitorResults.push('│                           │');
+      
+      if (target?.hostileDetection === 'High' || target?.hostileDetection === 'Extreme' || target?.hostileDetection === 'Maximum') {
+        monitorResults.push('│ Suspicious activity:      │');
+        monitorResults.push('│ • Encrypted traffic       │');
+        monitorResults.push('│ • IDS signatures detected │');
+        if (target?.hostileDetection === 'Maximum') {
+          monitorResults.push('│ • Military-grade encryption│');
+        }
+      } else {
+        monitorResults.push('│ Suspicious activity:      │');
+        monitorResults.push('│ • Deauth attacks detected │');
+        monitorResults.push('│ • Rogue AP discovered     │');
+      }
+      
+      monitorResults.push('└───────────────────────────┘');
+      monitorResults.push('');
+      
+      if (capture) {
+        monitorResults.push(`> Packets saved to capture_${target?.primaryTarget?.replace(/\s+/g, '_').toLowerCase() || 'session'}.pcap`);
+      } else {
+        monitorResults.push('> Monitoring session completed');
+      }
+      
+      if (target?.hostileDetection === 'High' || target?.hostileDetection === 'Extreme' || target?.hostileDetection === 'Maximum') {
+        monitorResults.push('⚠ Monitoring activity may have triggered security alerts');
+      }
+      
+      monitorResults.push('');
 
       return {
         output: monitorResults,
@@ -366,15 +624,22 @@ export const commands: Record<string, Command> = {
         }
       }
       
-      const availableCommands = Object.keys(commands).filter(cmd => 
+      const availableCommands = Object.keys(commands).filter(cmd =>
         gameState.unlockedCommands.includes(cmd)
       );
+      const aliasInfo = {
+        inv: 'inventory',
+        stat: 'status'
+      };
       
       return {
         output: [
           '┌─ AVAILABLE COMMANDS ─┐',
           ...availableCommands.map(cmd => `│ ${cmd.padEnd(10)} - ${commands[cmd].description.substring(0, 20)} │`),
           '└─────────────────────┘',
+          '',
+          'Aliases:',
+          ...Object.entries(aliasInfo).map(([alias, full]) => `  ${alias} -> ${full}`),
           '',
           'Type "man <cmd>" for help',
           ''
@@ -393,51 +658,21 @@ export const commands: Record<string, Command> = {
       switch(target) {
         case 'wifi':
           return {
-            output: [
-              '▶ WiFi scan...',
-              '',
-              '┌─ NETWORKS ─┐',
-              ...networkDatabase.map(net => 
-                `│ ${net.ssid.substring(0, 12).padEnd(12)} ${net.channel.toString().padStart(2)} ${net.power.toString().padStart(3)} │`
-              ),
-              '└────────────┘',
-              '',
-              `✓ ${networkDatabase.length} networks found`,
-              '⚠ WEP detected',
-              ''
-            ],
+            output: getMissionScanOutput(gameState, 'wifi'),
             success: true,
             soundEffect: 'keypress'
           };
         
         case 'ble':
           return {
-            output: [
-              '▶ Scanning Bluetooth Low Energy devices...',
-              '',
-              ...bleDevices.map(device => `Device: ${device.name} (${device.mac})`),
-              '',
-              `✓ ${bleDevices.length} BLE devices found`,
-              ''
-            ],
+            output: getMissionScanOutput(gameState, 'ble'),
             success: true,
             soundEffect: 'keypress'
           };
         
         case 'ports':
           return {
-            output: [
-              '▶ Port scanning target...',
-              '',
-              'PORT    STATE    SERVICE',
-              '22/tcp  open     ssh',
-              '80/tcp  open     http', 
-              '443/tcp open     https',
-              '8080/tcp filtered http-proxy',
-              '',
-              '✓ Scan complete',
-              ''
-            ],
+            output: getMissionPortScan(gameState),
             success: true,
             soundEffect: 'keypress'
           };
@@ -465,6 +700,7 @@ export const commands: Record<string, Command> = {
       }
       
       const ssid = args[0];
+      const networkDatabase = getMissionNetworks(gameState);
       const network = networkDatabase.find(net => net.ssid === ssid);
       
       if (!network) {
@@ -475,20 +711,38 @@ export const commands: Record<string, Command> = {
         };
       }
       
-      return {
-        output: [
+      const target = getMissionTarget(gameState);
+      const isHighSecurity = target?.hostileDetection === 'High' || target?.hostileDetection === 'Extreme' || target?.hostileDetection === 'Maximum';
+      
+      let connectionOutput = [
           `▶ Attempting connection to '${ssid}'...`,
           '▶ Analyzing security protocols...',
           '▶ Executing handshake...',
           '▶ Establishing encrypted tunnel...',
-          '',
-          `✓ Connected to ${ssid}`,
-          `✓ Assigned IP: 192.168.4.${Math.floor(Math.random() * 254) + 2}`,
-          '✓ Network access granted',
-          '',
-          '⚠ Remember: Unauthorized access is illegal',
-          ''
-        ],
+        ''
+      ];
+      
+      if (isHighSecurity) {
+        connectionOutput.push('⚠ High-security network detected');
+        connectionOutput.push('⚠ Advanced monitoring systems active');
+        connectionOutput.push('');
+      }
+      
+      connectionOutput.push(`✓ Connected to ${ssid}`);
+      connectionOutput.push(`✓ Assigned IP: 192.168.4.${Math.floor(Math.random() * 254) + 2}`);
+      connectionOutput.push('✓ Network access granted');
+      connectionOutput.push('');
+      
+      if (target) {
+        connectionOutput.push(`✓ Access to ${target.primaryTarget} network established`);
+        connectionOutput.push('');
+      }
+      
+      connectionOutput.push('⚠ Remember: Unauthorized access is illegal');
+      connectionOutput.push('');
+      
+      return {
+        output: connectionOutput,
         success: true,
         updateGameState: { 
           networkStatus: 'CONNECTED',
@@ -503,42 +757,20 @@ export const commands: Record<string, Command> = {
     description: "Display system status",
     usage: "status",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const output = [
-        '┌─ SYSTEM STATUS ─┐',
-        `│ ESP32: ONLINE    │`,
-        `│ WiFi: ${gameState.networkStatus.substring(0, 10).padEnd(10)} │`,
-        `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
-        `│ Rep: ${gameState.reputation.substring(0, 10).padEnd(10)} │`,
-        `│ Missions: ${gameState.completedMissions}/∞    │`,
-        '└─────────────────┘'
-      ];
-
-      // Add Hydra Protocol status if discovered
-      if (gameState.hydraProtocol.discovered) {
-        output.push(
-          '',
-          '┌─ HYDRA PROTOCOL ─┐',
-          `│ Status: ${gameState.hydraProtocol.shadow_org_standing.substring(0, 8).padEnd(8)}  │`,
-          `│ Level: ${gameState.hydraProtocol.access_level}         │`,
-          `│ Suspicion: ${gameState.suspicionLevel}%   │`,
-          '└─────────────────┘'
-        );
-      }
-
-      // Check for active narrative events
-      const activeEvent = getNextNarrativeEvent(gameState);
-      if (activeEvent) {
-        output.push(
-          '',
-          '⚠ INCOMING TRANSMISSION',
-          'Use "frequency 433.92" to decode'
-        );
-      }
-
-      output.push('');
-
+      const nextLevelXp = (gameState.playerLevel + 1) * 1000;
+      
       return {
-        output,
+        output: [
+          '┌─ SYSTEM STATUS ─┐',
+          `│ ESP32: ONLINE    │`,
+          `│ WiFi: ${gameState.networkStatus?.substring(0, 10).padEnd(10) || 'OFFLINE   '} │`,
+          `│ Credits: ${gameState.credits.toString().padEnd(7)} │`,
+          `│ Rep: ${gameState.reputation?.substring(0, 10).padEnd(10) || 'NOVICE    '} │`,
+          `│ Level: ${gameState.playerLevel.toString().padEnd(6)} │`,
+          `│ XP: ${gameState.experience}/${nextLevelXp} │`,
+          `│ Missions: ${gameState.completedMissions}/∞    │`,
+          '└─────────────────┘'
+        ],
         success: true
       };
     }
@@ -547,6 +779,7 @@ export const commands: Record<string, Command> = {
   inject: {
     description: "Inject payload into target",
     usage: "inject <payload_name>",
+    unlockLevel: 0, // Basic command available from start
     execute: (args: string[], gameState: GameState): CommandResult => {
       if (args.length === 0) {
         return {
@@ -898,68 +1131,21 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      // Check for branching mission choice first
-      const { getCurrentMission } = require('./missions');
-      const currentMission = getCurrentMission(gameState);
-      
-      if (currentMission) {
-        // Find current branch point
-        const currentStep = currentMission.steps.find((step: any) => 
-          step.branchPoint && !step.completed
-        );
-        
-        if (currentStep?.branchPoint) {
-          const choice = currentStep.branchPoint.choices[choiceNum - 1];
-          if (!choice) {
-            return {
-              output: ['Invalid choice number'],
-              success: false
-            };
-          }
-
-          // Check skill requirements
-          if (choice.skillRequirement && !gameState.skillTree.nodes.some(node => 
-            node.id === choice.skillRequirement && node.purchased)) {
-            return {
-              output: [
-                `▶ CHOICE BLOCKED ▶`,
-                '',
-                `✗ Requires skill: ${choice.skillRequirement}`,
-                '✗ Insufficient expertise for this approach',
-                '',
-                'Develop your skills and try again.'
-              ],
-              success: false,
-              soundEffect: 'error'
-            };
-          }
-
-          return {
-            output: [
-              `▶ CHOICE SELECTED: ${choice.text} ▶`,
-              '',
-              `Description: ${choice.description}`,
-              '',
-              '┌─ CONSEQUENCES ─┐',
-              ...choice.consequences.map((c: string) => `│ • ${c.substring(0, 30).padEnd(30)} │`),
-              '└───────────────┘',
-              '',
-              `Reward Modifier: ${choice.rewardModifier}x`,
-              choice.suspicionChange ? `Suspicion Change: ${choice.suspicionChange > 0 ? '+' : ''}${choice.suspicionChange}` : '',
-              '',
-              '▶ Mission path updated. Continue with new objectives.'
-            ],
-            success: true,
-            soundEffect: 'success'
-          };
-        }
-      }
-
-      // Fall back to narrative choice system
+      // Simple choice system without external dependencies
+      // Check if there's an active narrative event
       const currentEvent = getNextNarrativeEvent(gameState);
       if (!currentEvent) {
-        return {
-          output: ['No active choices available'],
+            return {
+              output: [
+            'No active choices available',
+            '',
+            'Choices become available during:',
+            '• Story missions and narrative events',
+            '• Special encounters',
+            '• Faction interactions',
+            '',
+            'Complete more missions to unlock choices'
+          ],
           success: false
         };
       }
@@ -967,7 +1153,7 @@ export const commands: Record<string, Command> = {
       const choice = currentEvent.choices[choiceNum - 1];
       if (!choice) {
         return {
-          output: ['Invalid choice number'],
+          output: [`Invalid choice number: ${choiceNum}`, 'Available choices: 1-' + currentEvent.choices.length],
           success: false
         };
       }
@@ -976,21 +1162,23 @@ export const commands: Record<string, Command> = {
       
       return {
         output: [
-          `▶ Choice selected: ${choice.text}`,
+          `▶ Choice selected: ${choice.text} ▶`,
           '',
           '┌─ CONSEQUENCES ─┐',
-          ...choice.consequences.map((c: string) => `│ ${c.substring(0, 15).padEnd(15)} │`),
-          '└───────────────┘',
+          ...choice.consequences.map((c: string) => `│ ${c.substring(0, 30).padEnd(30)} │`),
+          '└─────────────────┘',
           '',
           `Reputation: ${updates.reputation || gameState.reputation}`,
-          `Suspicion: ${updates.suspicionLevel}%`
+          `Suspicion: ${updates.suspicionLevel || gameState.suspicionLevel || 0}%`,
+          '',
+          '▶ Choice processed successfully'
         ],
         success: true,
         updateGameState: updates,
         soundEffect: 'success'
       };
     },
-    unlockLevel: 3
+    unlockLevel: 0 // Make it always available
   },
 
   reset_shop: {
@@ -1301,6 +1489,27 @@ export const commands: Record<string, Command> = {
     // No unlock level = always available
   },
 
+  hackide: {
+    description: "Open HackIDE script editor",
+    usage: "hackide",
+    execute: (args: string[], gameState: GameState): CommandResult => {
+      setTimeout(() => {
+        window.dispatchEvent(new CustomEvent('openScriptEditor'));
+      }, 100);
+
+      const inv = gameState.inventory || { hardware: [], software: [], payloads: [], intel: [] };
+      const lines = [
+        '▶ Launching HackIDE...',
+        '',
+        `Available Commands: ${(gameState.unlockedCommands || []).join(', ') || 'None'}`,
+        `Hardware: ${inv.hardware.join(', ') || 'None'}`,
+        `Software: ${inv.software.join(', ') || 'None'}`,
+        ''
+      ];
+      return { output: lines, success: true };
+    }
+  },
+
   // Test command to verify system works
   test: {
     description: "Test command",
@@ -1559,25 +1768,45 @@ export const commands: Record<string, Command> = {
 
   // Multiplayer access commands
   multiplayer: {
-    description: "Access multiplayer lobby",
+    description: "Connect to the Network - Real-time multiplayer hacking experience",
     usage: "multiplayer",
     execute: (args: string[], gameState: GameState): CommandResult => {
+      // Auto-open the chat interface after a short delay
       setTimeout(() => {
-        const event = new CustomEvent('showMultiplayer');
-        window.dispatchEvent(event);
-      }, 100);
+        const chatEvent = new CustomEvent('openMultiplayerChat');
+        window.dispatchEvent(chatEvent);
+      }, 2000);
       
       return {
         success: true,
         output: [
-          "▶ Connecting to multiplayer network...",
-          "▶ Establishing secure connection...",
+          "▶ NETWORK CONNECTION INITIATED ▶",
           "",
-          "✓ Multiplayer lobby accessed",
-          "✓ Ready to create or join rooms",
+          "🌐 Establishing encrypted connection to Shadow Network...",
+          "🔐 Authenticating credentials with Network operators...",
+          "📡 Synchronizing with global hacker collective...",
           "",
-          "Use the interface to team up with other hackers!"
-        ]
+          "✓ Connection established to The Network",
+          "✓ Real-time chat system activated",
+          "✓ Team formation protocols online", 
+          "✓ Mission coordination network ready",
+          "✓ Player tracking and status monitoring active",
+          "",
+          "🎯 WELCOME TO THE SHADOW NETWORK 🎯",
+          "",
+          "📱 Chat interface opening in bottom-left corner...",
+          "👥 Use 'team' command to form operational teams",
+          "🗺️  Use 'mission-map' to browse collaborative missions",
+          "👀 Use 'players' to see who's online",
+          "",
+          "⚠️  Remember: Everything you do here is monitored.",
+          "    Trust no one. Question everything.",
+          ""
+        ],
+        updateGameState: {
+          networkStatus: "🟢 CONNECTED TO NETWORK"
+        },
+        soundEffect: 'success'
       };
     },
     unlockLevel: 0 // Always available
@@ -1922,7 +2151,6 @@ export const commands: Record<string, Command> = {
     description: "Launch interactive hacking mini-games",
     usage: "minigame [list|<game_id>]",
     execute: (args: string[], gameState: GameState): CommandResult => {
-      const { miniGames, initializeMiniGame } = require('./miniGames');
       
       if (args.length === 0 || args[0] === 'list') {
         const gameList = Object.values(miniGames).map((game: any) => 
@@ -2071,7 +2299,6 @@ export const commands: Record<string, Command> = {
       }
 
       const input = args.join(' ');
-      const { updatePatternCrack } = require('./miniGames');
       
       if (miniGameState.currentGame.type === 'pattern_crack') {
         const result = updatePatternCrack(miniGameState.gameData, input);
@@ -2133,8 +2360,6 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      const { movePlayerInSignalTrace } = require('./miniGames');
-      
       if (gameState.miniGameState.currentGame.type === 'signal_trace') {
         const result = movePlayerInSignalTrace(gameState.miniGameState.gameData, direction);
         
@@ -2196,8 +2421,6 @@ export const commands: Record<string, Command> = {
         };
       }
 
-      const { navigateBinaryTree } = require('./miniGames');
-      
       if (gameState.miniGameState.currentGame.type === 'binary_tree') {
         const result = navigateBinaryTree(gameState.miniGameState.gameData, direction);
         
@@ -2261,7 +2484,15 @@ export const commands: Record<string, Command> = {
       
       // Initialize faction standings if not present
       if (!gameState.factionStandings) {
-        gameState.factionStandings = initializeFactionStandings();
+        const initialStandings = initializeFactionStandings();
+        // Update game state immediately
+        setTimeout(() => {
+          const event = new CustomEvent('updateGameState', {
+            detail: { factionStandings: initialStandings }
+          });
+          window.dispatchEvent(event);
+        }, 100);
+        gameState.factionStandings = initialStandings;
       }
       
       switch (subcommand) {
@@ -2271,15 +2502,24 @@ export const commands: Record<string, Command> = {
               '▶ AVAILABLE FACTIONS ▶',
               '',
               '┌─ FACTION OVERVIEW ─┐',
-              ...Object.values(factions).map(faction => [
-                `│ ${faction.icon} ${faction.name.padEnd(20)} │`,
-                `│   ${faction.description.substring(0, 35).padEnd(35)} │`,
-                `│   Philosophy: ${faction.philosophy.substring(0, 25).padEnd(25)} │`,
-                `│   Specialization: ${faction.specialization.type.padEnd(15)} │`,
-                `│   Requirements: ${faction.requirements[0]?.description.substring(0, 20) || 'None'.padEnd(20)} │`,
-                '│                                     │'
-              ]).flat(),
-              '└─────────────────────────────────────┘',
+              '│ 🐍 SERPENT SYNDICATE      │',
+              '│   Shadow operations & stealth  │',
+              '│   Philosophy: Information is power │',
+              '│   Specialization: Infiltration    │',
+              '│   Requirements: Level 5+           │',
+              '│                                    │',
+              '│ 🛠️ CRIMSON CIRCUIT        │',
+              '│   Direct action & destruction      │',
+              '│   Philosophy: Burn it all down     │',
+              '│   Specialization: Offensive Ops   │',
+              '│   Requirements: Level 8+           │',
+              '│                                    │',
+              '│ 👁 MIRAGE LOOP            │',
+              '│   Deception & manipulation         │',
+              '│   Philosophy: Reality is subjective│',
+              '│   Specialization: Social Engineering│',
+              '│   Requirements: Level 10+          │',
+              '└────────────────────────────────────┘',
               '',
               'Use "faction join <faction_id>" to join a faction',
               'Available IDs: serpent_syndicate, crimson_circuit, mirage_loop'
@@ -2291,29 +2531,43 @@ export const commands: Record<string, Command> = {
           const factionId = args[1];
           if (!factionId) {
             return {
-              output: ['Usage: faction join <faction_id>'],
+              output: [
+                'Usage: faction join <faction_id>',
+                '',
+                'Available factions:',
+                '• serpent_syndicate - Shadow operations',
+                '• crimson_circuit - Direct action',
+                '• mirage_loop - Social engineering'
+              ],
               success: false
             };
           }
           
-          const faction = factions[factionId];
-          if (!faction) {
+          // Simple faction requirements check
+          const playerLevel = gameState.playerLevel || 1;
+          const levelRequirements = {
+            serpent_syndicate: 5,
+            crimson_circuit: 8,
+            mirage_loop: 10
+          };
+          
+          const requiredLevel = levelRequirements[factionId as keyof typeof levelRequirements];
+          if (!requiredLevel) {
             return {
-              output: [`Unknown faction: ${factionId}`],
+              output: [`Unknown faction: ${factionId}`, 'Use "faction list" to see available factions'],
               success: false
             };
           }
           
-          const joinCheck = canJoinFaction(factionId, gameState);
-          if (!joinCheck.canJoin) {
+          if (playerLevel < requiredLevel) {
             return {
               output: [
                 `▶ FACTION JOIN DENIED ▶`,
                 '',
-                `✗ Cannot join ${faction.name}`,
-                `✗ Reason: ${joinCheck.reason}`,
+                `✗ Cannot join ${factionId.replace('_', ' ').toUpperCase()}`,
+                `✗ Reason: Level ${requiredLevel} required (you are level ${playerLevel})`,
                 '',
-                'Complete the requirements and try again.'
+                'Complete more missions to level up.'
               ],
               success: false,
               soundEffect: 'error'
@@ -2321,40 +2575,50 @@ export const commands: Record<string, Command> = {
           }
           
           // Leave current faction if any
-          if (gameState.activeFaction) {
-            gameState.factionStandings[gameState.activeFaction].isActive = false;
+          const updateData: any = {
+            activeFaction: factionId,
+            factionStandings: {
+              ...gameState.factionStandings,
+              [factionId]: {
+                ...gameState.factionStandings[factionId],
+                isActive: true,
+                joinedDate: Date.now(),
+                reputation: gameState.factionStandings[factionId]?.reputation || 0
+              }
+            }
+          };
+          
+          // Deactivate old faction
+          if (gameState.activeFaction && gameState.activeFaction !== factionId) {
+            updateData.factionStandings[gameState.activeFaction].isActive = false;
           }
           
-          // Join new faction
-          const standing = gameState.factionStandings[factionId];
-          standing.isActive = true;
-          standing.joinedDate = Date.now();
+          const factionNames = {
+            serpent_syndicate: 'Serpent Syndicate',
+            crimson_circuit: 'Crimson Circuit',
+            mirage_loop: 'Mirage Loop'
+          };
           
           return {
             output: [
-              `▶ FACTION JOINED: ${faction.name} ▶`,
+              `▶ FACTION JOINED: ${factionNames[factionId as keyof typeof factionNames]} ▶`,
               '',
-              `✓ Welcome to ${faction.name}!`,
-              `✓ Rank: ${standing.rank.title}`,
-              `✓ Reputation: ${standing.reputation}`,
-              '',
-              `Philosophy: "${faction.philosophy}"`,
+              `✓ Welcome to ${factionNames[factionId as keyof typeof factionNames]}!`,
+              `✓ Rank: Initiate`,
+              `✓ Reputation: 0`,
               '',
               '┌─ FACTION BENEFITS ─┐',
-              ...faction.benefits.map(benefit => 
-                `│ • ${benefit.description.substring(0, 30).padEnd(30)} │`
-              ),
-              '└────────────────────┘',
+              '│ • Access to exclusive missions    │',
+              '│ • Specialized equipment discounts │',
+              '│ • Faction-specific commands       │',
+              '│ • Enhanced operation bonuses      │',
+              '└───────────────────────────────────┘',
               '',
               'Use "faction missions" to see available missions',
               'Use "faction status" to view your standing'
             ],
             success: true,
-            updateGameState: {
-              activeFaction: factionId,
-              factionStandings: gameState.factionStandings,
-              unlockedCommands: [...gameState.unlockedCommands, ...faction.exclusiveCommands]
-            },
+            updateGameState: updateData,
             soundEffect: 'success'
           };
           
@@ -2366,38 +2630,16 @@ export const commands: Record<string, Command> = {
             };
           }
           
-          const currentFaction = factions[gameState.activeFaction];
-          const currentStanding = gameState.factionStandings[gameState.activeFaction];
+          const currentFactionName = gameState.activeFaction.replace('_', ' ').toUpperCase();
           
-          if (!currentStanding.canLeave) {
             return {
               output: [
-                '▶ FACTION LEAVE DENIED ▶',
-                '',
-                '✗ Cannot leave faction at this time',
-                '✗ You may be involved in critical operations',
-                '',
-                'Complete your current obligations first.'
-              ],
-              success: false,
-              soundEffect: 'error'
-            };
-          }
-          
-          // Remove faction commands
-          const updatedCommands = gameState.unlockedCommands.filter(cmd => 
-            !currentFaction.exclusiveCommands.includes(cmd)
-          );
-          
-          return {
-            output: [
-              `▶ LEFT FACTION: ${currentFaction.name} ▶`,
+              `▶ LEFT FACTION: ${currentFactionName} ▶`,
               '',
-              `✓ You have left ${currentFaction.name}`,
-              `✓ Reputation preserved: ${currentStanding.reputation}`,
-              '✓ Exclusive commands removed',
+              `✓ You have left ${currentFactionName}`,
+              `✓ Reputation preserved`,
+              '✓ You can rejoin later if requirements are met',
               '',
-              '⚠ You can rejoin later if requirements are met',
               '⚠ Some faction-specific progress may be lost'
             ],
             success: true,
@@ -2406,11 +2648,10 @@ export const commands: Record<string, Command> = {
               factionStandings: {
                 ...gameState.factionStandings,
                 [gameState.activeFaction]: {
-                  ...currentStanding,
+                  ...gameState.factionStandings[gameState.activeFaction],
                   isActive: false
                 }
-              },
-              unlockedCommands: updatedCommands
+                }
             },
             soundEffect: 'success'
           };
@@ -2426,38 +2667,23 @@ export const commands: Record<string, Command> = {
             };
           }
           
-          const availableMissions = getAvailableFactionMissions(gameState.activeFaction, gameState);
-          
-          if (availableMissions.length === 0) {
             return {
               output: [
-                '▶ FACTION MISSIONS ▶',
-                '',
-                '✗ No missions available at your current rank',
-                '✗ Increase your reputation to unlock more missions',
-                '',
-                'Complete regular missions or faction activities to gain reputation'
-              ],
-              success: true
-            };
-          }
-          
-          return {
-            output: [
-              `▶ ${factions[gameState.activeFaction].name} MISSIONS ▶`,
+              `▶ ${gameState.activeFaction.replace('_', ' ').toUpperCase()} MISSIONS ▶`,
               '',
               '┌─ AVAILABLE MISSIONS ─┐',
-              ...availableMissions.map(mission => [
-                `│ ${mission.title.substring(0, 25).padEnd(25)} │`,
-                `│   Difficulty: ${mission.difficulty.padEnd(10)} │`,
-                `│   Reputation: +${mission.reputationReward.toString().padEnd(8)} │`,
-                `│   Credits: +${mission.creditReward.toString().padEnd(11)} │`,
-                `│   ${mission.description.substring(0, 30).padEnd(30)} │`,
-                '│                               │'
-              ]).flat(),
-              '└───────────────────────────────┘',
+              '│ Data Center Infiltration     │',
+              '│   Difficulty: Medium         │',
+              '│   Reputation: +50            │',
+              '│   Credits: +2500             │',
+              '│                              │',
+              '│ Corporate Espionage          │',
+              '│   Difficulty: Hard           │',
+              '│   Reputation: +100           │',
+              '│   Credits: +5000             │',
+              '└──────────────────────────────┘',
               '',
-              'Use "faction_mission <mission_id>" to start a mission'
+              'More missions available as you gain reputation'
             ],
             success: true
           };
@@ -2472,7 +2698,9 @@ export const commands: Record<string, Command> = {
                 '✗ No active faction membership',
                 '',
                 'Available factions:',
-                ...Object.values(factions).map(f => `• ${f.name} - ${f.description}`),
+                '• Serpent Syndicate - Shadow operations',
+                '• Crimson Circuit - Direct action',
+                '• Mirage Loop - Social engineering',
                 '',
                 'Use "faction list" for detailed information',
                 'Use "faction join <faction_id>" to join'
@@ -2481,38 +2709,29 @@ export const commands: Record<string, Command> = {
             };
           }
           
-          const activeFaction = factions[gameState.activeFaction];
-          const activeStanding = gameState.factionStandings[gameState.activeFaction];
-          const currentRank = getPlayerFactionRank(gameState.activeFaction, activeStanding.reputation);
-          const nextRank = factionRanks[gameState.activeFaction].find(rank => 
-            rank.requiredReputation > activeStanding.reputation
-          );
+          const standing = gameState.factionStandings[gameState.activeFaction];
+          const reputation = standing?.reputation || 0;
+          const missionsCompleted = standing?.missionsCompleted || 0;
           
           return {
             output: [
-              `▶ ${activeFaction.name} STATUS ▶`,
+              `▶ ${gameState.activeFaction.replace('_', ' ').toUpperCase()} STATUS ▶`,
               '',
               '┌─ FACTION STANDING ─┐',
-              `│ Rank: ${currentRank.title.padEnd(15)} │`,
-              `│ Reputation: ${activeStanding.reputation.toString().padEnd(10)} │`,
-              `│ Missions: ${activeStanding.missionsCompleted.toString().padEnd(12)} │`,
-              `│ Credits Earned: ${activeStanding.creditsEarned.toString().padEnd(10)} │`,
+              `│ Rank: ${reputation >= 1000 ? 'Elite' : reputation >= 500 ? 'Veteran' : reputation >= 100 ? 'Operative' : 'Initiate'.padEnd(15)} │`,
+              `│ Reputation: ${reputation.toString().padEnd(10)} │`,
+              `│ Missions: ${missionsCompleted.toString().padEnd(12)} │`,
               '└────────────────────┘',
               '',
-              nextRank ? [
+              reputation < 100 ? [
                 '┌─ NEXT RANK ─┐',
-                `│ ${nextRank.title.padEnd(12)} │`,
-                `│ Required: ${nextRank.requiredReputation.toString().padEnd(7)} │`,
-                `│ Progress: ${Math.floor((activeStanding.reputation / nextRank.requiredReputation) * 100)}%     │`,
+                `│ Operative    │`,
+                `│ Required: 100│`,
+                `│ Progress: ${Math.floor((reputation / 100) * 100)}%   │`,
                 '└─────────────┘'
-              ].join('\n') : '🏆 Maximum rank achieved!',
+              ].join('\n') : '🏆 Advanced rank achieved!',
               '',
-              '┌─ ACHIEVEMENTS ─┐',
-              ...activeStanding.specialAchievements.map(achievement => 
-                `│ 🏅 ${achievement.substring(0, 20).padEnd(20)} │`
-              ),
-              activeStanding.specialAchievements.length === 0 ? '│ No achievements yet    │' : '',
-              '└───────────────────────┘'
+              'Complete faction missions to increase reputation'
             ],
             success: true
           };
@@ -2588,7 +2807,11 @@ export const commands: Record<string, Command> = {
               ...gameState.factionStandings[gameState.activeFaction],
               reputation: gameState.factionStandings[gameState.activeFaction].reputation + mission.reputationReward,
               missionsCompleted: gameState.factionStandings[gameState.activeFaction].missionsCompleted + 1,
-              creditsEarned: gameState.factionStandings[gameState.activeFaction].creditsEarned + bonusCredits
+              creditsEarned: gameState.factionStandings[gameState.activeFaction].creditsEarned + bonusCredits,
+              rank: getPlayerFactionRank(
+                gameState.activeFaction,
+                gameState.factionStandings[gameState.activeFaction].reputation + mission.reputationReward
+              )
             }
           },
           completedFactionMissions: [...gameState.completedFactionMissions, mission.id],
@@ -2945,13 +3168,14 @@ export const commands: Record<string, Command> = {
           ),
           '└─────────────────┘',
           '',
-          `Skill points remaining: ${updatedSkillTree.skillPoints}`,
+          `Skill points remaining: ${updatedSkillTree.skillTree.skillPoints}`,
           '',
           '⚡ New abilities unlocked! Check your enhanced capabilities.'
         ],
         success: true,
         updateGameState: {
-          skillTree: updatedSkillTree
+          skillTree: updatedSkillTree.skillTree,
+          unlockedCommands: [...gameState.unlockedCommands, ...updatedSkillTree.unlockedCommands]
         },
         soundEffect: 'success'
       };
@@ -3128,890 +3352,360 @@ export const commands: Record<string, Command> = {
     unlockLevel: 0
   },
 
-  // Advanced Mission Commands
-  phish: {
-    description: "Launch phishing attacks against targets",
-    usage: "phish --target <TARGET>",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args.find(arg => args[args.indexOf(arg) - 1] === '--target');
-      
-      if (!target) {
-        return {
-          output: ['Usage: phish --target <TARGET>'],
-          success: false
-        };
-      }
-
-      const phishingResults = [
-        `▶ Launching phishing campaign against ${target}...`,
-        '',
-        '📧 Crafting convincing emails...',
-        '🎯 Targeting high-value employees...',
-        '⏳ Waiting for responses...',
-        '',
-        '✓ 3 employees clicked malicious links',
-        '✓ 2 credentials harvested successfully',
-        '✓ 1 admin account compromised',
-        '',
-        'Phishing campaign successful!',
-        'Use "harvest --credentials" to collect data'
-      ];
-
-      return {
-        output: phishingResults,
-        success: true,
-        updateGameState: {
-          unlockedCommands: [...gameState.unlockedCommands, 'harvest']
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 3
-  },
-
-  harvest: {
-    description: "Harvest credentials and data from compromised systems",
-    usage: "harvest --credentials",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      if (args[0] !== '--credentials') {
-        return {
-          output: ['Usage: harvest --credentials'],
-          success: false
-        };
-      }
-
-      const harvestResults = [
-        '▶ Harvesting compromised credentials...',
-        '',
-        '🔑 Extracting login data...',
-        '📊 Analyzing access levels...',
-        '🗂️ Cataloging permissions...',
-        '',
-        '┌─ HARVESTED CREDENTIALS ─┐',
-        '│ • john.doe@neural.corp    │',
-        '│ • sarah.admin@neural.corp │',
-        '│ • security@neural.corp    │',
-        '└──────────────────────────┘',
-        '',
-        'Credentials successfully harvested!',
-        'Internal access now available'
-      ];
-
-      return {
-        output: harvestResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 200,
-          unlockedCommands: [...gameState.unlockedCommands, 'recon']
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 3
-  },
-
-  recon: {
-    description: "Perform reconnaissance on networks and systems",
-    usage: "recon [--internal] [--deep] <TARGET>",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const isInternal = args.includes('--internal');
-      const isDeep = args.includes('--deep');
-      
-      let reconResults = ['▶ Performing reconnaissance...', ''];
-
-      if (isInternal) {
-        reconResults = [
-          ...reconResults,
-          '🔍 Mapping internal network topology...',
-          '📡 Identifying critical systems...',
-          '🛡️ Analyzing security measures...',
-          '',
-          '┌─ INTERNAL NETWORK MAP ─┐',
-          '│ • Database Server (HIGH) │',
-          '│ • AI Core (CRITICAL)     │',
-          '│ • Security Hub (MEDIUM)  │',
-          '│ • Employee Workstations  │',
-          '└─────────────────────────┘',
-          '',
-          'Internal reconnaissance complete!'
-        ];
-      } else if (isDeep) {
-        reconResults = [
-          ...reconResults,
-          '🔬 Deep scanning target systems...',
-          '⚡ Probing for vulnerabilities...',
-          '🧬 Analyzing AI behavioral patterns...',
-          '',
-          '⚠️ THREAT ASSESSMENT ⚠️',
-          '• Advanced AI security detected',
-          '• Quantum encryption in use',
-          '• Active countermeasures present',
-          '• Multiple security layers identified',
-          '',
-          'Deep reconnaissance complete!'
-        ];
-      } else {
-        reconResults = [
-          ...reconResults,
-          '📊 Basic network scanning...',
-          '🔍 Identifying entry points...',
-          '',
-          'Basic reconnaissance complete!'
-        ];
-      }
-
-      return {
-        output: reconResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 150
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 2
-  },
-
-  disable: {
-    description: "Disable security systems and surveillance",
-    usage: "disable --cameras | --alarms | --sensors",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args[0];
-      
-      if (!target || !target.startsWith('--')) {
-        return {
-          output: ['Usage: disable --cameras | --alarms | --sensors'],
-          success: false
-        };
-      }
-
-      const systemType = target.substring(2);
-      const disableResults = [
-        `▶ Disabling ${systemType}...`,
-        '',
-        '🔧 Accessing control systems...',
-        '⚡ Injecting disable commands...',
-        '🛡️ Bypassing failsafes...',
-        '',
-        `✓ ${systemType.toUpperCase()} successfully disabled`,
-        '✓ Security blind spots created',
-        '✓ Movement window established',
-        '',
-        `${systemType} neutralized!`
-      ];
-
-      return {
-        output: disableResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 300,
-          suspicionLevel: Math.max(0, gameState.suspicionLevel - 10)
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 4
-  },
-
-  bypass: {
-    description: "Bypass security locks and barriers",
-    usage: "bypass --locks <TYPE> | --firewall --method <METHOD>",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const isLocks = args.includes('--locks');
-      const isFirewall = args.includes('--firewall');
-      
-      if (isLocks) {
-        const lockType = args[args.indexOf('--locks') + 1];
-        return {
-          output: [
-            `▶ Bypassing ${lockType} locks...`,
-            '',
-            '🔐 Analyzing lock mechanisms...',
-            '⚡ Exploiting electronic vulnerabilities...',
-            '🔓 Override successful!',
-            '',
-            `${lockType} locks bypassed!`,
-            'Physical access granted'
-          ],
-          success: true,
-          updateGameState: {
-            credits: gameState.credits + 250
-          },
-          soundEffect: 'success'
-        };
-      } else if (isFirewall) {
-        const method = args[args.indexOf('--method') + 1];
-        return {
-          output: [
-            `▶ Bypassing firewall using ${method}...`,
-            '',
-            '🛡️ Analyzing firewall rules...',
-            '🔥 Deploying bypass techniques...',
-            '⚡ Firewall circumvented!',
-            '',
-            'Network access established!',
-            'Proceeding to target systems...'
-          ],
-          success: true,
-          updateGameState: {
-            credits: gameState.credits + 400
-          },
-          soundEffect: 'success'
-        };
-      }
-
-      return {
-        output: ['Usage: bypass --locks <TYPE> | --firewall --method <METHOD>'],
-        success: false
-      };
-    },
-    unlockLevel: 4
-  },
-
-  access: {
-    description: "Access secure terminals and systems",
-    usage: "access --terminal <TYPE> | --core <SYSTEM>",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const isTerminal = args.includes('--terminal');
-      const isCore = args.includes('--core');
-      
-      if (isTerminal) {
-        const terminalType = args[args.indexOf('--terminal') + 1];
-        return {
-          output: [
-            `▶ Accessing ${terminalType} terminal...`,
-            '',
-            '💻 Establishing connection...',
-            '🔑 Authenticating with harvested credentials...',
-            '✓ Terminal access granted!',
-            '',
-            '┌─ TERMINAL ACCESS ─┐',
-            '│ • Administrative privileges │',
-            '│ • System control available │',
-            '│ • Data extraction ready    │',
-            '└────────────────────────────┘',
-            '',
-            'Terminal successfully accessed!'
-          ],
-          success: true,
-          updateGameState: {
-            credits: gameState.credits + 500
-          },
-          soundEffect: 'success'
-        };
-      } else if (isCore) {
-        const coreSystem = args[args.indexOf('--core') + 1];
-        return {
-          output: [
-            `▶ Accessing ${coreSystem} core...`,
-            '',
-            '🧠 Interfacing with neural matrix...',
-            '⚡ Bypassing AI defenses...',
-            '🔮 Core access achieved!',
-            '',
-            '⚠️ WARNING: AI COUNTERMEASURES ACTIVE ⚠️',
-            '',
-            'Core system penetrated!',
-            'Maximum access level achieved!'
-          ],
-          success: true,
-          updateGameState: {
-            credits: gameState.credits + 1000,
-            suspicionLevel: gameState.suspicionLevel + 25
-          },
-          soundEffect: 'success'
-        };
-      }
-
-      return {
-        output: ['Usage: access --terminal <TYPE> | --core <SYSTEM>'],
-        success: false
-      };
-    },
-    unlockLevel: 5
-  },
-
-  exploit: {
-    description: "Deploy exploits against target systems",
-    usage: "exploit --zero-day <TARGET> | --payload <TYPE>",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const isZeroDay = args.includes('--zero-day');
-      const isPayload = args.includes('--payload');
-      
-      if (isZeroDay) {
-        const target = args[args.indexOf('--zero-day') + 1];
-        return {
-          output: [
-            `▶ Deploying zero-day exploit against ${target}...`,
-            '',
-            '💀 Loading advanced exploit framework...',
-            '🎯 Targeting system vulnerabilities...',
-            '⚡ Zero-day payload deployed!',
-            '',
-            '🔥 CRITICAL SYSTEM BREACH 🔥',
-            '• Root access obtained',
-            '• All security bypassed',
-            '• System under full control',
-            '',
-            'Zero-day exploit successful!',
-            'Prepare for AI countermeasures...'
-          ],
-          success: true,
-          updateGameState: {
-            credits: gameState.credits + 1500,
-            suspicionLevel: gameState.suspicionLevel + 40,
-            unlockedCommands: [...gameState.unlockedCommands, 'battle']
-          },
-          soundEffect: 'success'
-        };
-      } else if (isPayload) {
-        const payloadType = args[args.indexOf('--payload') + 1];
-        return {
-          output: [
-            `▶ Deploying ${payloadType} payload...`,
-            '',
-            '💣 Loading exploit payload...',
-            '🎯 Targeting system weaknesses...',
-            '⚡ Payload executed successfully!',
-            '',
-            'System compromised!',
-            'Continuing infiltration...'
-          ],
-          success: true,
-          updateGameState: {
-            credits: gameState.credits + 600
-          },
-          soundEffect: 'success'
-        };
-      }
-
-      return {
-        output: ['Usage: exploit --zero-day <TARGET> | --payload <TYPE>'],
-        success: false
-      };
-    },
-    unlockLevel: 6
-  },
-
-  battle: {
-    description: "Engage in AI-vs-AI cyber warfare",
-    usage: "battle --ai <TARGET_AI>",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      if (!args.includes('--ai')) {
-        return {
-          output: ['Usage: battle --ai <TARGET_AI>'],
-          success: false
-        };
-      }
-
-      const targetAI = args[args.indexOf('--ai') + 1];
-      
-      return {
-        output: [
-          `▶ Initiating AI battle against ${targetAI}...`,
-          '',
-          '🤖 Loading combat algorithms...',
-          '⚔️ Engaging in digital warfare...',
-          '🧠 AI vs AI combat initiated!',
-          '',
-          '┌─ BATTLE LOG ─┐',
-          '│ > Deploying attack vectors...     │',
-          '│ > Enemy AI responding...          │',
-          '│ > Adapting to countermeasures...  │',
-          '│ > Overwhelming enemy defenses...  │',
-          '│ > VICTORY ACHIEVED!               │',
-          '└───────────────────────────────────┘',
-          '',
-          '🏆 AI BATTLE WON! 🏆',
-          'Enemy AI systems neutralized!',
-          'Full system control established!'
-        ],
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 2000,
-          playerLevel: gameState.playerLevel + 1,
-          skillTree: {
-            ...gameState.skillTree,
-            skillPoints: gameState.skillTree.skillPoints + 2
-          }
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 7
-  },
-
-  // Terminal Mini-Games
-  minigame: {
-    description: "Launch interactive hacking mini-games",
-    usage: "minigame [list|<game_id>]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const { miniGames, initializeMiniGame } = require('./miniGames');
-      
-      if (args.length === 0 || args[0] === 'list') {
-        const gameList = Object.values(miniGames).map((game: any) => 
-          `${game.id.padEnd(20)} ${game.difficulty.padEnd(8)} ${game.reward.credits}₵`
-        );
-        
-        return {
-          output: [
-            '▶ AVAILABLE MINI-GAMES ▶',
-            '',
-            '┌─ INTERACTIVE HACKING SIMULATIONS ─┐',
-            '│ ID                   DIFF     REWARD │',
-            '├────────────────────────────────────┤',
-            ...gameList.map(line => `│ ${line} │`),
-            '└────────────────────────────────────┘',
-            '',
-            'Usage: minigame <game_id>',
-            '',
-            '🎮 Pattern Cracking: Match encryption sequences',
-            '🎮 Signal Tracing: Navigate network topology',
-            '🎮 Binary Tree: Traverse data structures',
-            ''
-          ],
-          success: true
-        };
-      }
-
-      const gameId = args[0];
-      const game = miniGames[gameId];
-      
-      if (!game) {
-        return {
-          output: [
-            `ERROR: Unknown mini-game '${gameId}'`,
-            'Use "minigame list" to see available games'
-          ],
-          success: false,
-          soundEffect: 'error'
-        };
-      }
-
-      // Initialize the mini-game
-      const miniGameState = initializeMiniGame(gameId);
-      if (!miniGameState) {
-        return {
-          output: ['ERROR: Failed to initialize mini-game'],
-          success: false,
-          soundEffect: 'error'
-        };
-      }
-
-      // Trigger mini-game interface
-      setTimeout(() => {
-        const event = new CustomEvent('startMiniGame', {
-          detail: { miniGameState }
-        });
-        window.dispatchEvent(event);
-      }, 100);
-
-      return {
-        output: [
-          `▶ LAUNCHING: ${game.title} ▶`,
-          '',
-          `Difficulty: ${game.difficulty}`,
-          `Time Limit: ${game.timeLimit}s`,
-          `Reward: ${game.reward.credits}₵`,
-          '',
-          game.description,
-          '',
-          '🎮 Mini-game interface loading...',
-          '⚡ Get ready for interactive hacking!'
-        ],
-        success: true,
-        updateGameState: {
-          miniGameState
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 1
-  },
-
-  // Enhanced Mission System Commands
-  override: {
-    description: "Override system controls and protocols",
-    usage: "override --systems | --protocols | --security",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args[0];
-      
-      if (!target || !target.startsWith('--')) {
-        return {
-          output: ['Usage: override --systems | --protocols | --security'],
-          success: false
-        };
-      }
-
-      const systemType = target.substring(2);
-      const overrideResults = [
-        `▶ Overriding ${systemType}...`,
-        '',
-        '🔧 Accessing administrative controls...',
-        '⚡ Escalating privileges...',
-        '🛡️ Bypassing authorization checks...',
-        '',
-        `✓ ${systemType.toUpperCase()} override successful`,
-        '✓ Administrative access granted',
-        '✓ System controls compromised',
-        '',
-        `${systemType} now under your control!`
-      ];
-
-      return {
-        output: overrideResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 400,
-          unlockedCommands: [...gameState.unlockedCommands, 'backdoor']
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 4
-  },
-
-  wipe: {
-    description: "Wipe traces and evidence from systems",
-    usage: "wipe --traces | --logs | --evidence",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args[0];
-      
-      if (!target || !target.startsWith('--')) {
-        return {
-          output: ['Usage: wipe --traces | --logs | --evidence'],
-          success: false
-        };
-      }
-
-      const wipeType = target.substring(2);
-      const wipeResults = [
-        `▶ Wiping ${wipeType}...`,
-        '',
-        '🗑️ Locating target data...',
-        '⚡ Secure deletion in progress...',
-        '🔒 Overwriting with random data...',
-        '🧹 Cleaning metadata...',
-        '',
-        `✓ ${wipeType.toUpperCase()} successfully wiped`,
-        '✓ Forensic evidence eliminated',
-        '✓ Digital footprints removed',
-        '',
-        `${wipeType} cleanup complete!`
-      ];
-
-      return {
-        output: wipeResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 350,
-          suspicionLevel: Math.max(0, gameState.suspicionLevel - 20)
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 3
-  },
-
-  analyze: {
-    description: "Analyze data, systems, and patterns",
-    usage: "analyze --data | --system | --pattern | --neural",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args[0];
-      
-      if (!target || !target.startsWith('--')) {
-        return {
-          output: ['Usage: analyze --data | --system | --pattern | --neural'],
-          success: false
-        };
-      }
-
-      const analysisType = target.substring(2);
-      let analysisResults = [
-        `▶ Analyzing ${analysisType}...`,
-        '',
-        '🔬 Initializing analysis engines...',
-        '📊 Processing data patterns...',
-        '🧠 Running AI algorithms...',
-        ''
-      ];
-
-      switch (analysisType) {
-        case 'data':
-          analysisResults = [
-            ...analysisResults,
-            '┌─ DATA ANALYSIS RESULTS ─┐',
-            '│ • Encrypted files: 247   │',
-            '│ • Database entries: 1,892│',
-            '│ • Hidden partitions: 3   │',
-            '│ • Suspicious patterns: 12│',
-            '└─────────────────────────┘'
-          ];
-          break;
-        case 'system':
-          analysisResults = [
-            ...analysisResults,
-            '┌─ SYSTEM ANALYSIS RESULTS ─┐',
-            '│ • OS: Neural Linux v4.2    │',
-            '│ • Security Level: MAXIMUM  │',
-            '│ • Active processes: 1,247  │',
-            '│ • Vulnerabilities: 3       │',
-            '└───────────────────────────┘'
-          ];
-          break;
-        case 'pattern':
-          analysisResults = [
-            ...analysisResults,
-            '┌─ PATTERN ANALYSIS RESULTS ─┐',
-            '│ • Encryption: AES-256-QR   │',
-            '│ • Key rotation: 60s        │',
-            '│ • Access pattern detected  │',
-            '│ • Weakness found: Timing   │',
-            '└───────────────────────────┘'
-          ];
-          break;
-        case 'neural':
-          analysisResults = [
-            ...analysisResults,
-            '┌─ NEURAL ANALYSIS RESULTS ─┐',
-            '│ • AI Type: Defensive       │',
-            '│ • Learning rate: Adaptive  │',
-            '│ • Threat response: Active  │',
-            '│ • Bypass method: Social    │',
-            '└───────────────────────────┘'
-          ];
-          break;
-      }
-
-      analysisResults = [
-        ...analysisResults,
-        '',
-        `${analysisType} analysis complete!`,
-        'Use findings to plan your next move'
-      ];
-
-      return {
-        output: analysisResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 250
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 2
-  },
-
-  solve: {
-    description: "Solve puzzles and algorithmic challenges",
-    usage: "solve --puzzle | --algorithm | --cipher",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args[0];
-      
-      if (!target || !target.startsWith('--')) {
-        return {
-          output: ['Usage: solve --puzzle | --algorithm | --cipher'],
-          success: false
-        };
-      }
-
-      const puzzleType = target.substring(2);
-      const solveResults = [
-        `▶ Solving ${puzzleType}...`,
-        '',
-        '🧩 Loading puzzle parameters...',
-        '🔢 Running solution algorithms...',
-        '⚡ Processing computational logic...',
-        '',
-        `✓ ${puzzleType.toUpperCase()} solved successfully!`,
-        '✓ Access codes generated',
-        '✓ Security bypass enabled',
-        '',
-        `${puzzleType} challenge completed!`
-      ];
-
-      return {
-        output: solveResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 300,
-          unlockedCommands: [...gameState.unlockedCommands, 'access']
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 3
-  },
-
-  evade: {
-    description: "Evade countermeasures and detection systems",
-    usage: "evade --countermeasures | --detection | --ai",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args[0];
-      
-      if (!target || !target.startsWith('--')) {
-        return {
-          output: ['Usage: evade --countermeasures | --detection | --ai'],
-          success: false
-        };
-      }
-
-      const evasionType = target.substring(2);
-      const evadeResults = [
-        `▶ Evading ${evasionType}...`,
-        '',
-        '👻 Activating stealth protocols...',
-        '🔀 Randomizing attack vectors...',
-        '🛡️ Deploying countermeasures...',
-        '',
-        `✓ ${evasionType.toUpperCase()} successfully evaded`,
-        '✓ Detection probability reduced',
-        '✓ Stealth mode maintained',
-        '',
-        `${evasionType} evasion complete!`
-      ];
-
-      return {
-        output: evadeResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 200,
-          suspicionLevel: Math.max(0, gameState.suspicionLevel - 15)
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 4
-  },
-
-  investigate: {
-    description: "Investigate conspiracies and hidden connections",
-    usage: "investigate --conspiracy | --connections | --network",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const target = args[0];
-      
-      if (!target || !target.startsWith('--')) {
-        return {
-          output: ['Usage: investigate --conspiracy | --connections | --network'],
-          success: false
-        };
-      }
-
-      const investigationType = target.substring(2);
-      const investigateResults = [
-        `▶ Investigating ${investigationType}...`,
-        '',
-        '🔍 Gathering intelligence...',
-        '🕸️ Mapping relationships...',
-        '📊 Analyzing patterns...',
-        '',
-        `✓ ${investigationType.toUpperCase()} investigation complete`,
-        '✓ Hidden connections revealed',
-        '✓ Conspiracy patterns identified',
-        '',
-        `${investigationType} secrets uncovered!`
-      ];
-
-      return {
-        output: investigateResults,
-        success: true,
-        updateGameState: {
-          credits: gameState.credits + 400,
-          unlockedCommands: [...gameState.unlockedCommands, 'expose']
-        },
-        soundEffect: 'success'
-      };
-    },
-    unlockLevel: 5
-  },
-
-  contracts: {
-    description: "Access daily contracts system",
-    usage: "contracts [list|accept <id>|status]",
-    execute: (args: string[], gameState: GameState): CommandResult => {
-      const { generateDailyContracts, checkContractExpiration } = require('./dailyContracts');
-      
-      const action = args[0] || 'list';
+  // Multiplayer Commands
+  'team': {
+    description: 'Manage your team for multiplayer missions',
+    usage: 'team [create|invite|leave|status]',
+    category: 'multiplayer',
+    execute: (args: string[], gameState: GameState) => {
+      const action = args[0]?.toLowerCase();
       
       switch (action) {
-        case 'list':
-          const contracts = generateDailyContracts(gameState);
-          const contractList = contracts.map((contract: any, index: number) => 
-            `${(index + 1).toString().padStart(2)} │ ${contract.title.padEnd(25)} │ ${contract.difficulty.padEnd(8)} │ ${contract.reward.toString().padStart(6)}₵ │ ${contract.riskLevel}`
-          );
-          
+        case 'create':
           return {
-            output: [
-              '▶ DAILY CONTRACTS AVAILABLE ▶',
-              '',
-              '┌─ ACTIVE CONTRACTS ─────────────────────────────────────────┐',
-              '│ ID │ TITLE                     │ DIFF     │ REWARD │ RISK   │',
-              '├────┼───────────────────────────┼──────────┼────────┼────────┤',
-              ...contractList.map((line: string) => `│ ${line} │`),
-              '└────┴───────────────────────────┴──────────┴────────┴────────┘',
-              '',
-              'Usage: contracts accept <id> | contracts status',
-              '',
-              '⚡ High-reward time-limited missions',
-              '🎯 Bonus objectives for extra rewards',
-              '⏰ Contracts expire in 24 hours',
-              ''
-            ],
-            success: true
-          };
-          
-        case 'accept':
-          const contractId = parseInt(args[1]);
-          if (!contractId || contractId < 1 || contractId > 5) {
-            return {
-              output: ['ERROR: Invalid contract ID. Use "contracts list" to see available contracts.'],
-              success: false,
-              soundEffect: 'error'
-            };
-          }
-          
-          return {
-            output: [
-              `▶ ACCEPTING CONTRACT #${contractId} ▶`,
-              '',
-              '📋 Contract terms acknowledged',
-              '⏰ Timer started',
-              '🎯 Objectives loaded',
-              '',
-              '✓ Contract accepted successfully!',
-              'Use mission commands to complete objectives',
-              ''
-            ],
             success: true,
-            updateGameState: {
-              // Add contract tracking logic here
-            },
-            soundEffect: 'success'
+            output: [
+              '🎯 Opening team creation interface...',
+              'Use the Team Management panel to create your team.',
+              ''
+            ],
+            updateGameState: { showTeamInterface: true }
           };
-          
+        
         case 'status':
           return {
+            success: true,
             output: [
-              '▶ CONTRACT STATUS ▶',
+              '👥 TEAM STATUS',
+              '━━━━━━━━━━━━━━━━━━━━━━',
+              'Current Team: None',
+              'Members: 0/4',
+              'Status: Available for recruitment',
               '',
-              '📊 Active Contracts: 0',
-              '✅ Completed Today: 0',
-              '💰 Credits Earned: 0₵',
-              '🏆 Bonus Objectives: 0/0',
-              '',
-              'No active contracts',
-              'Use "contracts list" to browse available missions'
-            ],
-            success: true
+              'Use "team create" to form a new team.',
+              ''
+            ]
           };
-          
+        
+        case 'invite':
+          const username = args[1];
+          if (!username) {
+            return {
+              success: false,
+              output: ['Usage: team invite <username>', '']
+            };
+          }
+          return {
+            success: true,
+            output: [
+              `📨 Invitation sent to ${username}`,
+              'They will receive a team invite notification.',
+              ''
+            ]
+          };
+        
+        case 'leave':
+          return {
+            success: true,
+            output: [
+              '👋 Left current team.',
+              'You are now available for new team invitations.',
+              ''
+            ]
+          };
+        
         default:
           return {
-            output: ['Usage: contracts [list|accept <id>|status]'],
-            success: false
+            success: true,
+            output: [
+              '👥 TEAM MANAGEMENT',
+              '━━━━━━━━━━━━━━━━━━━━━━',
+              'Available commands:',
+              '• team create    - Create a new team',
+              '• team invite <username> - Invite a player',
+              '• team status    - Show team information',
+              '• team leave     - Leave current team',
+              '',
+              'Teams are required for multiplayer missions!',
+              ''
+            ],
+            updateGameState: { showTeamInterface: true }
           };
       }
-    },
-    unlockLevel: 2
-  }
+    }
+  },
+
+  'mission-map': {
+    description: 'Open the interactive mission network map',
+    usage: 'mission-map',
+    category: 'multiplayer',
+    execute: (args: string[], gameState: GameState) => {
+      setTimeout(() => {
+        const event = new CustomEvent('openMissionMap');
+        window.dispatchEvent(event);
+      }, 100);
+      
+      return {
+        success: true,
+        output: [
+          '🗺️  Opening Mission Network Map...',
+          'Select missions, view requirements, and plan team operations.',
+          ''
+        ]
+      };
+    }
+  },
+
+  'players': {
+    description: 'View online players and their status',
+    usage: 'players [online|search <username>]',
+    category: 'multiplayer',
+    execute: (args: string[], gameState: GameState) => {
+      const action = args[0]?.toLowerCase();
+      
+      if (action === 'search') {
+        const username = args[1];
+        if (!username) {
+          return {
+            success: false,
+            output: ['Usage: players search <username>', '']
+          };
+        }
+        return {
+          success: true,
+          output: [
+            `🔍 Searching for player: ${username}`,
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'Ghost_Hacker    [Lv.12] [Online] [Available]',
+            '• Specialization: System Exploitation',
+            '• Reputation: Expert',
+            '• Current Activity: Browsing missions',
+            '',
+            'Use "team invite Ghost_Hacker" to send invitation.',
+            ''
+          ]
+        };
+      }
+      
+      return {
+        success: true,
+        output: [
+          '👥 ONLINE PLAYERS (15)',
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          'Ghost_Hacker      [Lv.12] [🟢 Online]',
+          'SocialEng_X       [Lv.8]  [🟡 In Mission]',
+          'Data_Miner        [Lv.15] [🟢 Online]',
+          'CyberNinja        [Lv.20] [🔴 Away]',
+          'Script_Kiddie     [Lv.3]  [🟢 Online]',
+          '                        ... and 10 more',
+          '',
+          'Use "players search <username>" to find specific players.',
+          'Use "team invite <username>" to invite to your team.',
+          ''
+        ]
+      };
+    }
+  },
+
+  chat: {
+    description: 'Send messages in multiplayer chat',
+    usage: 'chat <message> OR chat [global|team] <message>',
+    category: 'multiplayer',
+    execute: (args: string[], gameState: GameState) => {
+      if (args.length === 0) {
+        return {
+          success: true,
+          output: [
+            '💬 CHAT SYSTEM',
+            '━━━━━━━━━━━━━━━━━━━━━━',
+            'Chat is available in the bottom-right corner.',
+            'Click the chat icon to open the interface.',
+            '',
+            'Commands:',
+            '• chat <message>           - Send to global chat',
+            '• chat global <message>    - Send to global chat',
+            '• chat team <message>      - Send to team chat',
+            ''
+          ]
+        };
+      }
+      
+      const channel = ['global', 'team'].includes(args[0]) ? args[0] : 'global';
+      const messageStart = channel === args[0] ? 1 : 0;
+      const message = args.slice(messageStart).join(' ');
+      
+      if (!message) {
+        return {
+          success: false,
+          output: ['Please provide a message to send.', '']
+        };
+      }
+      
+      // Try to get username from different sources
+      const username = gameState.playerId || 'CyberOp_Anonymous';
+      
+      // Auto-open multiplayer chat if it's not open
+      setTimeout(() => {
+        const openChatEvent = new CustomEvent('openMultiplayerChat');
+        window.dispatchEvent(openChatEvent);
+      }, 50);
+      
+      // Send message to chat interface with delay to ensure chat is open
+      setTimeout(() => {
+        const chatEvent = new CustomEvent('sendChatMessage', {
+          detail: {
+            channel: channel,
+            message: message,
+            username: username,
+            timestamp: Date.now()
+          }
+        });
+        window.dispatchEvent(chatEvent);
+      }, 200);
+      
+      return {
+        success: true,
+        output: [
+          `💬 Message sent to ${channel} chat:`,
+          `[${channel.toUpperCase()}] ${username}: ${message}`,
+          '',
+          '✓ Message delivered to connected players',
+          '✓ Chat interface opening...'
+        ]
+      };
+    }
+  },
+
+  login: {
+    description: 'Access user authentication and account management',
+    usage: 'login [username] [password] | login status | login logout',
+    category: 'system',
+    execute: (args: string[], gameState: GameState) => {
+      const action = args[0]?.toLowerCase();
+      
+      if (action === 'status') {
+        return {
+          success: true,
+          output: [
+            '🔐 AUTHENTICATION STATUS',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'Current Session: Active',
+            'User: Authenticated',
+            'Backend Connection: Connected',
+            'Data Sync: Enabled',
+            '',
+            'Use "login logout" to end session',
+            'Game progress is automatically saved to server',
+            ''
+          ]
+        };
+      }
+      
+      if (action === 'logout') {
+        // Trigger logout through the game interface
+        setTimeout(() => {
+          const event = new CustomEvent('userLogout');
+          window.dispatchEvent(event);
+        }, 100);
+        
+        return {
+          success: true,
+          output: [
+            '👋 LOGGING OUT...',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            '✓ Saving current progress...',
+            '✓ Closing active connections...',
+            '✓ Clearing session data...',
+            '',
+            'You will be redirected to the login screen.',
+            ''
+          ]
+        };
+      }
+      
+      if (args.length >= 2) {
+        const username = args[0];
+        const password = args[1];
+        
+        return {
+          success: false,
+          output: [
+            '⚠️  SECURITY WARNING',
+            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+            'Do not enter credentials in the terminal!',
+            'Use the secure login interface instead.',
+            '',
+            'Credentials entered in terminal are visible',
+            'and may be logged in command history.',
+            '',
+            'Please use the web interface for authentication.',
+            ''
+          ]
+        };
+      }
+      
+      return {
+        success: true,
+        output: [
+          '🔐 USER AUTHENTICATION',
+          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+          'Authentication is handled through the web interface.',
+          '',
+          'Available commands:',
+          '• login status    - Check authentication status',  
+          '• login logout    - End current session',
+          '',
+          'Your game progress is automatically saved when',
+          'you are logged in to your account.',
+          ''
+        ]
+      };
+    }
+  },
+
 };
+
+export function getInitialUnlockedCommands(): string[] {
+  return [
+    // Essential system commands (always available)
+    "help", "clear", "status", "scan", "connect", "shop", "hackide", "tutorial", "settings",
+    "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login",
+    
+    // Basic utility commands (unlockLevel 0 or undefined)
+    "man", "reboot", "ping", "ls", "cd", "pwd", "cat", "whoami", "ps", "inventory", "fortune", "lore",
+    
+    // Basic hacking commands (unlockLevel 0)
+    "inject",
+    
+    // Game features (always available)
+    "minigame", "faction", "leaderboard", "easter", "reset_shop"
+  ];
+}
+
+// Command availability checker
+export function isCommandAvailable(commandName: string, gameState: GameState): boolean {
+  const command = commands[commandName];
+  if (!command) return false;
+  
+  // Commands without unlockLevel are always available (like basic system commands)
+  if (command.unlockLevel === undefined || command.unlockLevel === 0) {
+    return true;
+  }
+  
+  // Check if command is explicitly unlocked
+  if (gameState.unlockedCommands && gameState.unlockedCommands.includes(commandName)) {
+    return true;
+  }
+  
+  // Check level-based unlocking
+  if (gameState.playerLevel && gameState.playerLevel >= command.unlockLevel) {
+    return true;
+  }
+  
+  // Check if purchased from shop (for shop-exclusive commands)
+  if (command.unlockLevel === 999) {
+    return gameState.unlockedCommands && gameState.unlockedCommands.includes(commandName);
+  }
+  
+  return false;
+}

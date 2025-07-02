@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { io, type Socket } from 'socket.io-client';
+// Removed socket.io-client import - using native WebSocket instead
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -10,8 +10,8 @@ import { Users, MessageSquare, Trophy, Settings, Copy, User, Crown, Target, Map 
 import { useAuth } from '@/hooks/useAuth';
 import { apiRequest } from '@/lib/queryClient';
 import { useToast } from '@/hooks/use-toast';
-import { CollaborativeMissionPlanner } from './CollaborativeMissionPlanner';
-import { RealTimeSync } from './RealTimeSync';
+import { CollaborativeMissionPlanner } from './CollaborativeMissionPlanner_Fixed';
+import { RealTimeSync } from './RealTimeSync_Fixed';
 
 interface Room {
   id: number;
@@ -52,58 +52,66 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
   const [roomName, setRoomName] = useState('');
   const [chatMessages, setChatMessages] = useState<Array<{ user: string; message: string; time: string }>>([]);
   const [chatInput, setChatInput] = useState('');
-  const [ws, setWs] = useState<Socket | null>(null);
+  const [ws, setWs] = useState<WebSocket | null>(null);
   const [showMissionPlanner, setShowMissionPlanner] = useState(false);
 
   useEffect(() => {
     if (currentRoom && currentUser) {
-      // Connect to real WebSocket server using Socket.IO
+      // Connect to real WebSocket server
       const connectWebSocket = () => {
         const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-        const wsUrl = `${protocol}//${window.location.host}`;
+        const wsUrl = `${protocol}//${window.location.host}/ws`;
 
         try {
-          const socket = io(wsUrl, { path: '/ws', transports: ['websocket'] });
+          const websocket = new WebSocket(wsUrl);
 
-          socket.on('connect', () => {
+          websocket.onopen = () => {
             console.log('Connected to WebSocket server');
-            socket.emit('authenticate', {
+            websocket.send(JSON.stringify({
+              type: 'authenticate',
               userId: currentUser.id,
               hackerName: (currentUser as any)?.hackerName || currentUser.username
-            });
-            socket.emit('join_room', { roomId: currentRoom.id });
-          });
+            }));
+            websocket.send(JSON.stringify({
+              type: 'join_room',
+              roomId: currentRoom.id
+            }));
+          };
 
-          socket.on('chat_message', (data) => {
-            setChatMessages(prev => [...prev, {
-              user: data.username,
-              message: data.message,
-              time: new Date(data.timestamp).toLocaleTimeString()
-            }]);
-          });
+          websocket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+            
+            if (data.type === 'chat_message') {
+              setChatMessages(prev => [...prev, {
+                user: data.username,
+                message: data.message,
+                time: new Date(data.timestamp).toLocaleTimeString()
+              }]);
+            } else if (data.type === 'player_joined') {
+              toast({
+                title: "Player Joined",
+                description: `${data.hackerName} joined the room`,
+              });
+              fetchRoomMembers();
+            } else if (data.type === 'player_left') {
+              toast({
+                title: "Player Left",
+                description: `${data.hackerName} left the room`,
+              });
+              fetchRoomMembers();
+            }
+          };
 
-          socket.on('player_joined', (data) => {
-            toast({
-              title: "Player Joined",
-              description: `${data.hackerName} joined the room`,
-            });
-            fetchRoomMembers();
-          });
-
-          socket.on('player_left', (data) => {
-            toast({
-              title: "Player Left",
-              description: `${data.hackerName} left the room`,
-            });
-            fetchRoomMembers();
-          });
-
-          socket.on('disconnect', () => {
+          websocket.onclose = () => {
             console.log('WebSocket connection closed');
             setTimeout(connectWebSocket, 5000);
-          });
+          };
 
-          setWs(socket);
+          websocket.onerror = (error) => {
+            console.error('WebSocket error:', error);
+          };
+
+          setWs(websocket as any);
         } catch (error) {
           console.error('Failed to connect to WebSocket:', error);
         }
@@ -115,7 +123,7 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
 
     return () => {
       if (ws) {
-        ws.disconnect();
+        ws.close();
       }
     };
   }, [currentRoom, currentUser, toast]);
@@ -205,9 +213,12 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
     if (!currentRoom) return;
 
     try {
-        if (ws) {
-          ws.emit('leave_room');
-          ws.disconnect();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: 'leave_room',
+            roomId: currentRoom.id
+          }));
+          ws.close();
         }
 
       const response = await fetch(`/api/rooms/${currentRoom.id}/leave`, {
@@ -240,13 +251,14 @@ export function MultiplayerRoom({ onStartGame, onBack, currentUser }: Multiplaye
 
     // Send message via WebSocket if connected, otherwise store locally
 
-    if (ws && ws.connected) {
-      ws.emit('send_message', {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({
+        type: 'send_message',
         message: chatInput.trim(),
         channel: 'room',
         userId: currentUser?.id,
         username: currentUser?.username || 'Anonymous'
-      });
+      }));
     }
 
     if (ws && ws.readyState === WebSocket.OPEN) {

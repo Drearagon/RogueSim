@@ -25,7 +25,7 @@ export const users = pgTable("users", {
   updatedAt: timestamp("updated_at").defaultNow(),
   
   // Game-specific profile fields
-  hackerName: varchar("hacker_name").unique(), // In-game username
+  hackerName: varchar("hacker_name").unique().notNull(), // In-game username
   playerLevel: integer("player_level").notNull().default(1),
   totalMissionsCompleted: integer("total_missions_completed").notNull().default(0),
   totalCreditsEarned: integer("total_credits_earned").notNull().default(0),
@@ -133,7 +133,7 @@ export const verificationCodes = pgTable("verification_codes", {
 });
 
 export const unverifiedUsers = pgTable("unverified_users", {
-  id: varchar("id").primaryKey().notNull(),
+  id: serial("id").primaryKey(),
   email: varchar("email").unique().notNull(),
   hackerName: varchar("hacker_name").notNull(),
   password: varchar("password").notNull(),
@@ -189,6 +189,108 @@ export const insertUnverifiedUserSchema = createInsertSchema(unverifiedUsers).om
   updatedAt: true,
 });
 
+// Battle Pass System Tables
+export const battlePasses = pgTable("battle_passes", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  seasonNumber: integer("season_number").notNull(),
+  startDate: timestamp("start_date").notNull(),
+  endDate: timestamp("end_date").notNull(),
+  freeTierRewards: jsonb("free_tier_rewards").notNull().default('[]'),
+  premiumTierRewards: jsonb("premium_tier_rewards").notNull().default('[]'),
+  maxLevel: integer("max_level").notNull().default(100),
+  premiumPrice: integer("premium_price").notNull(), // Price in cents
+  isActive: boolean("is_active").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const userBattlePasses = pgTable("user_battle_passes", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  battlePassId: integer("battle_pass_id").notNull().references(() => battlePasses.id),
+  currentLevel: integer("current_level").notNull().default(1),
+  experience: integer("experience").notNull().default(0),
+  hasPremium: boolean("has_premium").notNull().default(false),
+  purchaseDate: timestamp("purchase_date"),
+  stripePaymentIntentId: varchar("stripe_payment_intent_id"),
+  claimedRewards: jsonb("claimed_rewards").notNull().default('[]'),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const cosmetics = pgTable("cosmetics", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 100 }).notNull(),
+  description: text("description"),
+  type: varchar("type", { length: 50 }).notNull(), // 'terminal_theme', 'avatar', 'title', 'badge', 'emote'
+  rarity: varchar("rarity", { length: 20 }).notNull().default('common'), // 'common', 'rare', 'epic', 'legendary'
+  data: jsonb("data").notNull(), // Contains the actual cosmetic data (colors, images, etc.)
+  isPremiumOnly: boolean("is_premium_only").notNull().default(false),
+  battlePassId: integer("battle_pass_id").references(() => battlePasses.id),
+  unlockLevel: integer("unlock_level"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userCosmetics = pgTable("user_cosmetics", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  cosmeticId: integer("cosmetic_id").notNull().references(() => cosmetics.id),
+  equippedAt: timestamp("equipped_at"),
+  unlockedAt: timestamp("unlocked_at").defaultNow(),
+});
+
+export const battlePassCommands = pgTable("battle_pass_commands", {
+  id: serial("id").primaryKey(),
+  commandName: varchar("command_name", { length: 50 }).notNull(),
+  displayName: varchar("display_name", { length: 100 }).notNull(),
+  description: text("description"),
+  battlePassId: integer("battle_pass_id").notNull().references(() => battlePasses.id),
+  unlockLevel: integer("unlock_level").notNull(),
+  isPremiumOnly: boolean("is_premium_only").notNull().default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const userPremiumCommands = pgTable("user_premium_commands", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").notNull().references(() => users.id),
+  commandName: varchar("command_name", { length: 50 }).notNull(),
+  battlePassId: integer("battle_pass_id").notNull().references(() => battlePasses.id),
+  unlockedAt: timestamp("unlocked_at").defaultNow(),
+});
+
+// Battle Pass Schema validations
+export const insertBattlePassSchema = createInsertSchema(battlePasses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertUserBattlePassSchema = createInsertSchema(userBattlePasses).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertCosmeticSchema = createInsertSchema(cosmetics).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserCosmeticSchema = createInsertSchema(userCosmetics).omit({
+  id: true,
+});
+
+export const insertBattlePassCommandSchema = createInsertSchema(battlePassCommands).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertUserPremiumCommandSchema = createInsertSchema(userPremiumCommands).omit({
+  id: true,
+});
+
 // Types
 export type UpsertUser = z.infer<typeof upsertUserSchema>;
 export type User = typeof users.$inferSelect;
@@ -208,3 +310,17 @@ export type VerificationCode = typeof verificationCodes.$inferSelect;
 export type InsertVerificationCode = z.infer<typeof insertVerificationCodeSchema>;
 export type UnverifiedUser = typeof unverifiedUsers.$inferSelect;
 export type InsertUnverifiedUser = z.infer<typeof insertUnverifiedUserSchema>;
+
+// Battle Pass Types
+export type BattlePass = typeof battlePasses.$inferSelect;
+export type InsertBattlePass = z.infer<typeof insertBattlePassSchema>;
+export type UserBattlePass = typeof userBattlePasses.$inferSelect;
+export type InsertUserBattlePass = z.infer<typeof insertUserBattlePassSchema>;
+export type Cosmetic = typeof cosmetics.$inferSelect;
+export type InsertCosmetic = z.infer<typeof insertCosmeticSchema>;
+export type UserCosmetic = typeof userCosmetics.$inferSelect;
+export type InsertUserCosmetic = z.infer<typeof insertUserCosmeticSchema>;
+export type BattlePassCommand = typeof battlePassCommands.$inferSelect;
+export type InsertBattlePassCommand = z.infer<typeof insertBattlePassCommandSchema>;
+export type UserPremiumCommand = typeof userPremiumCommands.$inferSelect;
+export type InsertUserPremiumCommand = z.infer<typeof insertUserPremiumCommandSchema>;
