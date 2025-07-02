@@ -1,18 +1,20 @@
 // server/index.ts (PRODUCTION - FULL FRONTEND + API SERVING)
-import 'dotenv/config';
+import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// Resolve project root and load environment variables from .env
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+dotenv.config({ path: path.resolve(__dirname, '../.env') });
+
 import { env } from './config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
-import { fileURLToPath } from 'url';
 import { registerRoutes } from "./routes";
 import { serveStatic, log } from "./vite";
 import { initDatabase } from "./db";
-import path from "path";
 import cors from "cors";
-
-// ES module equivalent of __dirname
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 
