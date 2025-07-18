@@ -9,6 +9,8 @@ export default defineConfig({
   plugins: [
     react(),
   ],
+  // Load environment variables from project root
+  envDir: __dirname,
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "client", "src"),
