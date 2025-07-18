@@ -67,12 +67,12 @@ const tutorialSteps: TutorialStep[] = [
     content: [
       'Missions range from corporate espionage to government infiltration',
       'Higher difficulty missions offer greater rewards',
-      'AI generates unique challenges based on your skill level',
+      'Mission generator creates unique challenges based on your skill level',
       'Complete objectives to unlock advanced tools'
     ],
     tips: [
       'Read mission briefings carefully',
-      'Use the "generate" command for AI-powered missions',
+      'Use the "generate" command for randomly generated missions',
       'Failed missions affect your reputation'
     ]
   },
