@@ -68,8 +68,6 @@ A full-stack web-based cyberpunk hacking simulation game featuring terminal-styl
    # Optional email service
    SENDGRID_API_KEY=your-sendgrid-api-key
    FROM_EMAIL=noreply@yourdomain.com
-   # Optional AI mission generation
-   OPENAI_API_KEY=your-openai-api-key
    NODE_ENV=development
    PORT=5000
    ```
@@ -139,11 +137,6 @@ SENDGRID_API_KEY=your-sendgrid-api-key
 FROM_EMAIL=noreply@yourdomain.com
 ```
 
-### AI Mission Generation (OpenAI)
-For AI-generated missions:
-```env
-OPENAI_API_KEY=your-openai-api-key
-```
 
 ## Game Features
 

@@ -38,7 +38,6 @@ if [ ! -f .env ]; then
         print_warning "- SESSION_SECRET (required)"
         print_warning "- SENDGRID_API_KEY (for email verification)"
         print_warning "- STRIPE_SECRET_KEY (for payments)"
-        print_warning "- OPENAI_API_KEY (for AI features)"
         exit 1
     else
         print_error "env.example not found. Please create a .env file manually."

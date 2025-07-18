@@ -5,7 +5,6 @@ const envSchema = z.object({
   SESSION_SECRET: z.string().min(1, 'SESSION_SECRET is required'),
   SENDGRID_API_KEY: z.string().optional(),
   FROM_EMAIL: z.string().optional(),
-  OPENAI_API_KEY: z.string().optional(),
   NODE_ENV: z.string().default('development'),
   PORT: z.string().default('5000'),
   DOMAIN: z.string().optional(),
@@ -25,7 +24,6 @@ if (!parsed.success) {
   console.error('Optional environment variables:');
   console.error('- SENDGRID_API_KEY: For email verification');
   console.error('- STRIPE_SECRET_KEY: For payment processing');
-  console.error('- OPENAI_API_KEY: For AI features');
   throw new Error('Environment validation failed');
 }
 

@@ -524,6 +524,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
+        // ============= MISSION GENERATION ROUTES =============
+
+        // Generate single mission
+        app.post("/api/missions/generate", isAuthenticated, async (req: any, res) => {
+            try {
+                const { missionGenerator } = await import('./missionGenerator');
+                const userId = req.session.userId;
+                if (!userId) return res.status(401).json({ error: "Authentication required" });
+
+                const { playerLevel, completedMissions, reputation } = req.body;
+
+                const mission = await missionGenerator.generateMission(
+                    playerLevel || 1,
+                    completedMissions || [],
+                    reputation || 'Novice'
+                );
+
+                res.json(mission);
+            } catch (error) {
+                console.error("Error generating mission:", error);
+                res.status(500).json({ error: "Failed to generate mission" });
+            }
+        });
+
+        // Generate batch of missions
+        app.post("/api/missions/generate-batch", isAuthenticated, async (req: any, res) => {
+            try {
+                const { missionGenerator } = await import('./missionGenerator');
+                const userId = req.session.userId;
+                if (!userId) return res.status(401).json({ error: "Authentication required" });
+
+                const { playerLevel, completedMissions, reputation, count } = req.body;
+
+                const missions = await missionGenerator.generateMissionBatch(
+                    playerLevel || 1,
+                    completedMissions || [],
+                    reputation || 'Novice',
+                    count || 3
+                );
+
+                res.json(missions);
+            } catch (error) {
+                console.error("Error generating mission batch:", error);
+                res.status(500).json({ error: "Failed to generate missions" });
+            }
+        });
+
         // Confirm battle pass purchase
         app.post('/api/battlepass/confirm-purchase', isAuthenticated, async (req: any, res) => {
             try {
