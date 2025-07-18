@@ -168,7 +168,26 @@ Preferred communication style: Simple, everyday language.
 ## Changelog
 
 Changelog:
+- July 18, 2025. Fixed Docker container health check issues - improved timing, added Node.js health check script, enhanced reliability
 - July 18, 2025. Removed OpenAI API key requirement and AI integration - replaced with static mission generator
 - July 2, 2025. Complete Docker deployment optimization and production hardening
 - June 27, 2025. Major security overhaul and game enhancement implementation
 - June 23, 2025. Initial setup
+
+## Recent Docker Health Check Improvements
+
+### July 18, 2025 - Docker Health Check Optimization
+- **Fixed Health Check Timing**: Reduced interval from 30s to 15s, start period from 60s to 30s
+- **Node.js Health Check Script**: Created dedicated `docker-health-check.js` for reliable health monitoring
+- **Enhanced Endpoints**: Added basic `/api/health` (no DB dependency) and advanced `/api/health/full` (with DB testing)
+- **Improved Reliability**: Health checks now use native Node.js HTTP instead of wget/curl
+- **Better Error Handling**: Comprehensive error reporting and timeout management
+- **Validation Scripts**: Created `validate-docker-health.sh` for testing health check functionality
+
+### Health Check Features Added
+- Basic health endpoint without database dependency for faster container startup
+- Advanced health endpoint with database connectivity testing
+- Custom Node.js health check script with proper error handling
+- Comprehensive validation and testing scripts
+- Optimized timing for faster health detection
+- Enhanced logging for health check diagnostics
