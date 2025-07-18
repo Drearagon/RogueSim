@@ -103,15 +103,57 @@ export async function registerRoutes(app: Express): Promise<Server> {
             res.json({ csrfToken: 'disabled' });
         });
 
-        // Health check endpoint for Docker
+        // Basic health check endpoint for Docker (without database dependency)
         app.get('/api/health', (req, res) => {
-            res.json({ 
+            res.status(200).json({ 
                 status: 'healthy', 
                 timestamp: new Date().toISOString(),
                 environment: process.env.NODE_ENV || 'development',
                 uptime: process.uptime(),
-                version: '1.0.0'
+                version: '1.0.0',
+                services: {
+                    api: 'healthy',
+                    server: 'running'
+                }
             });
+        });
+        
+        // Advanced health check endpoint with database testing
+        app.get('/api/health/full', async (req, res) => {
+            try {
+                // Test database connectivity
+                await storage.testConnection();
+                
+                res.status(200).json({ 
+                    status: 'healthy', 
+                    timestamp: new Date().toISOString(),
+                    environment: process.env.NODE_ENV || 'development',
+                    uptime: process.uptime(),
+                    version: '1.0.0',
+                    database: 'connected',
+                    services: {
+                        api: 'healthy',
+                        database: 'healthy',
+                        storage: 'healthy'
+                    }
+                });
+            } catch (error) {
+                console.error('Full health check failed:', error);
+                res.status(503).json({ 
+                    status: 'unhealthy', 
+                    timestamp: new Date().toISOString(),
+                    environment: process.env.NODE_ENV || 'development',
+                    uptime: process.uptime(),
+                    version: '1.0.0',
+                    database: 'disconnected',
+                    error: error instanceof Error ? error.message : 'Unknown error',
+                    services: {
+                        api: 'healthy',
+                        database: 'unhealthy',
+                        storage: 'unhealthy'
+                    }
+                });
+            }
         });
 
         // Debug test endpoint

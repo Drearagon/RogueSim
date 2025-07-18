@@ -80,9 +80,13 @@ USER roguesim
 # Expose port
 EXPOSE 5000
 
-# Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+# Copy health check script
+COPY docker-health-check.js /usr/local/bin/docker-health-check.js
+RUN chmod +x /usr/local/bin/docker-health-check.js
+
+# Health check with Node.js script
+HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=5 \
+    CMD node /usr/local/bin/docker-health-check.js
 
 # Environment variables
 ENV NODE_ENV=production

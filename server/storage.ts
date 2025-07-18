@@ -84,6 +84,9 @@ export interface IStorage {
     getBattlePassCommands(battlePassId: number): Promise<BattlePassCommand[]>;
     unlockPremiumCommand(userId: string, commandName: string, battlePassId: number): Promise<UserPremiumCommand>;
     hasAccessToPremiumCommand(userId: string, commandName: string): Promise<boolean>;
+    
+    // Health check
+    testConnection(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -818,5 +821,22 @@ export class DatabaseStorage implements IStorage {
             .limit(1);
         
         return result.length > 0;
+    }
+
+    // Health check method for Docker container health checks
+    async testConnection(): Promise<void> {
+        try {
+            // Test database connection by running a simple query
+            const result = await this.drizzleDb
+                .select()
+                .from(users)
+                .limit(1);
+            
+            // If we get here without throwing, the connection is working
+            console.log('Database connection test successful');
+        } catch (error) {
+            console.error('Database connection test failed:', error);
+            throw error;
+        }
     }
 }
