@@ -68,7 +68,7 @@ The application employs a hybrid database approach:
 ### Required Services
 - **Neon PostgreSQL**: Primary database hosting (requires DATABASE_URL)
 - **SendGrid**: Email service for verification (requires SENDGRID_API_KEY)
-- **OpenAI**: AI mission generation (optional, requires OPENAI_API_KEY)
+
 
 ### Optional Services
 - **Ngrok**: Secure tunneling for remote access during development
@@ -78,7 +78,7 @@ The application employs a hybrid database approach:
 - `DATABASE_URL`: PostgreSQL connection string (required)
 - `SESSION_SECRET`: Secure session key (required)
 - `SENDGRID_API_KEY`: Email service authentication (optional)
-- `OPENAI_API_KEY`: AI service authentication (optional)
+
 - `NODE_ENV`: Environment mode (development/production)
 
 ## Deployment Strategy
@@ -168,6 +168,7 @@ Preferred communication style: Simple, everyday language.
 ## Changelog
 
 Changelog:
+- July 18, 2025. Removed OpenAI API key requirement and AI integration - replaced with static mission generator
 - July 2, 2025. Complete Docker deployment optimization and production hardening
 - June 27, 2025. Major security overhaul and game enhancement implementation
 - June 23, 2025. Initial setup

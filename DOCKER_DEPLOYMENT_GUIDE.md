@@ -50,7 +50,7 @@ This guide provides comprehensive instructions for deploying RogueSim using Dock
 | `SENDGRID_API_KEY` | SendGrid API key for emails | - |
 | `STRIPE_SECRET_KEY` | Stripe secret key for payments | - |
 | `VITE_STRIPE_PUBLIC_KEY` | Stripe public key for frontend | - |
-| `OPENAI_API_KEY` | OpenAI API key for AI features | - |
+
 | `FROM_EMAIL` | Email address for outbound emails | `noreply@yourdomain.com` |
 | `PORT` | Internal application port | `5000` |
 | `HOST` | Bind address | `0.0.0.0` |
@@ -78,11 +78,7 @@ This guide provides comprehensive instructions for deploying RogueSim using Dock
    - `STRIPE_SECRET_KEY=sk_live_...`
    - `VITE_STRIPE_PUBLIC_KEY=pk_live_...`
 
-### 4. AI Features (Optional)
 
-1. Create account at https://platform.openai.com/
-2. Generate API key
-3. Add to `.env` as `OPENAI_API_KEY`
 
 ## Manual Deployment
 
