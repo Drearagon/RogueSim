@@ -1,57 +1,93 @@
-# Use Node.js 20 Alpine for better compatibility and newer features
-FROM node:20-alpine
+# Multi-stage build for optimal Docker deployment
+FROM node:20-alpine AS builder
 
 # Set working directory
 WORKDIR /app
 
-# Install npm and update to latest version for better dependency resolution
-RUN npm install -g npm@latest
+# Install system dependencies needed for native modules
+RUN apk add --no-cache \
+    python3 \
+    make \
+    g++ \
+    cairo-dev \
+    jpeg-dev \
+    pango-dev \
+    musl-dev \
+    giflib-dev \
+    pixman-dev \
+    pangomm-dev \
+    libjpeg-turbo-dev \
+    freetype-dev
 
 # Copy package files first for better caching
 COPY package*.json ./
 
-# Clear npm cache and install dependencies with better error handling
-RUN npm cache clean --force && \
-    npm ci --verbose --no-optional || \
-    (echo "npm ci failed, trying npm install..." && npm install --verbose)
-
-# Force install missing rollup dependencies for ARM64/Alpine compatibility
-RUN npm install @rollup/rollup-linux-arm64-musl @rollup/rollup-linux-x64-musl --save-optional || echo "Rollup optional dependencies install failed, continuing..."
-
-# Verify critical dependencies are installed
-RUN echo "Verifying @tanstack/react-query installation:" && \
-    npm ls @tanstack/react-query || echo "Warning: @tanstack/react-query not found"
+# Install dependencies with better error handling
+RUN npm ci --verbose --no-audit --no-fund || \
+    (echo "npm ci failed, trying npm install..." && npm install --verbose --no-audit --no-fund)
 
 # Copy source code
 COPY . .
 
-# Build the application with verbose output and directory debugging
-RUN echo "Starting build process..." && \
-    echo "Current directory:" && pwd && \
-    echo "Files in current directory:" && ls -la && \
-    echo "Node modules check:" && ls -la node_modules/@tanstack/ || echo "No @tanstack modules found" && \
-    echo "Package.json scripts:" && cat package.json | grep -A 10 '"scripts"' && \
-    echo "Running npm run build..." && \
-    npm run build && \
-    echo "Build completed successfully!"
+# Build the application
+RUN npm run build
 
-# Debug the build output structure
-RUN echo "=== BUILD OUTPUT DEBUGGING ===" && \
-    echo "Contents of /app:" && ls -la && \
-    echo "Contents of /app/dist:" && ls -la dist/ && \
-    echo "Contents of /app/dist/public:" && ls -la dist/public/ && \
-    echo "Checking for index.html:" && \
-    find /app -name "index.html" -type f && \
-    echo "=== END BUILD DEBUGGING ==="
+# Verify build output
+RUN echo "=== BUILD VERIFICATION ===" && \
+    ls -la dist/ && \
+    ls -la dist/public/ && \
+    test -f dist/index.js && echo "Server build: OK" || echo "Server build: FAILED" && \
+    test -f dist/public/index.html && echo "Client build: OK" || echo "Client build: FAILED"
 
-# DO NOT prune dev dependencies - keep them for runtime vite imports
-# RUN npm prune --production
+# Production stage
+FROM node:20-alpine AS production
+
+# Install runtime dependencies
+RUN apk add --no-cache \
+    cairo \
+    jpeg \
+    pango \
+    musl \
+    giflib \
+    pixman \
+    pangomm \
+    libjpeg-turbo \
+    freetype \
+    wget \
+    curl
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install only production dependencies
+RUN npm ci --only=production --no-audit --no-fund
+
+# Copy built application from builder stage
+COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/shared ./shared
+
+# Create non-root user for security
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S roguesim -u 1001 -G nodejs
+
+# Set ownership
+RUN chown -R roguesim:nodejs /app
+USER roguesim
 
 # Expose port
 EXPOSE 5000
 
-# Set environment to production
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD node -e "require('http').get('http://localhost:5000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
+
+# Environment variables
 ENV NODE_ENV=production
+ENV PORT=5000
+ENV HOST=0.0.0.0
 
 # Start the application
-CMD ["npm", "start"] 
+CMD ["node", "dist/index.js"]

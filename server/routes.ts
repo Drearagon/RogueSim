@@ -15,6 +15,7 @@ import { log } from "./vite";
 import crypto from "crypto";
 import { SecurityMiddleware, PasswordValidator, SecurityAuditLogger } from "./security";
 import Stripe from "stripe";
+import { env } from './config';
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -38,10 +39,10 @@ function generateSecureVerificationCode(): string {
 let storage: DatabaseStorage;
 
 // Initialize Stripe
-if (!process.env.STRIPE_SECRET_KEY) {
+if (!env.STRIPE_SECRET_KEY) {
     throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
 }
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
+const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
     apiVersion: "2025-06-30.basil",
 });
 
@@ -100,6 +101,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // CSRF token endpoint
         app.get('/api/csrf', (req, res) => {
             res.json({ csrfToken: 'disabled' });
+        });
+
+        // Health check endpoint for Docker
+        app.get('/api/health', (req, res) => {
+            res.json({ 
+                status: 'healthy', 
+                timestamp: new Date().toISOString(),
+                environment: process.env.NODE_ENV || 'development',
+                uptime: process.uptime(),
+                version: '1.0.0'
+            });
         });
 
         // Debug test endpoint
