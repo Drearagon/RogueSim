@@ -103,6 +103,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
             res.json({ csrfToken: 'disabled' });
         });
 
+        // Health check endpoint for Docker
+        app.get('/api/health', (req, res) => {
+            res.json({ 
+                status: 'healthy', 
+                timestamp: new Date().toISOString(),
+                environment: process.env.NODE_ENV || 'development',
+                uptime: process.uptime(),
+                version: '1.0.0'
+            });
+        });
+
         // Debug test endpoint
         app.get('/api/test', (req, res) => {
             log('DEBUG: /api/test route HIT!', 'debug');
