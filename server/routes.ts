@@ -9,6 +9,7 @@ import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
 import session from "express-session";
 import connectPg from "connect-pg-simple";
+import csurf from "csurf";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger";
 import { log } from "./vite";
@@ -82,6 +83,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         app.use(SecurityMiddleware.honeypotProtection());
         app.use(SecurityMiddleware.enhanceSessionSecurity());
 
+        // CSRF protection middleware
+        const csrfProtection = csurf();
+        app.use(csrfProtection);
+
         // Advanced rate limiting for authentication routes
         const authLimiter = SecurityMiddleware.advancedRateLimit({
             windowMs: 15 * 60 * 1000,
@@ -100,7 +105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         // CSRF token endpoint
         app.get('/api/csrf', (req, res) => {
-            res.json({ csrfToken: 'disabled' });
+            res.json({ csrfToken: req.csrfToken() });
         });
 
         // Basic health check endpoint for Docker (without database dependency)
