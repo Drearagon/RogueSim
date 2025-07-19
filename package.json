@@ -17,7 +17,9 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "test": "vitest run",
-    "monitor:health": "ts-node scripts/healthcheck-monitor.ts"
+    "monitor:health": "ts-node scripts/healthcheck-monitor.ts",
+    "lint": "eslint .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -135,7 +137,9 @@
     "tsx": "^4.19.4",
     "typescript": "5.6.3",
     "vite": "^5.4.19",
-    "vitest": "^3.2.3"
+    "vitest": "^3.2.3",
+    "eslint": "^8.56.0",
+    "prettier": "^3.6.2"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"
