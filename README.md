@@ -128,6 +128,21 @@ Run all automated tests with:
 npm test
 ```
 
+## Linting and Formatting
+
+Check code quality with ESLint:
+
+```bash
+npm run lint
+```
+
+Automatically format source files using Prettier:
+
+```bash
+npm run format
+```
+
+
 ## Optional Features
 
 ### Email Service (SendGrid)
