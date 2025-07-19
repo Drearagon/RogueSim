@@ -55,7 +55,7 @@ log('✅ CORS middleware configured.');
 
         // 6. FINAL Error Handler (MUST BE LAST)
     app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
-      log(`🚨 ERROR: ${req.method} ${req.path} - Status: ${err.status || 500} - ${err.message}`, "error");
+      log('🚨 ERROR: ${req.method} ${req.path} - Status: ${err.status || 500} - ${err.message}', "error");
       res.status(err.status || 500).json({ message: err.message || "Internal Server Error" });
     });
 
@@ -63,8 +63,8 @@ log('✅ CORS middleware configured.');
     const port = parseInt(env.PORT || "5000", 10);
     const host = env.HOST || "0.0.0.0";
     server.listen(port, host, () => {
-            log(`🚀 Production server running on http://${host}:${port}`);
-            log(`🎯 Frontend and API routes active!`);
+            log('🚀 Production server running on http://${host}:${port}');
+            log('🎯 Frontend and API routes active!');
     });
 
   } catch (error) {
