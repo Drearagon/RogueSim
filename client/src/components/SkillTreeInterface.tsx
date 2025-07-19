@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { GameState, SkillNode } from '../types/game';
 import { 
   skillCategories, 
@@ -17,6 +17,15 @@ interface SkillTreeInterfaceProps {
 export function SkillTreeInterface({ gameState, onSkillPurchase, onClose }: SkillTreeInterfaceProps) {
   const [activeCategory, setActiveCategory] = useState<'offensive' | 'defensive' | 'social'>('offensive');
   const [selectedSkill, setSelectedSkill] = useState<SkillNode | null>(null);
+
+  // Keep selected skill in sync when the skill tree updates
+  useEffect(() => {
+    if (!selectedSkill) return;
+    const updated = gameState.skillTree.nodes.find(n => n.id === selectedSkill.id);
+    if (updated) {
+      setSelectedSkill(updated);
+    }
+  }, [gameState.skillTree, selectedSkill?.id]);
   
   // Safety check for gameState and skillTree
   if (!gameState || !gameState.skillTree || !gameState.skillTree.nodes) {
@@ -62,6 +71,13 @@ export function SkillTreeInterface({ gameState, onSkillPurchase, onClose }: Skil
     const canPurchase = canPurchaseSkill(skillId, gameState.skillTree);
     if (canPurchase.canPurchase) {
       onSkillPurchase(skillId);
+      // Optimistically update selected skill level to reflect purchase immediately
+      setSelectedSkill(prev => {
+        if (prev && prev.id === skillId) {
+          return { ...prev, purchased: true, currentLevel: prev.currentLevel + 1 };
+        }
+        return prev;
+      });
     }
   };
   
