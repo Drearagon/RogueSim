@@ -188,6 +188,102 @@ export const standardMissions: Mission[] = [
   },
 
   {
+    id: 'offensive_bootcamp',
+    title: 'Offensive Bootcamp',
+    description: 'Practice exploitation basics in a controlled environment.',
+    briefing: 'Hone your offensive skills against simulated targets.',
+    difficulty: 'EASY',
+    category: 'INFILTRATION',
+    type: 'STANDARD',
+    requiredLevel: 2,
+    creditReward: 150,
+    experienceReward: 75,
+    skillPointReward: 1,
+    isRepeatable: true,
+    objectives: [
+      {
+        id: 'exploit_training',
+        description: 'Run a basic exploit',
+        type: 'COMMAND',
+        command: 'exploit',
+        completed: false
+      },
+      {
+        id: 'escalate_training',
+        description: 'Escalate privileges',
+        type: 'COMMAND',
+        command: 'escalate',
+        completed: false
+      }
+    ],
+    unlocks: ['exploit', 'escalate']
+  },
+
+  {
+    id: 'defensive_drill',
+    title: 'Defensive Systems Drill',
+    description: 'Test your defensive protocols against incoming attacks.',
+    briefing: 'Stop simulated intrusions and secure the system.',
+    difficulty: 'EASY',
+    category: 'EXTRACTION',
+    type: 'STANDARD',
+    requiredLevel: 2,
+    creditReward: 150,
+    experienceReward: 75,
+    skillPointReward: 1,
+    isRepeatable: true,
+    objectives: [
+      {
+        id: 'deploy_defenses',
+        description: 'Activate basic defenses',
+        type: 'COMMAND',
+        command: 'defend',
+        completed: false
+      },
+      {
+        id: 'analyze_logs',
+        description: 'Analyze intrusion logs',
+        type: 'COMMAND',
+        command: 'analyze logs',
+        completed: false
+      }
+    ],
+    unlocks: ['defend', 'analyze']
+  },
+
+  {
+    id: 'social_training',
+    title: 'Social Engineering 101',
+    description: 'Learn fundamental manipulation techniques.',
+    briefing: 'Practice phishing and persuasion on volunteer targets.',
+    difficulty: 'EASY',
+    category: 'SOCIAL_ENGINEERING',
+    type: 'STANDARD',
+    requiredLevel: 2,
+    creditReward: 150,
+    experienceReward: 75,
+    skillPointReward: 1,
+    isRepeatable: true,
+    objectives: [
+      {
+        id: 'gather_info',
+        description: 'Gather basic intel',
+        type: 'COMMAND',
+        command: 'gather intel',
+        completed: false
+      },
+      {
+        id: 'phish_target',
+        description: 'Send a phishing email',
+        type: 'COMMAND',
+        command: 'phish',
+        completed: false
+      }
+    ],
+    unlocks: ['phish', 'social_engineering']
+  },
+
+  {
     id: 'government_breach',
     title: 'Shadow Government',
     description: 'Infiltrate classified government systems to uncover hidden operations.',
