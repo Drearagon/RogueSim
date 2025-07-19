@@ -219,4 +219,4 @@ more details.
 
 ## License
 
-MIT License - see LICENSE file for details 
+All rights reserved - see LICENSE file for details
