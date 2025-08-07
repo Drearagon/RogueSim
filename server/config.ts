@@ -1,8 +1,8 @@
 import { z } from 'zod';
 
 const envSchema = z.object({
-  DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
-  SESSION_SECRET: z.string().min(1, 'SESSION_SECRET is required'),
+  DATABASE_URL: z.string().default('sqlite://data/roguesim_local.db'),
+  SESSION_SECRET: z.string().default('development-secret-key-change-in-production-at-least-32-characters'),
   SENDGRID_API_KEY: z.string().optional(),
   FROM_EMAIL: z.string().optional(),
   NODE_ENV: z.string().default('development'),
