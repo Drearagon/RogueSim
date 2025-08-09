@@ -38,6 +38,7 @@ function generateSecureVerificationCode(): string {
 
 let storage: DatabaseStorage;
 
+<<<<<<< HEAD
 // Initialize Stripe
 if (!env.STRIPE_SECRET_KEY) {
     throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -45,6 +46,22 @@ if (!env.STRIPE_SECRET_KEY) {
 const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
     apiVersion: "2025-06-30.basil",
 });
+=======
+// Initialize Stripe (optional for development)
+let stripe: Stripe | null = null;
+if (env.STRIPE_SECRET_KEY && env.STRIPE_SECRET_KEY !== 'disabled' && env.STRIPE_SECRET_KEY.startsWith('sk_')) {
+    try {
+        stripe = new Stripe(env.STRIPE_SECRET_KEY, {
+            apiVersion: "2025-06-30.basil",
+        });
+        log('✅ Stripe initialized successfully');
+    } catch (error) {
+        log('⚠️ Stripe initialization failed, payment features disabled', 'warn');
+    }
+} else {
+    log('⚠️ Stripe not configured, payment features disabled');
+}
+>>>>>>> b9a7eb8a7abe0af8ca800f7898601ebe8927a761
 
 export async function registerRoutes(app: Express): Promise<Server> {
     try {
@@ -545,6 +562,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ error: 'User already has premium battle pass' });
                 }
 
+<<<<<<< HEAD
+=======
+                // Check if Stripe is available
+                if (!stripe) {
+                    return res.status(503).json({ error: 'Payment service unavailable' });
+                }
+
+>>>>>>> b9a7eb8a7abe0af8ca800f7898601ebe8927a761
                 // Create payment intent
                 const paymentIntent = await stripe.paymentIntents.create({
                     amount: battlePass.premiumPrice, // Amount in cents
@@ -623,6 +648,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ error: 'Payment intent ID and battle pass ID required' });
                 }
 
+<<<<<<< HEAD
+=======
+                // Check if Stripe is available
+                if (!stripe) {
+                    return res.status(503).json({ error: 'Payment service unavailable' });
+                }
+
+>>>>>>> b9a7eb8a7abe0af8ca800f7898601ebe8927a761
                 // Verify payment with Stripe
                 const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
                 

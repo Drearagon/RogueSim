@@ -16,10 +16,14 @@
     "db:push": "drizzle-kit push",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
+<<<<<<< HEAD
     "test": "vitest run",
     "monitor:health": "ts-node scripts/healthcheck-monitor.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
+=======
+    "test": "vitest run"
+>>>>>>> b9a7eb8a7abe0af8ca800f7898601ebe8927a761
   },
   "dependencies": {
     "@hookform/resolvers": "^3.10.0",
@@ -136,10 +140,15 @@
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.4",
     "typescript": "5.6.3",
+<<<<<<< HEAD
     "vite": "^5.4.19",
     "vitest": "^3.2.3",
     "eslint": "^8.56.0",
     "prettier": "^3.6.2"
+=======
+    "vite": "^5.4.14",
+    "vitest": "^3.2.3"
+>>>>>>> b9a7eb8a7abe0af8ca800f7898601ebe8927a761
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.8"

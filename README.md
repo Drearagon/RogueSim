@@ -127,6 +127,7 @@ Run all automated tests with:
 ```bash
 npm test
 ```
+<<<<<<< HEAD
 
 ## Linting and Formatting
 
@@ -142,6 +143,8 @@ Automatically format source files using Prettier:
 npm run format
 ```
 
+=======
+>>>>>>> b9a7eb8a7abe0af8ca800f7898601ebe8927a761
 
 ## Optional Features
 
@@ -234,4 +237,8 @@ more details.
 
 ## License
 
+<<<<<<< HEAD
 All rights reserved - see LICENSE file for details
+=======
+MIT License - see LICENSE file for details 
+>>>>>>> b9a7eb8a7abe0af8ca800f7898601ebe8927a761
