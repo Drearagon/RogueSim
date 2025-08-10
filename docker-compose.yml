@@ -16,12 +16,12 @@ services:
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - VITE_STRIPE_PUBLIC_KEY=${VITE_STRIPE_PUBLIC_KEY}
       - FROM_EMAIL=${FROM_EMAIL:-noreply@yourdomain.com}
-    healthcheck:
-      test: ["CMD", "node", "/usr/local/bin/docker-health-check.js"]
-      interval: 15s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
+      healthcheck:
+        test: ["CMD", "/usr/local/bin/docker-health-check.sh"]
+        interval: 15s
+        timeout: 10s
+        retries: 5
+        start_period: 30s
     restart: unless-stopped
     logging:
       driver: json-file
@@ -68,3 +68,4 @@ services:
 # COMMENTED OUT - NO LONGER NEED POSTGRES VOLUME:
 # volumes:
 #   postgres_data:
+
