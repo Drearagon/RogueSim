@@ -81,12 +81,12 @@ USER roguesim
 EXPOSE 5000
 
 # Copy health check script
-COPY docker-health-check.js /usr/local/bin/docker-health-check.js
-RUN chmod +x /usr/local/bin/docker-health-check.js
+COPY docker-health-check.sh /usr/local/bin/docker-health-check.sh
+RUN chmod +x /usr/local/bin/docker-health-check.sh
 
-# Health check with Node.js script
+# Health check with bash script
 HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=5 \
-    CMD node /usr/local/bin/docker-health-check.js
+    CMD /usr/local/bin/docker-health-check.sh
 
 # Environment variables
 ENV NODE_ENV=production
