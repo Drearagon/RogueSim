@@ -20,6 +20,7 @@ import { PgColumn } from "drizzle-orm/pg-core"; // For Column types in Drizzle
 import { eq, and, desc } from "drizzle-orm"; // Drizzle ORM functions
 import { log } from "./utils"; // Import log function for consistent logging
 import crypto from "crypto"; // For hashing verification codes
+import { v4 as uuidv4 } from 'uuid';
 
 export interface IStorage {
     // User operations
@@ -138,6 +139,8 @@ export class DatabaseStorage implements IStorage {
             profileImageUrl: row.profile_image_url ?? row.profileImageUrl,
             createdAt: row.created_at ?? row.createdAt,
             updatedAt: row.updated_at ?? row.updatedAt,
+            verificationCode: row.verification_code ?? row.verificationCode,
+            expiresAt: row.expires_at ?? row.expiresAt,
         };
     }
 
@@ -500,33 +503,32 @@ export class DatabaseStorage implements IStorage {
 
     // Email verification operations
     async storeVerificationCode(data: any): Promise<void> {
-        const hashedCode = this.hashCode(data.code);
-        console.log(`DEBUG: Storing verification code - email: ${data.email}, hacker_name: ${data.hackerName}, hashed`,);
+        const plainCode = data.code; // store plain 6-digit to match schema constraints
+        console.log(`DEBUG: Storing verification code - email: ${data.email}, hacker_name: ${data.hackerName}`);
         if (typeof (this.rawPool as any).query === 'function') {
             // Neon Pool
             await (this.rawPool as any).query(
                 'INSERT INTO verification_codes (email, hacker_name, code, expires_at, used) VALUES ($1, $2, $3, $4, false)',
-                [data.email, data.hackerName, hashedCode, data.expiresAt]
+                [data.email, data.hackerName, plainCode, data.expiresAt]
             );
             console.log(`DEBUG: Verification code stored successfully using Neon Pool`);
         } else {
             // postgres.js client
             await (this.rawPool as PostgresJsClient)`
                 INSERT INTO verification_codes (email, hacker_name, code, expires_at, used)
-                VALUES (${data.email}, ${data.hackerName}, ${hashedCode}, ${data.expiresAt}, false)
+                VALUES (${data.email}, ${data.hackerName}, ${plainCode}, ${data.expiresAt}, false)
             `;
             console.log(`DEBUG: Verification code stored successfully using postgres.js`);
         }
     }
 
     async getVerificationCode(email: string, code: string): Promise<any> {
-        const hashedCode = this.hashCode(code);
         console.log(`DEBUG: Looking up verification code - email: ${email}`);
         if (typeof (this.rawPool as any).query === 'function') {
             // Neon Pool
             const result = await (this.rawPool as any).query(
                 'SELECT * FROM verification_codes WHERE email = $1 AND code = $2 AND used = false ORDER BY created_at DESC LIMIT 1',
-                [email, hashedCode]
+                [email, code]
             );
             console.log(`DEBUG: Neon Pool query result:`, result.rows[0] ? 'Found' : 'Not found', result.rows[0] || 'No record');
             return result.rows[0];
@@ -534,7 +536,7 @@ export class DatabaseStorage implements IStorage {
             // postgres.js client
             const result = await (this.rawPool as PostgresJsClient)`
             SELECT * FROM verification_codes
-                WHERE email = ${email} AND code = ${hashedCode} AND used = false
+                WHERE email = ${email} AND code = ${code} AND used = false
             ORDER BY created_at DESC LIMIT 1
         `;
             console.log(`DEBUG: postgres.js query result:`, result[0] ? 'Found' : 'Not found', result[0] || 'No record');
@@ -554,13 +556,16 @@ export class DatabaseStorage implements IStorage {
 
     async storeUnverifiedUser(userData: any): Promise<void> {
         try {
-            log(`DEBUG: Attempting to store unverified user: ${userData.email}. User ID: ${userData.id}`, 'auth');
+            const id = userData.id || uuidv4();
+            log(`DEBUG: Attempting to store unverified user: ${userData.email}. User ID: ${id}`, 'auth');
             console.log(`DEBUG: storeUnverifiedUser - Raw data:`, {
-                id: userData.id,
+                id,
                 hackerName: userData.hackerName,
                 email: userData.email,
                 password: userData.password ? '[REDACTED]' : 'MISSING',
-                profileImageUrl: userData.profileImageUrl || null
+                profileImageUrl: userData.profileImageUrl || null,
+                verificationCode: userData.verificationCode ? '[SET]' : '[MISSING]',
+                expiresAt: userData.expiresAt || null
             });
 
             if (typeof (this.rawPool as any).query === 'function') {
@@ -571,16 +576,16 @@ export class DatabaseStorage implements IStorage {
                     VALUES ($1, $2, $3, $4, $5, NOW(), NOW())
                     ON CONFLICT (email) DO UPDATE SET
                         id = $1, hacker_name = $2, password = $4, profile_image_url = $5, updated_at = NOW()
-                `, [userData.id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl]);
+                `, [id, userData.hackerName, userData.email, userData.password, userData.profileImageUrl]);
                 log(`DEBUG: Unverified user stored successfully using Neon Pool for email: ${userData.email}`, 'auth');
             } else {
                 // postgres.js client
                 console.log(`DEBUG: Using postgres.js client for storeUnverifiedUser`);
                 await (this.rawPool as PostgresJsClient)`
             INSERT INTO unverified_users (id, hacker_name, email, password, profile_image_url, created_at, updated_at)
-                    VALUES (${userData.id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, NOW(), NOW())
+                    VALUES (${id}, ${userData.hackerName}, ${userData.email}, ${userData.password}, ${userData.profileImageUrl}, NOW(), NOW())
             ON CONFLICT (email) DO UPDATE SET
-                        id = ${userData.id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, profile_image_url = ${userData.profileImageUrl}, updated_at = NOW()
+                        id = ${id}, hacker_name = ${userData.hackerName}, password = ${userData.password}, profile_image_url = ${userData.profileImageUrl}, updated_at = NOW()
                 `;
                 log(`DEBUG: Unverified user stored successfully using postgres.js for email: ${userData.email}`, 'auth');
             }

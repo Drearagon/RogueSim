@@ -16,6 +16,7 @@ import crypto from "crypto";
 import { SecurityMiddleware, PasswordValidator, SecurityAuditLogger } from "./security";
 import Stripe from "stripe";
 import { env } from './config';
+const SHOULD_LOG_CODES = process.env.VERIFICATION_LOGGING === 'true';
 
 // Authentication middleware
 const isAuthenticated: RequestHandler = (req: any, res, next) => {
@@ -194,13 +195,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const verificationCode = generateSecureVerificationCode();
                 const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
-                // Log code generation for debugging
-                authLogger.info({
-                    event: 'verification_code_generated',
-                    email,
-                    verificationCode,
-                    expiresAt: expiresAt.toISOString()
-                }, `Generated verification code ${verificationCode} for ${email}`);
+                // Log code generation for debugging (guarded by env flag)
+                if (SHOULD_LOG_CODES) {
+                    authLogger.info({
+                        event: 'verification_code_generated',
+                        email,
+                        verificationCode,
+                        expiresAt: expiresAt.toISOString()
+                    }, `Generated verification code ${verificationCode} for ${email}`);
+                } else {
+                    authLogger.info({ event: 'verification_code_generated', email }, `Generated verification code for ${email}`);
+                }
 
                 // Store unverified user
                 await storage.storeUnverifiedUser({
@@ -211,6 +216,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     expiresAt,
                 });
 
+                // Also store verification code in verification_codes table for robust checks
+                try {
+                    await storage.storeVerificationCode({ email, hackerName, code: verificationCode, expiresAt });
+                } catch (e) {
+                    authLogger.warn({ event: 'store_verification_code_failed', email, error: (e as Error).message }, 'Failed to store verification code in verification_codes table');
+                }
+
                 // Send verification email
                 const emailSent = await sendVerificationEmail(email, verificationCode, hackerName || 'Agent');
 
@@ -220,11 +232,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 res.json({ message: 'Registration initiated. Please check your email for verification code.' });
                 logAuthEvent('registration_initiated', email, true);
-                authLogger.info({
-                    event: 'registration_initiated',
-                    email,
-                    verificationCode
-                }, `Registration initiated for ${email}, code ${verificationCode} sent`);
+                if (SHOULD_LOG_CODES) {
+                    authLogger.info({ event: 'registration_initiated', email, verificationCode }, `Registration initiated for ${email}, code ${verificationCode} sent`);
+                } else {
+                    authLogger.info({ event: 'registration_initiated', email }, `Registration initiated for ${email}`);
+                }
 
             } catch (error) {
                 console.error('Registration error:', error);
@@ -238,11 +250,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const { email, verificationCode } = req.body;
 
                 // Log attempt with provided code for debugging
-                authLogger.info({
-                    event: 'verification_attempt',
-                    email,
-                    verificationCode
-                }, `Verification attempt for ${email} with code ${verificationCode}`);
+                if (SHOULD_LOG_CODES) {
+                    authLogger.info({ event: 'verification_attempt', email, verificationCode }, `Verification attempt for ${email} with code ${verificationCode}`);
+                } else {
+                    authLogger.info({ event: 'verification_attempt', email }, `Verification attempt for ${email}`);
+                }
 
                 if (!email || !verificationCode) {
                     return res.status(400).json({ error: 'Email and verification code are required' });
@@ -258,23 +270,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ error: 'No pending registration found for this email' });
                 }
 
-                // Check if verification code matches and hasn't expired
-                if (unverifiedUser.verificationCode !== verificationCode) {
-                    authLogger.warn({
-                        event: 'verification_code_mismatch',
-                        email,
-                        providedCode: verificationCode
-                    }, `Verification failed for ${email}: code mismatch`);
-                    return res.status(400).json({ error: 'Invalid verification code' });
+                // Robust code validation: use verification_codes table
+                const verification = await storage.getVerificationCode(email, verificationCode);
+                if (!verification) {
+                    if (SHOULD_LOG_CODES) {
+                        authLogger.warn({ event: 'verification_code_invalid', email, providedCode: verificationCode }, `Invalid or expired code for ${email}`);
+                    } else {
+                        authLogger.warn({ event: 'verification_code_invalid', email }, `Invalid or expired code for ${email}`);
+                    }
+                    return res.status(400).json({ error: 'Invalid or expired verification code' });
                 }
-
-                if (new Date() > new Date(unverifiedUser.expiresAt)) {
-                    authLogger.warn({
-                        event: 'verification_code_expired',
-                        email,
-                        providedCode: verificationCode,
-                        expiresAt: new Date(unverifiedUser.expiresAt).toISOString()
-                    }, `Verification failed for ${email}: code expired`);
+                // expiry check
+                if (verification.expires_at && new Date() > new Date(verification.expires_at)) {
+                    if (SHOULD_LOG_CODES) {
+                        authLogger.warn({ event: 'verification_code_expired', email, providedCode: verificationCode, expiresAt: new Date(verification.expires_at).toISOString() }, `Verification failed for ${email}: code expired`);
+                    } else {
+                        authLogger.warn({ event: 'verification_code_expired', email, expiresAt: new Date(verification.expires_at).toISOString() }, `Verification failed for ${email}: code expired`);
+                    }
                     return res.status(400).json({ error: 'Verification code has expired' });
                 }
 
