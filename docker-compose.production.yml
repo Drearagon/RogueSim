@@ -9,6 +9,7 @@ services:
       - NODE_ENV=production
       - PORT=5000
       - HOST=0.0.0.0
+      - VERIFICATION_LOGGING=true
     env_file:
       - .env
     healthcheck:
