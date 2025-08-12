@@ -194,6 +194,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const verificationCode = generateSecureVerificationCode();
                 const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
 
+                // Log code generation for debugging
+                authLogger.info({
+                    event: 'verification_code_generated',
+                    email,
+                    verificationCode,
+                    expiresAt: expiresAt.toISOString()
+                }, `Generated verification code ${verificationCode} for ${email}`);
+
                 // Store unverified user
                 await storage.storeUnverifiedUser({
                     email,
@@ -212,6 +220,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 res.json({ message: 'Registration initiated. Please check your email for verification code.' });
                 logAuthEvent('registration_initiated', email, true);
+                authLogger.info({
+                    event: 'registration_initiated',
+                    email,
+                    verificationCode
+                }, `Registration initiated for ${email}, code ${verificationCode} sent`);
 
             } catch (error) {
                 console.error('Registration error:', error);
@@ -223,6 +236,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         app.post('/api/auth/verify', authLimiter, async (req: any, res) => {
             try {
                 const { email, verificationCode } = req.body;
+
+                // Log attempt with provided code for debugging
+                authLogger.info({
+                    event: 'verification_attempt',
+                    email,
+                    verificationCode
+                }, `Verification attempt for ${email} with code ${verificationCode}`);
 
                 if (!email || !verificationCode) {
                     return res.status(400).json({ error: 'Email and verification code are required' });
@@ -240,10 +260,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
                 // Check if verification code matches and hasn't expired
                 if (unverifiedUser.verificationCode !== verificationCode) {
+                    authLogger.warn({
+                        event: 'verification_code_mismatch',
+                        email,
+                        providedCode: verificationCode
+                    }, `Verification failed for ${email}: code mismatch`);
                     return res.status(400).json({ error: 'Invalid verification code' });
                 }
 
                 if (new Date() > new Date(unverifiedUser.expiresAt)) {
+                    authLogger.warn({
+                        event: 'verification_code_expired',
+                        email,
+                        providedCode: verificationCode,
+                        expiresAt: new Date(unverifiedUser.expiresAt).toISOString()
+                    }, `Verification failed for ${email}: code expired`);
                     return res.status(400).json({ error: 'Verification code has expired' });
                 }
 
@@ -278,6 +309,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 });
 
                 logAuthEvent('verification_success', email, true);
+                authLogger.info({
+                    event: 'verification_success',
+                    email
+                }, `Verification success for ${email}`);
 
             } catch (error) {
                 console.error('Verification error:', error);

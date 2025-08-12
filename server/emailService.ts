@@ -87,7 +87,14 @@ Never share this code with anyone. The RogueSim team will never ask for this cod
 
 export const sendVerificationEmail = async (email: string, verificationCode: string, hackerName?: string): Promise<boolean> => {
   try {
-         if (!process.env.SENDGRID_API_KEY) {
+     // Log the outbound verification attempt with code for debugging
+     logger.info({
+       event: 'send_verification_email',
+       email,
+       verificationCode
+     }, `Preparing verification email with code ${verificationCode} for ${email}`);
+
+     if (!process.env.SENDGRID_API_KEY) {
        logger.warn(`📧 Email simulation: Verification code ${verificationCode} would be sent to ${email}`);
        // Return true for development/testing purposes when no API key is configured
        return true;
@@ -104,8 +111,12 @@ export const sendVerificationEmail = async (email: string, verificationCode: str
      };
 
      await sgMail.send(msg);
-     
-     logger.info(`✅ Verification email sent successfully to ${email}`);
+     // Include the code in success log for accurate debugging
+     logger.info({
+       event: 'verification_email_sent',
+       email,
+       verificationCode
+     }, `✅ Verification email sent successfully to ${email} (code ${verificationCode})`);
      return true;
      
    } catch (error: any) {
