@@ -8,6 +8,18 @@ const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const server = createServer(app);
 
+// Request access logging (method, path, status, size, duration)
+app.use((req, res, next) => {
+  const start = process.hrtime.bigint();
+  res.on('finish', () => {
+    const durationMs = Number((process.hrtime.bigint() - start) / BigInt(1e6));
+    const length = res.get('content-length') || '-';
+    // Log to stdout so docker compose captures it
+    console.log(`${req.method} ${req.originalUrl} -> ${res.statusCode} ${length}B ${durationMs}ms`);
+  });
+  next();
+});
+
 // Lightweight health endpoint for k8s/docker
 app.get('/health', (_req, res) => res.status(200).send('ok'));
 
@@ -28,12 +40,24 @@ app.get('/health', (_req, res) => res.status(200).send('ok'));
     const distDir = path.resolve(__dirname, '.');
     const publicDir = path.join(distDir, 'public');
 
+    // Serve dedicated privacy page if present
+    app.get('/privacy', (req, res) => {
+      const privacyPath = path.join(publicDir, 'privacy.html');
+      if (fs.existsSync(privacyPath)) {
+        console.log(`Serving privacy.html for path: ${req.originalUrl}`);
+        return res.type('html').send(fs.readFileSync(privacyPath, 'utf-8'));
+      }
+      console.warn('privacy.html not found in public dir; falling back to SPA');
+      return res.status(404).send('Not Found');
+    });
+
     app.use(express.static(publicDir));
 
     // SPA fallback
-    app.get('*', (_req, res) => {
+    app.get('*', (req, res) => {
       try {
         const indexPath = path.join(publicDir, 'index.html');
+        console.log(`Serving index.html for path: ${req.originalUrl}`);
         const html = fs.readFileSync(indexPath, 'utf-8');
         res.type('html').send(html);
       } catch (error) {
