@@ -1,6 +1,9 @@
 # Multi-stage build for optimal Docker deployment
 FROM node:20-alpine AS builder
 
+# Set working directory
+WORKDIR /app
+
 # Install system dependencies needed for native modules
 RUN apk add --no-cache \
     python3 \
@@ -15,9 +18,6 @@ RUN apk add --no-cache \
     pangomm-dev \
     libjpeg-turbo-dev \
     freetype-dev
-
-# Set working directory
-WORKDIR /app
 
 # Copy package files first for better caching
 COPY package*.json ./
@@ -81,12 +81,12 @@ USER roguesim
 EXPOSE 5000
 
 # Copy health check script
-COPY docker-health-check.sh /usr/local/bin/docker-health-check.sh
-RUN chmod +x /usr/local/bin/docker-health-check.sh
+COPY docker-health-check.js /usr/local/bin/docker-health-check.js
+RUN chmod +x /usr/local/bin/docker-health-check.js
 
-# Health check with bash script
+# Health check with Node.js script
 HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=5 \
-    CMD /usr/local/bin/docker-health-check.sh
+    CMD node /usr/local/bin/docker-health-check.js
 
 # Environment variables
 ENV NODE_ENV=production

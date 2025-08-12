@@ -103,8 +103,4 @@ components.json
 *.tar.gz
 .npm/
 .next/
-<<<<<<< HEAD
 out/
-=======
-out/
->>>>>>> b9a7eb8a7abe0af8ca800f7898601ebe8927a761

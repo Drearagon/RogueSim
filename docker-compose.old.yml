@@ -1,11 +1,12 @@
 version: '3.8'
+
 services:
   app:
     build: .
     ports:
       - "8000:5000"
     env_file:
-      - ./.env.production
+      - ./.env
     environment:
       - NODE_ENV=production
       - PORT=5000
@@ -16,12 +17,12 @@ services:
       - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
       - VITE_STRIPE_PUBLIC_KEY=${VITE_STRIPE_PUBLIC_KEY}
       - FROM_EMAIL=${FROM_EMAIL:-noreply@yourdomain.com}
-      healthcheck:
-        test: ["CMD", "/usr/local/bin/docker-health-check.sh"]
-        interval: 15s
-        timeout: 10s
-        retries: 5
-        start_period: 30s
+    healthcheck:
+      test: ["CMD", "node", "/usr/local/bin/docker-health-check.js"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
     restart: unless-stopped
     logging:
       driver: json-file
@@ -67,5 +68,4 @@ services:
 
 # COMMENTED OUT - NO LONGER NEED POSTGRES VOLUME:
 # volumes:
-#   postgres_data:
-
+#   postgres_data: 
