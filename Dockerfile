@@ -1,97 +1,60 @@
-# Multi-stage build for optimal Docker deployment
-FROM node:20-alpine AS builder
+# ---------- base ----------
+FROM node:20-alpine AS base
+ENV PNPM_HOME=/root/.local/share/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+RUN corepack enable
 
-# Set working directory
 WORKDIR /app
 
-# Install system dependencies needed for native modules
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    musl-dev \
-    giflib-dev \
-    pixman-dev \
-    pangomm-dev \
-    libjpeg-turbo-dev \
-    freetype-dev
+# ---------- deps ----------
+FROM base AS deps
+COPY package.json package-lock.json* pnpm-lock.yaml* .npmrc* ./ 2>/dev/null || true
+# Choose the lockfile you actually use:
+# RUN pnpm install --frozen-lockfile
+RUN npm ci
 
-# Copy package files first for better caching
-COPY package*.json ./
+# ---------- build ----------
+FROM deps AS build
+ARG NODE_ENV=production
+ARG VITE_STRIPE_PUBLIC_KEY
+ENV NODE_ENV=$NODE_ENV
+# Expose any other VITE_* here as needed:
+ENV VITE_STRIPE_PUBLIC_KEY=$VITE_STRIPE_PUBLIC_KEY
 
-# Install dependencies with better error handling
-RUN npm ci --verbose --no-audit --no-fund || \
-    (echo "npm ci failed, trying npm install..." && npm install --verbose --no-audit --no-fund)
-
-# Copy source code
+# Copy the rest and build
 COPY . .
-
-# Build the application
+# If you have separate client/server, ensure your build script builds the client bundle.
+# Must produce static assets under ./dist or similar.
 RUN npm run build
 
-# Verify build output
-RUN echo "=== BUILD VERIFICATION ===" && \
-    ls -la dist/ && \
-    ls -la dist/public/ && \
-    test -f dist/index.js && echo "Server build: OK" || echo "Server build: FAILED" && \
-    test -f dist/public/index.html && echo "Client build: OK" || echo "Client build: FAILED"
+# ---------- prod-deps (prune dev) ----------
+FROM base AS prod-deps
+COPY package.json package-lock.json* pnpm-lock.yaml* .npmrc* ./ 2>/dev/null || true
+# RUN pnpm install --frozen-lockfile --prod
+RUN npm ci --omit=dev
 
-# Production stage
-FROM node:20-alpine AS production
-
-# Install runtime dependencies
-RUN apk add --no-cache \
-    cairo \
-    jpeg \
-    pango \
-    musl \
-    giflib \
-    pixman \
-    pangomm \
-    libjpeg-turbo \
-    freetype \
-    wget \
-    curl
-
-# Create app directory
+# ---------- runtime ----------
+FROM node:20-alpine AS runtime
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
-
-# Install only production dependencies
-RUN npm ci --only=production --no-audit --no-fund
-
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/shared ./shared
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S roguesim -u 1001 -G nodejs
-
-# Set ownership
-RUN chown -R roguesim:nodejs /app
-USER roguesim
-
-# Expose port
-EXPOSE 5000
-
-# Copy health check script
-COPY docker-health-check.js /usr/local/bin/docker-health-check.js
-RUN chmod +x /usr/local/bin/docker-health-check.js
-
-# Health check with Node.js script
-HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=5 \
-    CMD node /usr/local/bin/docker-health-check.js
-
-# Environment variables
 ENV NODE_ENV=production
 ENV PORT=5000
 ENV HOST=0.0.0.0
 
-# Start the application
-CMD ["node", "dist/index.js"]
+# Copy production node_modules and built app
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build     /app/dist        ./dist
+COPY --from=build     /app/package.json ./
+# If your server files are outside /dist (e.g., src/server or server.js), copy them:
+# COPY --from=build   /app/server ./server
+# COPY --from=build   /app/build  ./build
+# Or, if the app runs from root JS files:
+COPY --from=build     /app/*.js . 2>/dev/null || true
+COPY --from=build     /app/server ./server 2>/dev/null || true
+
+# Healthcheck needs curl
+RUN apk add --no-cache curl
+
+# If your start script handles serving the built client + API, this is perfect.
+# Otherwise, adjust to your actual entrypoint.
+CMD ["npm", "run", "start"]

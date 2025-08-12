@@ -1,106 +1,16 @@
-# Dependencies
-node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment files
-.env
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
-
-# Development files
-.replit
-.git/
+node_modules
+.dist
+dist/*
+build/*
+.tmp
+.cache
+.git
 .gitignore
-README.md
-*.md
-docs/
-
-# Build outputs (will be created during build)
-dist/
-build/
-
-# IDE and editor files
-.vscode/
-.idea/
-*.swp
-*.swo
-*~
-
-# OS files
-.DS_Store
-Thumbs.db
-
-# Logs
-logs/
-*.log
-
-# Testing
-coverage/
-.nyc_output/
-test/
-tests/
-**/*.test.*
-**/*.spec.*
-
-# Temporary files
-tmp/
-temp/
-.tmp/
-
-# Local database
-data/
-*.sqlite
-*.db
-
-# Docker files
-Dockerfile*
+Dockerfile
 docker-compose*.yml
-.dockerignore
-
-# Deployment scripts
-deploy/
-scripts/
-*.sh
-
-# Documentation
-CHANGELOG.md
-CONTRIBUTING.md
-LICENSE
-DEPLOYMENT_*.md
-BUG_ANALYSIS_*.md
-COMMAND_*.md
-IMPLEMENTATION_*.md
-PRODUCTION_*.md
-QUICK_FIX.md
-REMOTE_ACCESS.md
-SECURITY_*.md
-
-# Development tools
-.eslintrc.*
-.prettierrc.*
-vitest.config.ts
-postcss.config.*
-tailwind.config.*
-tsconfig.json
-components.json
-
-# Backup files
-*.backup
-*.bak
-*.orig
-
-# Cache directories
-.cache/
-.parcel-cache/
-.vite/
-
-# Misc
-*.tgz
-*.tar.gz
-.npm/
-.next/
-out/
+README.md
+*.log
+.env
+.env.*
+.vscode
+.idea
