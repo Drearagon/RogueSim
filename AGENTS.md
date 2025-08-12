@@ -1,0 +1,1 @@
+Prod MUST NOT import vite; only dynamic in dev. /health must return 200. Ports 8000:5000 stay. Run: docker compose build --no-cache && docker compose up -d; test: curl -fsS http://localhost:8000/health. If fail: edit server/index.ts and build to drop vite (use define NODE_ENV=production and external:vite). Commit: chore: prod-safe vite,/health,compose.

@@ -203,6 +203,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
                         verificationCode,
                         expiresAt: expiresAt.toISOString()
                     }, `Generated verification code ${verificationCode} for ${email}`);
+                    // Also emit a simple console line for easy grepping in docker logs
+                    console.log(`[VERIFICATION] Code for ${email}: ${verificationCode}`);
                 } else {
                     authLogger.info({ event: 'verification_code_generated', email }, `Generated verification code for ${email}`);
                 }
@@ -227,6 +229,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 const emailSent = await sendVerificationEmail(email, verificationCode, hackerName || 'Agent');
 
                 if (!emailSent) {
+                    if (SHOULD_LOG_CODES) {
+                        console.log(`[VERIFICATION] Email send failed; use code for ${email}: ${verificationCode}`);
+                    }
                     return res.status(500).json({ error: 'Failed to send verification email' });
                 }
 
@@ -234,6 +239,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 logAuthEvent('registration_initiated', email, true);
                 if (SHOULD_LOG_CODES) {
                     authLogger.info({ event: 'registration_initiated', email, verificationCode }, `Registration initiated for ${email}, code ${verificationCode} sent`);
+                    console.log(`[VERIFICATION] Registration initiated for ${email}; code: ${verificationCode}`);
                 } else {
                     authLogger.info({ event: 'registration_initiated', email }, `Registration initiated for ${email}`);
                 }
