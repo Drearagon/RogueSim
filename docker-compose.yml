@@ -1,11 +1,9 @@
-
 services:
   app:
     build:
       context: .
       args:
         NODE_ENV: production
-        # Vite (and any client) envs are BAKED at build time:
         VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY}
     ports:
       - "8000:5000"
@@ -16,7 +14,7 @@ services:
       PORT: 5000
       HOST: 0.0.0.0
       DATABASE_URL: ${DATABASE_URL}
-      PGSSLMODE: ${PGSSLMODE:-require}   # For Neon/managed PG
+      PGSSLMODE: ${PGSSLMODE:-require}
       SESSION_SECRET: ${SESSION_SECRET:-your-super-secret-session-key-here-at-least-32-characters-long}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
@@ -33,9 +31,3 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    # Uncomment if your app can run non-root + read-only
-    # user: "1000:1000"
-    # read_only: true
-    # tmpfs: ["/tmp"]
-    # security_opt: ["no-new-privileges:true"]
-    # cap_drop: ["ALL"]

@@ -1,5 +1,4 @@
 node_modules
-.dist
 dist/*
 build/*
 .tmp
@@ -14,4 +13,3 @@ README.md
 .env.*
 .vscode
 .idea
-.replit
