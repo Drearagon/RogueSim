@@ -18,7 +18,7 @@ services:
       HOST: 0.0.0.0
       DATABASE_URL: ${DATABASE_URL}
       PGSSLMODE: ${PGSSLMODE:-require}   # For Neon/managed PG
-      SESSION_SECRET: ${SESSION_SECRET:-change-me-32chars-min}
+      SESSION_SECRET: ${SESSION_SECRET:-your-super-secret-session-key-here-at-least-32-characters-long}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
       FROM_EMAIL: ${FROM_EMAIL:-noreply@yourdomain.com}

@@ -1,4 +1,4 @@
-# ---------- base ----------
+# ---------- base ---------
 FROM node:20-alpine AS base
 ENV PNPM_HOME=/root/.local/share/pnpm
 ENV PATH=$PNPM_HOME:$PATH
