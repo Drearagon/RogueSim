@@ -1,6 +1,5 @@
 #!/bin/bash
 
-<<<<<<< HEAD
 set -e  # Exit on error
 set -o pipefail
 
@@ -84,4 +83,3 @@ docker-compose ps
 
 echo "🎉 Deployment complete!"
 echo "📱 Your RogueSim cyberpunk hacking terminal is ready!"
->>>>>>> 6e938b614b71bced01a32d217f731c71a91f7b7f
