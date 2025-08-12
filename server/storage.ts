@@ -18,7 +18,7 @@ import { PgDatabase } from "drizzle-orm/pg-core"; // For Drizzle DB instance typ
 import { PgColumn } from "drizzle-orm/pg-core"; // For Column types in Drizzle
 
 import { eq, and, desc } from "drizzle-orm"; // Drizzle ORM functions
-import { log } from "./vite"; // Import log function for consistent logging
+import { log } from "./utils"; // Import log function for consistent logging
 import crypto from "crypto"; // For hashing verification codes
 
 export interface IStorage {
