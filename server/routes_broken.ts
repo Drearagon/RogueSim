@@ -18,7 +18,7 @@ import connectPg from "connect-pg-simple";
 // import csurf from "csurf";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger"; // Make sure these are defined/imported correctly
-import { log } from "./vite"; // Your custom logger
+import { log } from "./utils"; // Your custom logger
 import crypto from "crypto"; // Add crypto import for secure random generation
 // import rateLimit from "express-rate-limit";
 

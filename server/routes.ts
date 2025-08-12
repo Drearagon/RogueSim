@@ -11,7 +11,7 @@ import session from "express-session";
 import connectPg from "connect-pg-simple";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
 import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger";
-import { log } from "./vite";
+import { log } from "./utils";
 import crypto from "crypto";
 import { SecurityMiddleware, PasswordValidator, SecurityAuditLogger } from "./security";
 import Stripe from "stripe";

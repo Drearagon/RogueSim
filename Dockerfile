@@ -1,97 +1,52 @@
-# Multi-stage build for optimal Docker deployment
-FROM node:20-alpine AS builder
-
-# Set working directory
+# ---------- base ----------
+FROM node:20-alpine AS base
 WORKDIR /app
 
-# Install system dependencies needed for native modules
-RUN apk add --no-cache \
-    python3 \
-    make \
-    g++ \
-    cairo-dev \
-    jpeg-dev \
-    pango-dev \
-    musl-dev \
-    giflib-dev \
-    pixman-dev \
-    pangomm-dev \
-    libjpeg-turbo-dev \
-    freetype-dev
-
-# Copy package files first for better caching
+# ---------- deps ----------
+FROM base AS deps
+# lockfile-first for caching; switch to pnpm if you use it
 COPY package*.json ./
+RUN npm ci
 
-# Install dependencies with better error handling
-RUN npm ci --verbose --no-audit --no-fund || \
-    (echo "npm ci failed, trying npm install..." && npm install --verbose --no-audit --no-fund)
+# ---------- build ----------
+FROM deps AS build
+ARG NODE_ENV=production
+ARG VITE_STRIPE_PUBLIC_KEY
+ENV NODE_ENV=$NODE_ENV
+ENV VITE_STRIPE_PUBLIC_KEY=$VITE_STRIPE_PUBLIC_KEY
 
-# Copy source code
+# bring in source and build (assumes client build -> ./dist)
 COPY . .
-
-# Build the application
 RUN npm run build
 
-# Verify build output
-RUN echo "=== BUILD VERIFICATION ===" && \
-    ls -la dist/ && \
-    ls -la dist/public/ && \
-    test -f dist/index.js && echo "Server build: OK" || echo "Server build: FAILED" && \
-    test -f dist/public/index.html && echo "Client build: OK" || echo "Client build: FAILED"
+# Package only what we need at runtime into /out
+# (Copy conditionally if files/dirs exist)
+RUN mkdir -p /out \
+ && cp -r dist /out/dist \
+ && cp package.json /out/package.json \
+ && if [ -f index.js ]; then cp index.js /out/index.js; fi \
+ && if [ -f server.js ]; then cp server.js /out/server.js; fi \
+ && if [ -d server ]; then cp -r server /out/server; fi
 
-# Production stage
-FROM node:20-alpine AS production
-
-# Install runtime dependencies
-RUN apk add --no-cache \
-    cairo \
-    jpeg \
-    pango \
-    musl \
-    giflib \
-    pixman \
-    pangomm \
-    libjpeg-turbo \
-    freetype \
-    wget \
-    curl
-
-# Create app directory
-WORKDIR /app
-
-# Copy package files
+# ---------- prod deps (no dev) ----------
+FROM base AS prod-deps
 COPY package*.json ./
+RUN npm ci --omit=dev
 
-# Install only production dependencies
-RUN npm ci --only=production --no-audit --no-fund
-
-# Copy built application from builder stage
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/shared ./shared
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S nodejs && \
-    adduser -S roguesim -u 1001 -G nodejs
-
-# Set ownership
-RUN chown -R roguesim:nodejs /app
-USER roguesim
-
-# Expose port
-EXPOSE 5000
-
-# Copy health check script
-COPY docker-health-check.js /usr/local/bin/docker-health-check.js
-RUN chmod +x /usr/local/bin/docker-health-check.js
-
-# Health check with Node.js script
-HEALTHCHECK --interval=15s --timeout=10s --start-period=30s --retries=5 \
-    CMD node /usr/local/bin/docker-health-check.js
-
-# Environment variables
+# ---------- runtime ----------
+FROM node:20-alpine AS runtime
+WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=5000
 ENV HOST=0.0.0.0
 
-# Start the application
-CMD ["node", "dist/index.js"]
+# Healthcheck needs curl
+RUN apk add --no-cache curl
+
+# Bring in production deps and the pre-packed app
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build     /out/               ./
+
+# Start script must listen on PORT=5000
+# If your package.json "start" runs the server, this is perfect.
+CMD ["npm", "run", "start"]
