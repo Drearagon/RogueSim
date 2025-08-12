@@ -4,11 +4,8 @@ WORKDIR /app
 
 # ---------- deps ----------
 FROM base AS deps
-# Copy only dependency manifests first to leverage layer caching
+# lockfile-first for caching; switch to pnpm if you use it
 COPY package*.json ./
-# If you actually use pnpm or npmrc, uncomment the lines you need:
-# COPY pnpm-lock.yaml ./
-# COPY .npmrc ./
 RUN npm ci
 
 # ---------- build ----------
@@ -18,12 +15,20 @@ ARG VITE_STRIPE_PUBLIC_KEY
 ENV NODE_ENV=$NODE_ENV
 ENV VITE_STRIPE_PUBLIC_KEY=$VITE_STRIPE_PUBLIC_KEY
 
-# Copy the full source and build
+# bring in source and build (assumes client build -> ./dist)
 COPY . .
-# Ensure this produces client assets in ./dist (adjust if different)
 RUN npm run build
 
-# ---------- prod-deps (prune dev) ----------
+# Package only what we need at runtime into /out
+# (Copy conditionally if files/dirs exist)
+RUN mkdir -p /out \
+ && cp -r dist /out/dist \
+ && cp package.json /out/package.json \
+ && if [ -f index.js ]; then cp index.js /out/index.js; fi \
+ && if [ -f server.js ]; then cp server.js /out/server.js; fi \
+ && if [ -d server ]; then cp -r server /out/server; fi
+
+# ---------- prod deps (no dev) ----------
 FROM base AS prod-deps
 COPY package*.json ./
 RUN npm ci --omit=dev
@@ -38,16 +43,10 @@ ENV HOST=0.0.0.0
 # Healthcheck needs curl
 RUN apk add --no-cache curl
 
-# Copy production deps and built app
+# Bring in production deps and the pre-packed app
 COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=build     /app/dist        ./dist
-COPY --from=build     /app/package.json ./
-
-# If your server entry lives elsewhere, copy it (adjust as needed):
-# Example: server code in /server
-COPY --from=build     /app/server ./server 2>/dev/null || true
-# Or if you have a top-level server file:
-# COPY --from=build   /app/index.js ./index.js
+COPY --from=build     /out/               ./
 
 # Start script must listen on PORT=5000
+# If your package.json "start" runs the server, this is perfect.
 CMD ["npm", "run", "start"]
