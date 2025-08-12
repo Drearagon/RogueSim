@@ -1,0 +1,206 @@
+You are editing the RogueSim repo. Do NOT run Docker. Make code and config changes only, validate with Node build steps if needed, then commit and push. Absolutely remove any dependencies or code paths that rely on Replit-specific packages or functions.
+
+# Goals
+1) Production server must NOT import or require 'vite'.
+2) Add /health endpoint.
+3) Keep Cloudflare ports the same (compose maps 8000:5000).
+4) Ensure the project has ZERO dependencies that rely on Replit (no '@replit/*', 'replit', 'repl-*', etc.). Remove them and any code using them.
+5) Rebuild locally with Node (npm) only to verify. Do not add any Replit-only libs.
+
+# Changes to make
+
+## A) Remove any Replit-specific deps and code
+1. Open package.json and in both "dependencies" and "devDependencies" REMOVE any packages whose names match (case-insensitive): /replit|@replit|repl-/. Examples: "@replit/database", "@replit-ai/*", "replit".
+2. Grep codebase for imports/usages of those removed packages:
+   - Search patterns: `from 'replit'`, `from "@replit/`, `require('replit')`, `process.env.REPL_`, or any "replit" substring.
+   - For any file that imports/uses them:
+     - If the code is purely tooling/dev, move it under a `tools/` folder and ensure it is NOT imported anywhere in production/server runtime.
+     - If it was wired into runtime, DELETE the code path or stub it behind an environment check that is always false in prod (e.g., remove the feature).
+   - After edits, there must be no runtime imports of Replit packages anywhere.
+
+## B) Server entry: dev/prod split so 'vite' is dev-only
+1. Replace **server/index.ts** with EXACTLY this content:
+
+--- server/index.ts ---
+import express from 'express';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
+const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
+app.get('/health', (_req, res) => res.status(200).send('ok'));
+
+if (process.env.NODE_ENV !== 'production') {
+  // Dev: attach Vite via dynamic import, so prod never depends on it
+  const { attachVite } = await import('./vite');
+  await attachVite(app);
+} else {
+  // Prod: serve static build from dist/ (this file is bundled to dist/index.js)
+  const distDir = path.resolve(__dirname, '.');
+  app.use(express.static(distDir));
+  app.get('*', (_req, res) => {
+    const html = fs.readFileSync(path.join(distDir, 'index.html'), 'utf-8');
+    res.type('html').send(html);
+  });
+}
+
+const port = Number(process.env.PORT || 5000);
+const host = process.env.HOST || '0.0.0.0';
+app.listen(port, host, () => {
+  console.log(`RogueSim listening on http://${host}:${port} (${process.env.NODE_ENV})`);
+});
+--- end ---
+
+2. Replace/Create **server/vite.ts** with EXACTLY this:
+
+--- server/vite.ts ---
+import type { Express } from 'express';
+
+export async function attachVite(app: Express) {
+  const vite = await import('vite');
+  const viteServer = await vite.createServer({
+    server: { middlewareMode: true },
+    appType: 'custom',
+  });
+  app.use(viteServer.middlewares);
+}
+--- end ---
+
+## C) package.json scripts & safety
+1. Ensure "start" does NOT use cross-env and points to the built server:
+   "start": "node dist/index.js"
+
+2. Update "build" so esbuild tree-shakes the dev-only branch and never bundles vite:
+   "build": "vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist --alias:@shared=./shared --define:process.env.NODE_ENV=\\\"production\\\" --external:vite"
+
+3. Keep dev scripts as-is (it’s fine if dev:server uses cross-env/tsx for local development). Do NOT add any Replit-specific scripts or packages.
+
+## D) Docker files (edit only; do NOT run Docker here)
+1. Replace **Dockerfile** with EXACTLY this:
+
+--- Dockerfile ---
+# ---------- base ----------
+FROM node:20-alpine AS base
+WORKDIR /app
+
+# ---------- deps ----------
+FROM base AS deps
+COPY package*.json ./
+RUN npm ci
+
+# ---------- build ----------
+FROM deps AS build
+ARG NODE_ENV=production
+ARG VITE_STRIPE_PUBLIC_KEY
+ENV NODE_ENV=$NODE_ENV
+ENV VITE_STRIPE_PUBLIC_KEY=$VITE_STRIPE_PUBLIC_KEY
+
+COPY . .
+RUN npm run build
+
+# Pack only runtime artifacts
+RUN mkdir -p /out \
+ && cp -r dist /out/dist \
+ && cp package.json /out/package.json \
+ && if [ -f index.js ]; then cp index.js /out/index.js; fi \
+ && if [ -f server.js ]; then cp server.js /out/server.js; fi \
+ && if [ -d server ]; then cp -r server /out/server; fi
+
+# ---------- prod deps (no dev) ----------
+FROM base AS prod-deps
+COPY package*.json ./
+RUN npm ci --omit=dev
+
+# ---------- runtime ----------
+FROM node:20-alpine AS runtime
+WORKDIR /app
+ENV NODE_ENV=production
+ENV PORT=5000
+ENV HOST=0.0.0.0
+
+RUN apk add --no-cache curl
+
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=build     /out/               ./
+
+CMD ["npm", "run", "start"]
+--- end ---
+
+2. Replace **docker-compose.yml** with EXACTLY this (keep ports 8000:5000):
+
+--- docker-compose.yml ---
+services:
+  app:
+    build:
+      context: .
+      args:
+        NODE_ENV: production
+        VITE_STRIPE_PUBLIC_KEY: ${VITE_STRIPE_PUBLIC_KEY}
+    ports:
+      - "8000:5000"
+    env_file:
+      - ./.env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      HOST: 0.0.0.0
+      DATABASE_URL: ${DATABASE_URL}
+      PGSSLMODE: ${PGSSLMODE:-require}
+      SESSION_SECRET: ${SESSION_SECRET:-your-super-secret-session-key-here-at-least-32-characters-long}
+      SENDGRID_API_KEY: ${SENDGRID_API_KEY}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      FROM_EMAIL: ${FROM_EMAIL:-noreply@yourdomain.com}
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:5000/health || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+--- end ---
+
+3. Ensure a **.dockerignore** exists with at least:
+   node_modules
+   dist/*
+   build/*
+   .tmp
+   .cache
+   .git
+   .gitignore
+   Dockerfile
+   docker-compose*.yml
+   README.md
+   *.log
+   .env
+   .env.*
+   .vscode
+   .idea
+
+## E) Verification (Node-only; NO Docker)
+1. Run: npm ci
+2. Run: npm run build
+   - Build must succeed.
+3. Ensure the built server DOES NOT import vite:
+   - Search the build output (dist/index.js) for vite import strings.
+   - If found, fix until this returns empty:
+     - grep -n "from 'vite'\\|from \\\"vite\\\"" dist/index.js
+4. Optional quick smoke run (Node): `node dist/index.js` for a few seconds, then stop. Do not rely on Replit-specific networking; this is just to ensure the file executes without vite imports.
+
+## F) Acceptance criteria
+- No dependencies remain in package.json that rely on Replit; no runtime code imports Replit packages.
+- `npm run build` finishes successfully in Replit.
+- `dist/index.js` contains NO static `import ... from "vite"`.
+- `/health` route is present in server code.
+- Dockerfile and docker-compose.yml updated (but not executed here).
+- Keep existing Cloudflare mapping assumptions (compose uses 8000:5000).
+- Commit all changes with:
+  chore(server,build,docker): prod-safe server entry (vite dev-only), remove replit deps/uses, add /health, update Docker/compose
+
+Push the commit to the current branch.
