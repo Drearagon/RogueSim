@@ -19,7 +19,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:-your-super-secret-session-key-here-at-least-32-characters-long}
       SENDGRID_API_KEY: ${SENDGRID_API_KEY}
       STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
-      FROM_EMAIL: ${FROM_EMAIL:-noreply@yourdomain.com}
+      FROM_EMAIL: ${FROM_EMAIL:-uplink@roguesim.com}
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:5000/health || exit 1"]
       interval: 15s

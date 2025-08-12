@@ -3,13 +3,20 @@ import { logger } from './logger';
 
 // Initialize SendGrid with environment variables
 // Note: Environment variables are loaded by dotenv/config in index.ts
- 
- if (process.env.SENDGRID_API_KEY) {
-   sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-   logger.info('✅ SendGrid API initialized successfully');
-    } else {
-   logger.warn('⚠️ SENDGRID_API_KEY not found, email sending will be simulated');
- }
+
+const SENDGRID_API_KEY = process.env.SENDGRID_API_KEY;
+const FROM_EMAIL = process.env.FROM_EMAIL || process.env.SENDGRID_FROM || 'uplink@roguesim.com';
+
+if (SENDGRID_API_KEY) {
+  try {
+    sgMail.setApiKey(SENDGRID_API_KEY);
+    logger.info('✅ SendGrid API initialized successfully');
+  } catch (e: any) {
+    logger.error(`❌ Failed to initialize SendGrid API: ${e?.message || e}`);
+  }
+} else {
+  logger.warn('⚠️ SENDGRID_API_KEY not found, email sending will be simulated');
+}
 
 export interface EmailTemplate {
   to: string;
@@ -96,7 +103,7 @@ export const sendVerificationEmail = async (email: string, verificationCode: str
        logger.info({ event: 'send_verification_email', email }, `Preparing verification email for ${email}`);
      }
 
-     if (!process.env.SENDGRID_API_KEY) {
+     if (!SENDGRID_API_KEY) {
        if (SHOULD_LOG_CODES) {
          logger.warn(`📧 Email simulation: Verification code ${verificationCode} would be sent to ${email}`);
        } else {
@@ -106,17 +113,24 @@ export const sendVerificationEmail = async (email: string, verificationCode: str
        return true;
      }
 
+     // Validate configured FROM address to avoid SendGrid rejections
+     if (!FROM_EMAIL || /yourdomain\.com$/i.test(FROM_EMAIL)) {
+       logger.error('❌ Invalid FROM_EMAIL configured. Set a verified sender in FROM_EMAIL or SENDGRID_FROM');
+       return false;
+     }
+
      const emailTemplate = createVerificationEmailTemplate(email, verificationCode, hackerName);
      
      const msg = {
-        to: email,
-       from: 'uplink@roguesim.com', // Your verified sender
+       to: email,
+       from: FROM_EMAIL,
        subject: emailTemplate.subject,
        text: emailTemplate.text,
        html: emailTemplate.html,
      };
 
-     await sgMail.send(msg);
+     const [resp] = await sgMail.send(msg);
+     logger.debug?.(`SendGrid response: status=${resp?.statusCode}`);
      // Include the code in success log for accurate debugging (optional)
      if (SHOULD_LOG_CODES) {
        logger.info({ event: 'verification_email_sent', email, verificationCode }, `✅ Verification email sent successfully to ${email} (code ${verificationCode})`);
@@ -126,11 +140,13 @@ export const sendVerificationEmail = async (email: string, verificationCode: str
      return true;
      
    } catch (error: any) {
-     logger.error(`❌ Failed to send verification email to ${email}: ${error.message}`);
+     logger.error(`❌ Failed to send verification email to ${email}: ${error?.message || error}`);
      
      // Log detailed error for debugging
      if (error.response) {
-       logger.error(`SendGrid error details: ${JSON.stringify(error.response.body)}`);
+       try {
+         logger.error(`SendGrid error details: ${JSON.stringify(error.response.body)}`);
+       } catch {}
      }
     
       return false;
@@ -139,14 +155,19 @@ export const sendVerificationEmail = async (email: string, verificationCode: str
 
 export const sendWelcomeEmail = async (email: string, hackerName: string): Promise<boolean> => {
      try {
-     if (!process.env.SENDGRID_API_KEY) {
-       logger.warn(`📧 Email simulation: Welcome email would be sent to ${email}`);
-      return true;
+    if (!SENDGRID_API_KEY) {
+      logger.warn(`📧 Email simulation: Welcome email would be sent to ${email}`);
+     return true;
     }
+
+     if (!FROM_EMAIL || /yourdomain\.com$/i.test(FROM_EMAIL)) {
+       logger.error('❌ Invalid FROM_EMAIL configured. Set a verified sender in FROM_EMAIL or SENDGRID_FROM');
+       return false;
+     }
 
      const msg = {
        to: email,
-       from: 'uplink@roguesim.com',
+       from: FROM_EMAIL,
        subject: '🌐 Welcome to the RogueSim Network',
        text: `
  Welcome to the RogueSim Network, ${hackerName}!
@@ -204,11 +225,11 @@ export const sendWelcomeEmail = async (email: string, hackerName: string): Promi
 };
 
  export const testEmailConfiguration = async (): Promise<boolean> => {
-   try {
-     if (!process.env.SENDGRID_API_KEY) {
-       logger.warn('SendGrid API key not configured, email testing skipped');
-       return false;
-     }
+  try {
+    if (!SENDGRID_API_KEY) {
+      logger.warn('SendGrid API key not configured, email testing skipped');
+      return false;
+    }
 
      logger.info('📧 Testing SendGrid email configuration...');
       return true;
