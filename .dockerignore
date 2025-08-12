@@ -1,0 +1,17 @@
+node_modules
+.dist
+dist/*
+build/*
+.tmp
+.cache
+.git
+.gitignore
+Dockerfile
+docker-compose*.yml
+README.md
+*.log
+.env
+.env.*
+.vscode
+.idea
+.replit
