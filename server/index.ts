@@ -1,58 +1,26 @@
-// server/index.ts (PRODUCTION - FULL FRONTEND + API SERVING)
-import dotenv from 'dotenv';
-import path from 'path';
-import { fileURLToPath } from 'url';
-
-// Resolve project root and load environment variables from .env
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
-import { env } from './config';
-import express, { type Request, Response, NextFunction } from "express";
-import { createServer } from "http";
-import { registerRoutes } from "./routes";
-import { serveStatic, log } from "./utils";
-import { initDatabase } from "./db";
-import cors from "cors";
+import express from 'express';
+import path from 'node:path';
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { createServer } from 'node:http';
 
 const app = express();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const server = createServer(app);
 
-// 1. Basic Express Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-
-// 2. CORS Middleware (BEFORE API routes)
-app.use(cors({
-    origin: env.CLIENT_URL || '*',
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-}));
-log('✅ CORS middleware configured.');
+app.get('/health', (_req, res) => res.status(200).send('ok'));
 
 (async () => {
-  try {
-        log('🚀 Starting production server with full frontend + API serving...');
-    
-        // 3. Initialize Database
-    await initDatabase();
-    log('✅ Database initialized successfully');
-    
-        // 4. Register API Routes
-    const server = await registerRoutes(app);
-        log('✅ API routes registered successfully');
-
-        // 5. Serve Static Files / SPA Fallback (AFTER API routes)
-    if (env.NODE_ENV === 'development') {
-      // Only import Vite in development mode
+  if (process.env.NODE_ENV !== 'production') {
+    // Dev: attach Vite via dynamic import, so prod never depends on it
+    try {
       const viteModule = await import('./vite.js');
       await viteModule.setupVite(app, server);
-            log('📁 Vite development server configured');
-    } else {
-      serveStatic(app);
-            log('📁 Static file serving configured');
+    } catch (error) {
+      console.error('Failed to setup Vite in development mode:', error);
+      process.exit(1);
     }
+<<<<<<< HEAD
 
         // 6. FINAL Error Handler (MUST BE LAST)
     app.use((err: any, req: Request, res: Response, _next: NextFunction) => {
@@ -71,5 +39,32 @@ log('✅ CORS middleware configured.');
   } catch (error) {
     console.error('❌ Server startup failed:', error);
     process.exit(1);
+=======
+  } else {
+    // Prod: serve static build from dist/public/ (frontend assets are in public subdirectory)
+    const distDir = path.resolve(__dirname, '.');
+    const publicDir = path.join(distDir, 'public');
+    
+    // Serve static assets from public directory
+    app.use(express.static(publicDir));
+    
+    // SPA fallback for client-side routing
+    app.get('*', (_req, res) => {
+      try {
+        const indexPath = path.join(publicDir, 'index.html');
+        const html = fs.readFileSync(indexPath, 'utf-8');
+        res.type('html').send(html);
+      } catch (error) {
+        console.error('Failed to serve index.html:', error);
+        res.status(500).send('Server Error: Could not load frontend.');
+      }
+    });
+>>>>>>> 6e938b614b71bced01a32d217f731c71a91f7b7f
   }
+
+  const port = Number(process.env.PORT || 5000);
+  const host = process.env.HOST || '0.0.0.0';
+  server.listen(port, host, () => {
+    console.log(`RogueSim listening on http://${host}:${port} (${process.env.NODE_ENV})`);
+  });
 })();
