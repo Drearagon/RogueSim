@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar';
 import { User, Lock, Mail, Eye, EyeOff, Terminal, Shield, Key, CheckCircle } from 'lucide-react';
-import { MatrixRain } from './MatrixRain';
+import MatrixRain from './MatrixRain';
 import { loginUser, registerUser, /*sendVerificationCode*/ verifyEmail } from '@/lib/userStorage';
 
 interface LoginPageProps {

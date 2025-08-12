@@ -188,6 +188,13 @@ Changelog:
 - **Zero Dependencies**: Can now run completely independently without any external services
 - **Production Readiness**: All health checks passing, TypeScript compilation clean, ready for deployment
 
+### August 12, 2025 - Vite Import Optimization
+- **Dev-Only Vite Imports**: Refactored to make Vite imports conditional and dev-only
+- **Production Bundle Optimization**: Vite dependencies excluded from production builds
+- **Utility Extraction**: Created separate utils.ts for shared functions (log, serveStatic)
+- **Environment-Based Loading**: Development uses Vite HMR, production uses static file serving
+- **Build Performance**: Reduced production bundle size and startup time
+
 ## Recent Docker Health Check Improvements
 
 ### July 18, 2025 - Docker Health Check Optimization

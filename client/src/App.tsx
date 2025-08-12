@@ -4,7 +4,7 @@ import { GameInterface } from './components/GameInterface';
 import { MultiplayerRoom } from './components/MultiplayerRoom';
 import { Leaderboard } from './components/Leaderboard';
 import { UserProfile } from './components/UserProfile';
-import { MatrixRain } from './components/MatrixRain';
+import MatrixRain from './components/MatrixRain';
 import { OnboardingTutorial } from './components/OnboardingTutorial';
 import { LoginPage } from './components/LoginPage';
 import { AuthScreen } from './components/AuthScreen';

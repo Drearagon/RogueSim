@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Terminal } from './Terminal';
 import { MissionPanel } from './MissionPanel';
-import { MatrixRain } from './MatrixRain';
+import MatrixRain from './MatrixRain';
 import { SkillTree } from './SkillTree';
 import { EnhancedShopInterface } from './shop/EnhancedShopInterface';
 import { MissionCompleteNotification } from './MissionCompleteNotification';

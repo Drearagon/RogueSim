@@ -12,7 +12,7 @@ import { env } from './config';
 import express, { type Request, Response, NextFunction } from "express";
 import { createServer } from "http";
 import { registerRoutes } from "./routes";
-import { serveStatic, log } from "./vite";
+import { serveStatic, log } from "./utils";
 import { initDatabase } from "./db";
 import cors from "cors";
 
@@ -45,8 +45,9 @@ log('✅ CORS middleware configured.');
 
         // 5. Serve Static Files / SPA Fallback (AFTER API routes)
     if (env.NODE_ENV === 'development') {
-      const { setupVite } = await import('./vite.js');
-      await setupVite(app, server);
+      // Only import Vite in development mode
+      const viteModule = await import('./vite.js');
+      await viteModule.setupVite(app, server);
             log('📁 Vite development server configured');
     } else {
       serveStatic(app);

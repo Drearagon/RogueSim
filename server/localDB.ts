@@ -2,7 +2,7 @@ import { Database } from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { sql } from 'drizzle-orm';
 import * as schema from '@shared/schema';
-import { log } from './vite';
+import { log } from './utils';
 import * as fs from 'fs';
 import * as path from 'path';
 import crypto from 'crypto';

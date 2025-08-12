@@ -4,7 +4,7 @@ import { Pool, neonConfig } from '@neondatabase/serverless';
 import postgres from 'postgres'; // For regular PostgreSQL connection
 import ws from "ws"; // For Neon
 import * as schema from "@shared/schema"; // Your Drizzle schema
-import { log } from "./vite"; // Your logger
+import { log } from "./utils"; // Your logger
 import { initLocalDatabase, LocalDatabaseStorage, isLocalDbAvailable, getLocalDbStats } from './localDB';
 
 // Private module-level variables that will hold the initialized database clients
