@@ -50,7 +50,8 @@ app.get('/health', (_req, res) => res.status(200).send('ok'));
     // to prevent bundlers from including it in production.
     try {
       const dynImport = new Function('p', 'return import(p)');
-      const viteModule = await (dynImport as any)('./vite.js');
+      // Use .ts explicitly for tsx dev while keeping it dynamic to avoid bundling in prod
+      const viteModule = await (dynImport as any)('./vite.ts');
       await viteModule.setupVite(app, server);
     } catch (error) {
       console.error('Failed to setup Vite in development mode:', error);
