@@ -12,6 +12,7 @@ import { ResponsiveUserProfile } from './ResponsiveUserProfile';
 import { getCurrentUser } from '@/lib/userStorage';
 import { focusSystem } from '../lib/focusSystem';
 import { Brain, ChevronDown, ChevronUp, Coffee, Heart, Zap, Pause, AlertTriangle } from 'lucide-react';
+import BackgroundController from './BackgroundController';
 
 interface TerminalProps {
   gameState: GameState;
@@ -62,6 +63,8 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
   });
   const { playKeypress, playError, playSuccess } = useSound();
   const [currentUser, setCurrentUser] = useState<any>(null);
+  const [gameActivity, setGameActivity] = useState<'idle' | 'typing' | 'hacking' | 'breach' | 'defense'>('idle');
+  const [lastActivityTime, setLastActivityTime] = useState(Date.now());
 
   // Load command history from localStorage
   useEffect(() => {
@@ -213,6 +216,32 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     }
   }, []);
 
+  // Activity detection and management
+  const updateActivity = useCallback((activity: typeof gameActivity) => {
+    setGameActivity(activity);
+    setLastActivityTime(Date.now());
+    
+    // Auto-return to idle after period of inactivity
+    setTimeout(() => {
+      setGameActivity('idle');
+    }, activity === 'typing' ? 2000 : activity === 'hacking' ? 5000 : 3000);
+  }, []);
+
+  // Detect activity patterns based on commands
+  const detectCommandActivity = useCallback((command: string) => {
+    const lowerCmd = command.toLowerCase();
+    
+    if (lowerCmd.includes('scan') || lowerCmd.includes('probe') || lowerCmd.includes('exploit')) {
+      updateActivity('hacking');
+    } else if (lowerCmd.includes('break') || lowerCmd.includes('crack') || lowerCmd.includes('override')) {
+      updateActivity('breach');
+    } else if (lowerCmd.includes('firewall') || lowerCmd.includes('secure') || lowerCmd.includes('defend')) {
+      updateActivity('defense');
+    } else {
+      updateActivity('typing');
+    }
+  }, [updateActivity]);
+
   // Auto-scroll to bottom, but keep input visible
   useEffect(() => {
     if (terminalRef.current) {
@@ -239,6 +268,9 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
 
   const executeCommand = (input: string) => {
     if (!input.trim()) return;
+
+    // Detect activity based on command
+    detectCommandActivity(input);
 
     // Add command to history
     setCommandHistory(prev => [...prev, input]);
@@ -467,9 +499,21 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
         overflowX: 'hidden'
       }}
     >
+      {/* Background Network Visualization */}
+      <BackgroundController
+        isActive={true}
+        visualizationType="combined"
+        intensity="medium"
+        theme={terminalSettings.colorScheme === 'classic' ? 'green' : 
+               terminalSettings.colorScheme === 'blue' ? 'blue' :
+               terminalSettings.colorScheme === 'red' ? 'red' : 'purple'}
+        gameActivity={gameActivity}
+        className="z-0"
+      />
+
       {/* Scanline effect */}
       {terminalSettings.scanlineEffect && (
-        <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute inset-0 pointer-events-none z-10">
           <div 
             className="absolute w-full h-0.5 animate-pulse" 
             style={{ 
@@ -483,7 +527,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       
       {/* Status bar */}
       <div 
-        className="border-b px-2 md:px-4 py-2 flex items-center justify-between text-xs md:text-sm backdrop-blur-sm flex-shrink-0"
+        className="border-b px-2 md:px-4 py-2 flex items-center justify-between text-xs md:text-sm backdrop-blur-sm flex-shrink-0 relative z-20"
         style={{
           backgroundColor: `${terminalSettings.backgroundColor}cc`,
           borderColor: `${terminalSettings.primaryColor}80`,
@@ -663,7 +707,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       {/* Terminal content */}
       <div 
         ref={terminalRef}
-        className="flex-1 min-h-0 p-2 md:p-4 font-mono focus:outline-none text-xs md:text-sm terminal-scroll"
+        className="flex-1 min-h-0 p-2 md:p-4 font-mono focus:outline-none text-xs md:text-sm terminal-scroll relative z-10"
         style={{
           color: terminalSettings.textColor,
           textShadow: terminalSettings.glowEffect ? `0 0 5px ${terminalSettings.primaryColor}` : 'none',

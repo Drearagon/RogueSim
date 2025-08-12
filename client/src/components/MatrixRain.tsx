@@ -1,85 +1,224 @@
-import { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
-export function MatrixRain() {
-  const containerRef = useRef<HTMLDivElement>(null);
+interface MatrixColumn {
+  x: number;
+  y: number;
+  speed: number;
+  characters: string[];
+  opacity: number[];
+  lastUpdate: number;
+  length: number;
+}
 
-  useEffect(() => {
-    if (!containerRef.current) return;
+interface MatrixRainProps {
+  isActive?: boolean;
+  intensity?: 'low' | 'medium' | 'high';
+  theme?: 'green' | 'blue' | 'red' | 'purple';
+  className?: string;
+  characterSet?: 'matrix' | 'binary' | 'hex' | 'code';
+}
 
-    const container = containerRef.current;
-    const chars = '01アイウエオカキクケコサシスセソタチツテトナニヌネノハヒフヘホマミムメモヤユヨラリルレロワヲン';
-    
-    // Clear existing chars
-    container.innerHTML = '';
-    
-    // Create fewer characters to reduce performance impact and scrollbar issues
-    for (let i = 0; i < 30; i++) {
-      const char = document.createElement('div');
-      char.className = 'absolute text-green-500 font-mono text-sm animate-pulse pointer-events-none';
-      char.textContent = chars[Math.floor(Math.random() * chars.length)];
-      
-      // Ensure characters stay within viewport bounds
-      const leftPosition = Math.random() * 95; // Keep within 95% to avoid edge overflow
-      char.style.left = leftPosition + '%';
-      char.style.top = '-20px'; // Start above viewport
-      char.style.animationDelay = Math.random() * 20 + 's';
-      char.style.animationDuration = (Math.random() * 10 + 10) + 's';
-      char.style.willChange = 'transform';
-      char.style.backfaceVisibility = 'hidden';
-      char.style.contain = 'layout style paint';
-      char.style.maxWidth = '20px';
-      char.style.maxHeight = '20px';
-      char.style.overflow = 'hidden';
-      
-      // Add falling animation with proper constraints
-      char.style.animation = `matrix-fall ${Math.random() * 10 + 10}s linear infinite`;
-      
-      container.appendChild(char);
+const MatrixRain: React.FC<MatrixRainProps> = ({
+  isActive = true,
+  intensity = 'medium',
+  theme = 'green',
+  className = '',
+  characterSet = 'matrix'
+}) => {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const animationRef = useRef<number>();
+  const columnsRef = useRef<MatrixColumn[]>([]);
+  const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
+
+  // Character sets
+  const characterSets = {
+    matrix: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z', 'ア', 'イ', 'ウ', 'エ', 'オ', 'カ', 'キ', 'ク', 'ケ', 'コ', 'サ', 'シ', 'ス', 'セ', 'ソ'],
+    binary: ['0', '1'],
+    hex: ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'],
+    code: ['{', '}', '[', ']', '(', ')', '<', '>', '/', '\\', '|', '-', '_', '=', '+', '*', '&', '%', '$', '#', '@', '!', '?', '.', ',', ';', ':']
+  };
+
+  // Color schemes
+  const colorSchemes = {
+    green: {
+      primary: '#00ff41',
+      secondary: '#00cc33',
+      fade: '#003311'
+    },
+    blue: {
+      primary: '#0099ff',
+      secondary: '#0066cc',
+      fade: '#001133'
+    },
+    red: {
+      primary: '#ff3333',
+      secondary: '#cc0000',
+      fade: '#330000'
+    },
+    purple: {
+      primary: '#9933ff',
+      secondary: '#6600cc',
+      fade: '#220033'
+    }
+  };
+
+  const colors = colorSchemes[theme];
+  const characters = characterSets[characterSet];
+
+  // Initialize matrix columns
+  const initializeColumns = (width: number, height: number) => {
+    const fontSize = intensity === 'low' ? 16 : intensity === 'medium' ? 14 : 12;
+    const columnWidth = fontSize;
+    const columnCount = Math.floor(width / columnWidth);
+    const maxLength = Math.floor(height / fontSize);
+
+    const columns: MatrixColumn[] = [];
+
+    for (let i = 0; i < columnCount; i++) {
+      const column: MatrixColumn = {
+        x: i * columnWidth,
+        y: Math.random() * height - height,
+        speed: 0.5 + Math.random() * (intensity === 'high' ? 3 : intensity === 'medium' ? 2 : 1),
+        characters: [],
+        opacity: [],
+        lastUpdate: Date.now(),
+        length: Math.floor(Math.random() * maxLength * 0.5) + 5
+      };
+
+      // Initialize characters for this column
+      for (let j = 0; j < column.length; j++) {
+        column.characters.push(characters[Math.floor(Math.random() * characters.length)]);
+        column.opacity.push(Math.random());
+      }
+
+      columns.push(column);
     }
 
-    // Add CSS animation if it doesn't exist
-    if (!document.getElementById('matrix-rain-styles')) {
-      const style = document.createElement('style');
-      style.id = 'matrix-rain-styles';
-      style.textContent = `
-        @keyframes matrix-fall {
-          0% { 
-            transform: translateY(-100vh); 
-            opacity: 1; 
+    columnsRef.current = columns;
+  };
+
+  // Get random character
+  const getRandomCharacter = () => {
+    return characters[Math.floor(Math.random() * characters.length)];
+  };
+
+  // Update and animate columns
+  const updateColumns = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+    const fontSize = intensity === 'low' ? 16 : intensity === 'medium' ? 14 : 12;
+    const now = Date.now();
+
+    columnsRef.current.forEach(column => {
+      // Move column down
+      column.y += column.speed;
+
+      // Reset column if it's off screen
+      if (column.y > height + column.length * fontSize) {
+        column.y = -column.length * fontSize - Math.random() * height;
+        column.speed = 0.5 + Math.random() * (intensity === 'high' ? 3 : intensity === 'medium' ? 2 : 1);
+      }
+
+      // Randomly change characters
+      if (now - column.lastUpdate > 100 + Math.random() * 200) {
+        const changeIndex = Math.floor(Math.random() * column.characters.length);
+        column.characters[changeIndex] = getRandomCharacter();
+        column.lastUpdate = now;
+      }
+
+      // Draw the column
+      ctx.font = `${fontSize}px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+
+      for (let i = 0; i < column.characters.length; i++) {
+        const charY = column.y + i * fontSize;
+        
+        if (charY > -fontSize && charY < height + fontSize) {
+          // Calculate opacity based on position in column
+          const fadePosition = i / column.characters.length;
+          let alpha = 1 - fadePosition * 0.8;
+          
+          // Leading character is brightest
+          if (i === 0) {
+            alpha = 1;
+            ctx.fillStyle = colors.primary;
+          } else if (i < 3) {
+            alpha = 0.8 - (i - 1) * 0.2;
+            ctx.fillStyle = colors.secondary;
+          } else {
+            alpha = Math.max(0.1, 0.6 - fadePosition * 0.5);
+            ctx.fillStyle = colors.fade;
           }
-          100% { 
-            transform: translateY(calc(100vh + 50px)); 
-            opacity: 0; 
-          }
+
+          ctx.globalAlpha = alpha;
+          ctx.fillText(column.characters[i], column.x + fontSize / 2, charY);
         }
-      `;
-      document.head.appendChild(style);
+      }
+    });
+
+    ctx.globalAlpha = 1;
+  };
+
+  // Animation loop
+  const animate = () => {
+    const canvas = canvasRef.current;
+    if (!canvas || !isActive) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Clear canvas with subtle fade
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.05)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    updateColumns(ctx, canvas.width, canvas.height);
+
+    animationRef.current = requestAnimationFrame(animate);
+  };
+
+  // Handle resize
+  useEffect(() => {
+    const handleResize = () => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const container = canvas.parentElement;
+      if (container) {
+        const rect = container.getBoundingClientRect();
+        setDimensions({ width: rect.width, height: rect.height });
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Initialize and start animation
+  useEffect(() => {
+    if (isActive) {
+      initializeColumns(dimensions.width, dimensions.height);
+      animate();
     }
 
     return () => {
-      // Clean up on unmount
-      if (container) {
-        container.innerHTML = '';
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
       }
     };
-  }, []);
+  }, [isActive, dimensions, intensity, theme, characterSet]);
 
   return (
-    <div 
-      ref={containerRef}
-      className="matrix-rain-container"
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        width: '100vw',
-        height: '100vh',
-        overflow: 'hidden',
-        pointerEvents: 'none',
-        zIndex: 0,
-        opacity: 0.1,
-        contain: 'layout style paint'
-      }}
-    />
+    <div className={`absolute inset-0 overflow-hidden ${className}`}>
+      <canvas
+        ref={canvasRef}
+        width={dimensions.width}
+        height={dimensions.height}
+        className="w-full h-full"
+        style={{ 
+          opacity: 0.7
+        }}
+      />
+    </div>
   );
-}
+};
+
+export default MatrixRain;
