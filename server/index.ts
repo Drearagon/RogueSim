@@ -5,12 +5,38 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import cors from 'cors';
+import { Server as SocketIOServer } from 'socket.io';
+import { randomUUID } from 'node:crypto';
 import { registerRoutes } from './routes';
 import { initDatabase } from './db';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const server = createServer(app);
+
+const connectedUsers = new Map<string, { hackerName: string; sockets: Set<string> }>();
+const MAX_MESSAGE_LENGTH = 500;
+
+const sanitizeDisplayText = (value: unknown, fallback: string): string => {
+  if (typeof value !== 'string') return fallback;
+  const cleaned = value.replace(/[<>]/g, '').trim();
+  return cleaned.length > 0 ? cleaned : fallback;
+};
+
+const sanitizeChatMessage = (value: unknown): string => {
+  if (typeof value !== 'string') return '';
+  return value.replace(/\s+/g, ' ').trim();
+};
+
+const getOnlineUserList = () =>
+  Array.from(connectedUsers.entries()).map(([userId, data]) => ({
+    id: userId,
+    username: data.hackerName,
+  }));
+
+const broadcastOnlineUsers = (io: SocketIOServer) => {
+  io.emit('online_users', getOnlineUserList());
+};
 
 // JSON/body parsing and CORS for API endpoints
 app.use(express.json());
@@ -44,6 +70,155 @@ app.get('/health', (_req, res) => res.status(200).send('ok'));
   } catch (e) {
     console.error('Failed to register API routes:', e);
   }
+
+  const io = new SocketIOServer(server, {
+    path: '/ws',
+    cors: {
+      origin: true,
+      credentials: true,
+    },
+  });
+
+  io.on('connection', (socket) => {
+    socket.join('global');
+
+    socket.emit('system_message', {
+      id: randomUUID(),
+      message: 'Connected to the Shadow Network relay. Authenticate to engage with other operatives.',
+      timestamp: new Date().toISOString(),
+    });
+    socket.emit('online_users', getOnlineUserList());
+
+    socket.on('join_channel', (payload: any) => {
+      const channel = typeof payload?.channel === 'string' ? payload.channel : 'global';
+
+      if (channel === 'team') {
+        const teamId = typeof payload?.teamId === 'string' ? payload.teamId : undefined;
+        if (teamId) {
+          if (socket.data.teamId) {
+            socket.leave(`team:${socket.data.teamId}`);
+          }
+          socket.join(`team:${teamId}`);
+          socket.data.teamId = teamId;
+        }
+      } else {
+        socket.join('global');
+      }
+    });
+
+    socket.on('authenticate', (payload: any) => {
+      const rawUserId = payload?.userId;
+      const userId = typeof rawUserId === 'string' ? rawUserId.trim() : typeof rawUserId === 'number' ? String(rawUserId) : '';
+      if (!userId) {
+        return;
+      }
+
+      const hackerName = sanitizeDisplayText(payload?.hackerName, 'Agent');
+
+      const previousUserId = socket.data.userId;
+      if (previousUserId && previousUserId !== userId) {
+        const previousEntry = connectedUsers.get(previousUserId);
+        if (previousEntry) {
+          previousEntry.sockets.delete(socket.id);
+          if (previousEntry.sockets.size === 0) {
+            connectedUsers.delete(previousUserId);
+          }
+        }
+      }
+
+      socket.data.userId = userId;
+      socket.data.hackerName = hackerName;
+
+      let entry = connectedUsers.get(userId);
+      const isFirstConnection = !entry || entry.sockets.size === 0;
+
+      if (!entry) {
+        entry = { hackerName, sockets: new Set() };
+        connectedUsers.set(userId, entry);
+      }
+
+      entry.hackerName = hackerName;
+      entry.sockets.add(socket.id);
+
+      socket.join(`user:${userId}`);
+
+      socket.emit('authenticated', {
+        id: randomUUID(),
+        userId,
+        username: hackerName,
+        timestamp: new Date().toISOString(),
+      });
+
+      if (isFirstConnection) {
+        socket.to('global').emit('user_joined', {
+          id: randomUUID(),
+          userId,
+          username: hackerName,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      broadcastOnlineUsers(io);
+    });
+
+    socket.on('send_message', (payload: any) => {
+      const userId: string | undefined = socket.data.userId;
+      if (!userId) {
+        return;
+      }
+
+      const messageBody = sanitizeChatMessage(payload?.message);
+      if (!messageBody) {
+        return;
+      }
+
+      const message = messageBody.slice(0, MAX_MESSAGE_LENGTH);
+      const requestedChannel = typeof payload?.channel === 'string' ? payload.channel : 'global';
+      const channel = requestedChannel === 'team' && socket.data.teamId ? 'team' : 'global';
+
+      const chatMessage = {
+        id: randomUUID(),
+        userId,
+        username: socket.data.hackerName || 'Agent',
+        message,
+        timestamp: new Date().toISOString(),
+        messageType: channel === 'team' ? 'team' : 'chat',
+        channel,
+      };
+
+      if (channel === 'team' && socket.data.teamId) {
+        io.to(`team:${socket.data.teamId}`).emit('chat_message', chatMessage);
+      } else {
+        io.to('global').emit('chat_message', chatMessage);
+      }
+    });
+
+    socket.on('disconnect', () => {
+      const userId: string | undefined = socket.data.userId;
+      if (!userId) {
+        return;
+      }
+
+      const entry = connectedUsers.get(userId);
+      if (!entry) {
+        return;
+      }
+
+      entry.sockets.delete(socket.id);
+
+      if (entry.sockets.size === 0) {
+        connectedUsers.delete(userId);
+        socket.to('global').emit('user_left', {
+          id: randomUUID(),
+          userId,
+          username: entry.hackerName,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      broadcastOnlineUsers(io);
+    });
+  });
 
   if (process.env.NODE_ENV !== 'production') {
     // Dev: dynamically import local Vite setup via eval'd import
