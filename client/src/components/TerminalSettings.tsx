@@ -1,6 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Settings, Palette, Type, Volume2, Eye, X } from 'lucide-react';
+import { Settings, Palette, Type, Volume2, Eye, X, HelpCircle, Copy } from 'lucide-react';
+import { getCurrentUser } from '@/lib/userStorage';
 
 interface TerminalSettingsProps {
   isOpen: boolean;
@@ -72,6 +73,10 @@ const FONT_FAMILIES = [
 
 export function TerminalSettings({ isOpen, onClose, settings, onSettingsChange }: TerminalSettingsProps) {
   const [activeTab, setActiveTab] = useState('appearance');
+  const [accountId, setAccountId] = useState<string | null>(null);
+  const [isLoadingAccount, setIsLoadingAccount] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [copyStatus, setCopyStatus] = useState<'idle' | 'copied' | 'error'>('idle');
 
   const updateSettings = (updates: Partial<TerminalSettings>) => {
     onSettingsChange({ ...settings, ...updates });
@@ -86,6 +91,53 @@ export function TerminalSettings({ isOpen, onClose, settings, onSettingsChange }
         backgroundColor: scheme.backgroundColor,
         textColor: scheme.textColor
       });
+    }
+  };
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    let isMounted = true;
+    setIsLoadingAccount(true);
+    setAccountError(null);
+
+    getCurrentUser()
+      .then((user) => {
+        if (!isMounted) return;
+        if (user?.id) {
+          setAccountId(user.id);
+        } else {
+          setAccountId(null);
+          setAccountError('No account information available.');
+        }
+      })
+      .catch(() => {
+        if (!isMounted) return;
+        setAccountId(null);
+        setAccountError('Failed to load account information.');
+      })
+      .finally(() => {
+        if (isMounted) {
+          setIsLoadingAccount(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isOpen]);
+
+  const handleCopyAccountId = async () => {
+    if (!accountId) return;
+
+    try {
+      await navigator.clipboard.writeText(accountId);
+      setCopyStatus('copied');
+      setTimeout(() => setCopyStatus('idle'), 2000);
+    } catch (error) {
+      console.error('Failed to copy account ID:', error);
+      setCopyStatus('error');
+      setTimeout(() => setCopyStatus('idle'), 2000);
     }
   };
 
@@ -120,7 +172,8 @@ export function TerminalSettings({ isOpen, onClose, settings, onSettingsChange }
               { id: 'appearance', label: 'Appearance', icon: Palette },
               { id: 'typography', label: 'Typography', icon: Type },
               { id: 'effects', label: 'Effects', icon: Eye },
-              { id: 'audio', label: 'Audio', icon: Volume2 }
+              { id: 'audio', label: 'Audio', icon: Volume2 },
+              { id: 'help', label: 'Help', icon: HelpCircle }
             ].map((tab) => (
               <button
                 key={tab.id}
@@ -293,6 +346,51 @@ export function TerminalSettings({ isOpen, onClose, settings, onSettingsChange }
                     />
                     <div className="w-11 h-6 bg-gray-600 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-green-600"></div>
                   </label>
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'help' && (
+              <div className="space-y-6">
+                <div className="border border-green-500/30 rounded-lg bg-black/60 p-4 shadow-inner">
+                  <div className="flex items-center gap-3 mb-3">
+                    <HelpCircle className="h-5 w-5 text-green-400" />
+                    <div>
+                      <h3 className="text-green-400 font-semibold">Account Assistance</h3>
+                      <p className="text-sm text-gray-400">
+                        Share this identifier with support so we can locate your profile instantly.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="border border-green-500/30 rounded-md p-3 flex items-center justify-between gap-4 bg-black/70">
+                    <div>
+                      <span className="text-xs uppercase tracking-wide text-gray-400 block">Account ID</span>
+                      <span className="font-mono text-sm text-white">
+                        {isLoadingAccount ? 'Loading…' : accountId || 'Unavailable'}
+                      </span>
+                    </div>
+                    <button
+                      onClick={handleCopyAccountId}
+                      disabled={!accountId || copyStatus === 'copied'}
+                      className={`flex items-center gap-2 px-3 py-2 text-xs rounded border transition-colors ${
+                        accountId
+                          ? 'border-green-500 text-green-400 hover:bg-green-500/10 disabled:opacity-60'
+                          : 'border-gray-600 text-gray-500 cursor-not-allowed'
+                      }`}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                      {copyStatus === 'copied' ? 'Copied!' : copyStatus === 'error' ? 'Retry' : 'Copy'}
+                    </button>
+                  </div>
+
+                  {accountError && (
+                    <p className="text-xs text-red-400 mt-2">{accountError}</p>
+                  )}
+                </div>
+
+                <div className="text-xs text-gray-400 leading-relaxed">
+                  Need more help? Contact the Shadow Network support desk and include your account ID above. Our agents will use it to pull your record from the NEON database without exposing sensitive mission data.
                 </div>
               </div>
             )}
