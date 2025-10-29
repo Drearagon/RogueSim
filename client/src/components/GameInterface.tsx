@@ -23,6 +23,8 @@ import { MultiplayerChat } from './MultiplayerChat';
 import { TeamSystem } from './TeamSystem';
 import { MissionMap } from './MissionMap';
 import { Users, MapPin } from 'lucide-react';
+import { SocialNotificationCenter } from './SocialNotificationCenter';
+import { useSocialNotifications } from '../hooks/useSocialNotifications';
 
 interface GameInterfaceProps {
   gameState: GameState;
@@ -59,6 +61,13 @@ export function GameInterface({
     backgroundColor: '#000000',
     textColor: '#00ff00'
   });
+
+  const {
+    notifications: socialNotifications,
+    pushNotification,
+    markAsRead: markSocialNotificationAsRead,
+    dismissNotification: dismissSocialNotification
+  } = useSocialNotifications();
 
   // Initialize default psych profile if not exists
   const defaultPsychProfile = {
@@ -155,6 +164,10 @@ export function GameInterface({
     console.log('Starting team mission:', missionId, 'with team:', team);
     setSelectedMission(missionId);
     // Implement team mission logic here
+    pushNotification({
+      type: 'team-update',
+      message: `Team mission ${missionId} prepared.`
+    });
   };
 
   const handleSelectMission = (mission: any) => {
@@ -492,6 +505,8 @@ export function GameInterface({
               currentUserId={gameState.playerId || 'player_1'}
               terminalSettings={terminalSettings}
               onStartTeamMission={handleStartTeamMission}
+              onNotify={pushNotification}
+              onTeamChange={setCurrentTeam}
             />
           </div>
         </div>
@@ -526,7 +541,16 @@ export function GameInterface({
           </div>
         </div>
       )}
-      
+
+      <SocialNotificationCenter
+        notifications={socialNotifications}
+        onDismiss={dismissSocialNotification}
+        onMarkAsRead={markSocialNotificationAsRead}
+        primaryColor={terminalSettings.primaryColor}
+        textColor={terminalSettings.textColor}
+        backgroundColor={terminalSettings.backgroundColor}
+      />
+
       {/* Mobile mission panel toggle */}
       <div className="md:hidden fixed bottom-4 right-4 z-30">
         <button
