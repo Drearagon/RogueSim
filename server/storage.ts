@@ -17,7 +17,7 @@ import { Sql as PostgresJsClient } from "postgres"; // For postgres.js client (y
 import { PgDatabase } from "drizzle-orm/pg-core"; // For Drizzle DB instance type
 import { PgColumn } from "drizzle-orm/pg-core"; // For Column types in Drizzle
 
-import { eq, and, desc } from "drizzle-orm"; // Drizzle ORM functions
+import { eq, and, desc, sql } from "drizzle-orm"; // Drizzle ORM functions
 import { log } from "./utils"; // Import log function for consistent logging
 import crypto from "crypto"; // For hashing verification codes
 import { v4 as uuidv4 } from 'uuid';
@@ -52,7 +52,7 @@ export interface IStorage {
     // Player stats
     getPlayerStats(userId: string): Promise<PlayerStats | undefined>;
     updatePlayerStats(userId: string, stats: Partial<InsertPlayerStats>): Promise<PlayerStats>;
-    
+
     // Auth and verification
     createUserProfile(profileData: any): Promise<any>;
     getUserProfile(userId: string): Promise<any>;
@@ -63,6 +63,14 @@ export interface IStorage {
     storeUnverifiedUser(userData: any): Promise<void>;
     getUnverifiedUser(email: string): Promise<any>;
     deleteUnverifiedUser(email: string): Promise<void>;
+
+    // Admin utilities
+    listUsers(): Promise<Array<Record<string, any>>>;
+    setUserBanStatus(userId: string, isBanned: boolean): Promise<User>;
+    setUserTestStatus(userId: string, isTestUser: boolean): Promise<User>;
+    updateUserPassword(userId: string, hashedPassword: string): Promise<User>;
+    simulateUserProgression(userId: string): Promise<User>;
+    getAllUserStats(): Promise<Array<Record<string, any>>>;
     
     // Battle Pass operations
     getActiveBattlePass(): Promise<BattlePass | undefined>;
@@ -127,7 +135,9 @@ export class DatabaseStorage implements IStorage {
             totalMissionsCompleted: row.total_missions_completed ?? row.totalMissionsCompleted,
             totalCreditsEarned: row.total_credits_earned ?? row.totalCreditsEarned,
             isOnline: row.is_online ?? row.isOnline,
-            currentMode: row.current_mode ?? row.currentMode
+            currentMode: row.current_mode ?? row.currentMode,
+            isBanned: row.is_banned ?? row.isBanned ?? false,
+            isTestUser: row.is_test_user ?? row.isTestUser ?? false,
         };
     }
 
@@ -638,6 +648,116 @@ export class DatabaseStorage implements IStorage {
             // postgres.js client
             await (this.rawPool as PostgresJsClient)`DELETE FROM unverified_users WHERE email = ${email}`;
         }
+    }
+
+    // --- ADMIN UTILITIES ---
+
+    async listUsers(): Promise<Array<Record<string, any>>> {
+        const rows = await this.drizzleDb.select().from(users).orderBy(desc(users.createdAt));
+        return rows.map((row) => {
+            const normalized = this.normalizeUserRow(row) as Record<string, any>;
+            if ('password' in normalized) {
+                delete normalized.password;
+            }
+            return normalized;
+        });
+    }
+
+    async setUserBanStatus(userId: string, isBanned: boolean): Promise<User> {
+        const [updated] = await this.drizzleDb
+            .update(users)
+            .set({ isBanned, updatedAt: new Date() })
+            .where(eq(users.id, userId))
+            .returning();
+
+        return this.normalizeUserRow(updated);
+    }
+
+    async setUserTestStatus(userId: string, isTestUser: boolean): Promise<User> {
+        const [updated] = await this.drizzleDb
+            .update(users)
+            .set({ isTestUser, updatedAt: new Date() })
+            .where(eq(users.id, userId))
+            .returning();
+
+        return this.normalizeUserRow(updated);
+    }
+
+    async updateUserPassword(userId: string, hashedPassword: string): Promise<User> {
+        const [updated] = await this.drizzleDb
+            .update(users)
+            .set({ password: hashedPassword, updatedAt: new Date() })
+            .where(eq(users.id, userId))
+            .returning();
+
+        return this.normalizeUserRow(updated);
+    }
+
+    async simulateUserProgression(userId: string): Promise<User> {
+        const currentUser = await this.getUser(userId);
+        if (!currentUser) {
+            throw new Error('User not found');
+        }
+
+        const [updated] = await this.drizzleDb
+            .update(users)
+            .set({
+                playerLevel: (currentUser.playerLevel ?? 0) + 1,
+                totalMissionsCompleted: (currentUser.totalMissionsCompleted ?? 0) + 3,
+                totalCreditsEarned: (currentUser.totalCreditsEarned ?? 0) + 750,
+                lastActive: new Date(),
+                updatedAt: new Date(),
+            })
+            .where(eq(users.id, userId))
+            .returning();
+
+        const stats = await this.getPlayerStats(userId);
+        if (stats) {
+            await this.updatePlayerStats(userId, {
+                totalPlayTime: (stats.totalPlayTime ?? 0) + 15,
+                totalMissions: (stats.totalMissions ?? 0) + 3,
+                multiplayerWins: (stats.multiplayerWins ?? 0) + 1,
+            });
+        } else {
+            await this.drizzleDb
+                .insert(playerStats)
+                .values({
+                    userId,
+                    totalPlayTime: 15,
+                    totalMissions: 3,
+                    favoriteCommands: [],
+                    achievementsUnlocked: [],
+                    multiplayerWins: 1,
+                    multiplayerLosses: 0,
+                })
+                .onConflictDoNothing();
+        }
+
+        return this.normalizeUserRow(updated);
+    }
+
+    async getAllUserStats(): Promise<Array<Record<string, any>>> {
+        const [userRows, statsRows] = await Promise.all([
+            this.drizzleDb.select().from(users).orderBy(desc(users.createdAt)),
+            this.drizzleDb.select().from(playerStats),
+        ]);
+
+        const statsMap = new Map<string, PlayerStats>();
+        for (const stat of statsRows) {
+            statsMap.set(stat.userId, stat);
+        }
+
+        return userRows.map((row) => {
+            const normalized = this.normalizeUserRow(row) as Record<string, any>;
+            if ('password' in normalized) {
+                delete normalized.password;
+            }
+
+            return {
+                ...normalized,
+                stats: statsMap.get(row.id) || null,
+            };
+        });
     }
 
     // Battle Pass operations

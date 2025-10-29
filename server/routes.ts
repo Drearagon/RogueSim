@@ -47,6 +47,46 @@ const stripe = new Stripe(env.STRIPE_SECRET_KEY, {
     apiVersion: "2025-06-30.basil",
 });
 
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN;
+
+const adminAuth: RequestHandler = (req: any, res, next) => {
+    if (!ADMIN_TOKEN) {
+        return res.status(503).send('Admin token not configured');
+    }
+
+    const suppliedToken =
+        (req.headers['x-admin-token'] as string) ||
+        (typeof req.body?.token === 'string' ? req.body.token : undefined) ||
+        (typeof req.query?.token === 'string' ? req.query.token : undefined);
+
+    if (suppliedToken && suppliedToken === ADMIN_TOKEN) {
+        (res.locals as any).adminToken = suppliedToken;
+        return next();
+    }
+
+    return res.status(403).send('Forbidden');
+};
+
+const escapeHtml = (value: string | undefined | null): string => {
+    if (!value) return '';
+    return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+};
+
+const generateTemporaryPassword = (length = 12): string => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789@#$%&*!';
+    let password = '';
+    for (let i = 0; i < length; i += 1) {
+        const idx = crypto.randomInt(0, chars.length);
+        password += chars[idx];
+    }
+    return password;
+};
+
 export async function registerRoutes(app: Express): Promise<Server> {
     try {
         // Initialize database storage
@@ -160,13 +200,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
         // Debug test endpoint
         app.get('/api/test', (req, res) => {
             log('DEBUG: /api/test route HIT!', 'debug');
-            res.json({ 
-                message: 'API routes are working!', 
+            res.json({
+                message: 'API routes are working!',
                 timestamp: new Date().toISOString(),
                 headers: req.headers,
                 method: req.method,
                 url: req.url
             });
+        });
+
+        // Admin utilities
+        app.get('/admin', adminAuth, async (req: any, res) => {
+            try {
+                const players = await storage.listUsers();
+                const message = typeof req.query?.message === 'string' ? req.query.message : '';
+                const token = (res.locals as any).adminToken || (typeof req.query?.token === 'string' ? req.query.token : '');
+
+                const rows = players
+                    .map((player) => {
+                        const safeId = encodeURIComponent(player.id);
+                        const safeToken = escapeHtml(token);
+                        const banAction = player.isBanned ? 'unban' : 'ban';
+                        const testAction = player.isTestUser ? 'remove' : 'mark';
+
+                        return `
+                        <tr>
+                            <td>${escapeHtml(player.hackerName || player.email || player.id)}</td>
+                            <td>${escapeHtml(player.email || '')}</td>
+                            <td>${player.playerLevel ?? 0}</td>
+                            <td>${player.totalMissionsCompleted ?? 0}</td>
+                            <td>${player.totalCreditsEarned ?? 0}</td>
+                            <td>${escapeHtml(player.reputation || 'ROOKIE')}</td>
+                            <td>${player.isBanned ? 'Yes' : 'No'}</td>
+                            <td>${player.isTestUser ? 'Yes' : 'No'}</td>
+                            <td>${player.lastActive ? new Date(player.lastActive).toLocaleString() : '—'}</td>
+                            <td>
+                                <form method="POST" action="/admin/users/${safeId}/ban">
+                                    <input type="hidden" name="token" value="${safeToken}" />
+                                    <input type="hidden" name="action" value="${banAction}" />
+                                    <button type="submit">${player.isBanned ? 'Unban' : 'Ban'}</button>
+                                </form>
+                                <form method="POST" action="/admin/users/${safeId}/test">
+                                    <input type="hidden" name="token" value="${safeToken}" />
+                                    <input type="hidden" name="action" value="${testAction}" />
+                                    <button type="submit">${player.isTestUser ? 'Remove Tester' : 'Mark Tester'}</button>
+                                </form>
+                                <form method="POST" action="/admin/users/${safeId}/reset-password">
+                                    <input type="hidden" name="token" value="${safeToken}" />
+                                    <button type="submit">Reset Password</button>
+                                </form>
+                                <form method="POST" action="/admin/users/${safeId}/simulate">
+                                    <input type="hidden" name="token" value="${safeToken}" />
+                                    <button type="submit">Simulate Progression</button>
+                                </form>
+                            </td>
+                        </tr>`;
+                    })
+                    .join('');
+
+                const html = `<!DOCTYPE html>
+                <html lang="en">
+                    <head>
+                        <meta charset="utf-8" />
+                        <title>RogueSim Admin Panel</title>
+                        <style>
+                            body { font-family: Arial, sans-serif; margin: 2rem; background: #0f172a; color: #e2e8f0; }
+                            h1 { margin-bottom: 1rem; }
+                            table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+                            th, td { border: 1px solid #1e293b; padding: 0.5rem; text-align: left; }
+                            th { background: #1e293b; }
+                            tr:nth-child(even) { background: #111827; }
+                            tr:nth-child(odd) { background: #0f172a; }
+                            form { display: inline-block; margin: 0.25rem 0.25rem 0; }
+                            button { background: #3b82f6; color: #fff; border: none; padding: 0.35rem 0.75rem; border-radius: 4px; cursor: pointer; }
+                            button:hover { background: #2563eb; }
+                            .message { margin: 1rem 0; padding: 0.75rem; background: #1d4ed8; border-radius: 6px; }
+                            .banner { background: #1f2937; padding: 1rem; border-radius: 6px; }
+                            a { color: #60a5fa; }
+                        </style>
+                    </head>
+                    <body>
+                        <div class="banner">
+                            <h1>RogueSim Admin Console</h1>
+                            <p>Authenticated via query token or <code>x-admin-token</code> header.</p>
+                            <p><a href="/api/dev/backup?token=${encodeURIComponent(token)}">Download JSON backup</a></p>
+                        </div>
+                        ${message ? `<div class="message">${escapeHtml(message)}</div>` : ''}
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Hacker</th>
+                                    <th>Email</th>
+                                    <th>Level</th>
+                                    <th>Missions</th>
+                                    <th>Credits</th>
+                                    <th>Reputation</th>
+                                    <th>Banned</th>
+                                    <th>Tester</th>
+                                    <th>Last Active</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${rows || '<tr><td colspan="10">No players found.</td></tr>'}
+                            </tbody>
+                        </table>
+                    </body>
+                </html>`;
+
+                res.type('html').send(html);
+            } catch (error) {
+                logger.error({ err: error }, 'Failed to render admin panel');
+                res.status(500).send('Failed to load admin panel');
+            }
+        });
+
+        app.post('/admin/users/:id/ban', adminAuth, async (req: any, res) => {
+            const { id } = req.params;
+            const action = req.body?.action === 'unban' ? 'unban' : 'ban';
+            try {
+                const updated = await storage.setUserBanStatus(id, action !== 'unban');
+                logUserAction(id, action === 'unban' ? 'admin_unban_user' : 'admin_ban_user', { admin: true });
+                const message = `${action === 'unban' ? 'Unbanned' : 'Banned'} ${updated.hackerName || updated.email || id}`;
+                const token = encodeURIComponent((res.locals as any).adminToken || '');
+                res.redirect(`/admin?token=${token}&message=${encodeURIComponent(message)}`);
+            } catch (error) {
+                logger.error({ err: error, userId: id }, 'Failed to update ban status');
+                res.status(500).send('Failed to update user ban status');
+            }
+        });
+
+        app.post('/admin/users/:id/test', adminAuth, async (req: any, res) => {
+            const { id } = req.params;
+            const action = req.body?.action === 'remove' ? 'remove' : 'mark';
+            try {
+                const updated = await storage.setUserTestStatus(id, action !== 'remove');
+                logUserAction(id, action === 'remove' ? 'admin_remove_tester' : 'admin_mark_tester', { admin: true });
+                const message = `${action === 'remove' ? 'Removed tester flag for' : 'Marked tester'} ${updated.hackerName || updated.email || id}`;
+                const token = encodeURIComponent((res.locals as any).adminToken || '');
+                res.redirect(`/admin?token=${token}&message=${encodeURIComponent(message)}`);
+            } catch (error) {
+                logger.error({ err: error, userId: id }, 'Failed to update tester flag');
+                res.status(500).send('Failed to update tester flag');
+            }
+        });
+
+        app.post('/admin/users/:id/reset-password', adminAuth, async (req: any, res) => {
+            const { id } = req.params;
+            try {
+                const temporaryPassword = generateTemporaryPassword();
+                const hashedPassword = await bcrypt.hash(temporaryPassword, 12);
+                const updated = await storage.updateUserPassword(id, hashedPassword);
+                logUserAction(id, 'admin_reset_password', { admin: true });
+                const message = `Temporary password for ${updated.hackerName || updated.email || id}: ${temporaryPassword}`;
+                const token = encodeURIComponent((res.locals as any).adminToken || '');
+                res.redirect(`/admin?token=${token}&message=${encodeURIComponent(message)}`);
+            } catch (error) {
+                logger.error({ err: error, userId: id }, 'Failed to reset password');
+                res.status(500).send('Failed to reset password');
+            }
+        });
+
+        app.post('/admin/users/:id/simulate', adminAuth, async (req: any, res) => {
+            const { id } = req.params;
+            try {
+                const updated = await storage.simulateUserProgression(id);
+                logUserAction(id, 'admin_simulate_progression', { admin: true });
+                const message = `Simulated progression for ${updated.hackerName || updated.email || id}`;
+                const token = encodeURIComponent((res.locals as any).adminToken || '');
+                res.redirect(`/admin?token=${token}&message=${encodeURIComponent(message)}`);
+            } catch (error) {
+                logger.error({ err: error, userId: id }, 'Failed to simulate progression');
+                res.status(500).send('Failed to simulate progression');
+            }
+        });
+
+        app.get('/api/dev/backup', adminAuth, async (req: any, res) => {
+            try {
+                const snapshot = await storage.getAllUserStats();
+                res.json({
+                    generatedAt: new Date().toISOString(),
+                    totalUsers: snapshot.length,
+                    users: snapshot,
+                });
+            } catch (error) {
+                logger.error({ err: error }, 'Failed to generate backup snapshot');
+                res.status(500).json({ error: 'Failed to generate backup' });
+            }
         });
 
         // Auth routes

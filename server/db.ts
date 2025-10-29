@@ -6,6 +6,7 @@ import ws from "ws"; // For Neon
 import * as schema from "@shared/schema"; // Your Drizzle schema
 import { log } from "./utils"; // Your logger
 import { initLocalDatabase, LocalDatabaseStorage, isLocalDbAvailable, getLocalDbStats } from './localDB';
+import { runDatabaseMigrations } from './migrationsRunner';
 
 // Private module-level variables that will hold the initialized database clients
 let initializedDb: any;
@@ -93,6 +94,15 @@ export async function initDatabase(): Promise<void> {
 
         log('✅ Database connection test successful', 'db');
         log(`DEBUG: Initialized DB and Pool values: db defined=${!!initializedDb}, pool defined=${!!initializedPool}`, 'db');
+
+        if (process.env.DATABASE_URL) {
+            try {
+                await runDatabaseMigrations(process.env.DATABASE_URL);
+            } catch (migrationError) {
+                log(`❌ Database migrations failed: ${(migrationError as Error).message}`, 'error');
+                throw migrationError;
+            }
+        }
 
     } catch (error) {
         log(`❌ Main database connection failed: ${(error as Error).message}`, 'error');
