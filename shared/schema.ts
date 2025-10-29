@@ -34,6 +34,8 @@ export const users = pgTable("users", {
   lastActive: timestamp("last_active").defaultNow(),
   isOnline: boolean("is_online").default(false),
   currentMode: text("current_mode").default('single'), // 'single' or 'multiplayer'
+  isBanned: boolean("is_banned").notNull().default(false),
+  isTestUser: boolean("is_test_user").notNull().default(false),
 });
 
 export const gameSaves = pgTable("game_saves", {
