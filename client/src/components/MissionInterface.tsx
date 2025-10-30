@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { GameState, Mission, SpecialMission, MissionProgress } from '../types/game';
+import React, { useState, useEffect, useMemo } from 'react';
+import { GameState, Mission, SpecialMission, ScheduledEventState } from '../types/game';
 import { getAvailableMissions, getMissionsByCategory, getMissionsByDifficulty, getSpecialMissions, generateEmergencyMission } from '../lib/missionDatabase';
-import { 
-  Target, 
-  Clock, 
-  Coins, 
-  Star, 
-  Shield, 
-  Sword, 
-  Eye, 
-  Zap, 
-  AlertTriangle, 
+import { applyEventSchedule } from '../lib/eventScheduler';
+import {
+  Target,
+  Clock,
+  Coins,
+  Star,
+  Shield,
+  Sword,
+  Eye,
+  Zap,
+  AlertTriangle,
   Trophy,
   Filter,
   Search,
@@ -18,7 +19,9 @@ import {
   Info,
   X,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  CalendarClock,
+  Hourglass
 } from 'lucide-react';
 
 interface MissionInterfaceProps {
@@ -28,7 +31,7 @@ interface MissionInterfaceProps {
 }
 
 export function MissionInterface({ gameState, onMissionStart, onClose }: MissionInterfaceProps) {
-  const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed' | 'special'>('available');
+  const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed' | 'special' | 'events'>('available');
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
   const [filterDifficulty, setFilterDifficulty] = useState<string>('ALL');
@@ -38,8 +41,42 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
   const [emergencyMissions, setEmergencyMissions] = useState<Mission[]>([]);
 
   // Get available missions
-  const availableMissions = getAvailableMissions(gameState);
-  const specialMissions = getSpecialMissions(gameState);
+  const eventSyncedState = useMemo(() => applyEventSchedule(gameState), [gameState]);
+  const availableMissions = getAvailableMissions(eventSyncedState);
+  const specialMissions = getSpecialMissions(eventSyncedState);
+  const { activeEvents, upcomingEvents, pastEvents } = eventSyncedState.eventSchedule;
+  const activeEventMissions = eventSyncedState.eventMissions;
+
+  const standardMissionCount = useMemo(
+    () => availableMissions.filter(mission => mission.type !== 'EVENT').length,
+    [availableMissions]
+  );
+
+  const eventLookup = useMemo(() => {
+    const map = new Map<string, ScheduledEventState>();
+    [...activeEvents, ...upcomingEvents, ...pastEvents].forEach(event => {
+      map.set(event.id, event);
+    });
+    return map;
+  }, [activeEvents, upcomingEvents, pastEvents]);
+
+  const eventMissionMap = useMemo(() => {
+    const map = new Map<string, Mission[]>();
+    activeEventMissions.forEach(mission => {
+      if (!mission.eventId) return;
+      const list = map.get(mission.eventId) ?? [];
+      list.push(mission);
+      map.set(mission.eventId, list);
+    });
+    return map;
+  }, [activeEventMissions]);
+
+  const [currentTime, setCurrentTime] = useState(() => Date.now());
+
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Generate emergency missions periodically
   useEffect(() => {
@@ -56,7 +93,10 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
 
   // Filter and sort missions
   const getFilteredMissions = () => {
-    let missions = [...availableMissions, ...emergencyMissions];
+    let missions = [
+      ...availableMissions.filter(mission => mission.type !== 'EVENT'),
+      ...emergencyMissions
+    ];
 
     // Apply category filter
     if (filterCategory !== 'ALL') {
@@ -127,6 +167,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
       case 'FACTION': return 'text-purple-400';
       case 'SPECIAL': return 'text-yellow-400';
       case 'EMERGENCY': return 'text-red-400';
+      case 'EVENT': return 'text-amber-400';
       default: return 'text-gray-400';
     }
   };
@@ -137,11 +178,41 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const formatCountdown = (milliseconds: number) => {
+    if (milliseconds <= 0) return 'Expired';
+    const totalMinutes = Math.floor(milliseconds / (60 * 1000));
+    const days = Math.floor(totalMinutes / (60 * 24));
+    const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+    const minutes = totalMinutes % 60;
+
+    if (days > 0) {
+      return `${days}d ${hours}h`;
+    }
+    if (hours > 0) {
+      return `${hours}h ${minutes}m`;
+    }
+    return `${minutes}m`;
+  };
+
+  const formatEventWindow = (start: number, end: number) => {
+    const formatter = new Intl.DateTimeFormat(undefined, {
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    return `${formatter.format(start)} → ${formatter.format(end)}`;
+  };
+
   const canStartMission = (mission: Mission) => {
     // Check if player meets requirements
     if (mission.requiredLevel > gameState.playerLevel) return false;
     if (mission.requiredFaction && gameState.activeFaction !== mission.requiredFaction) return false;
-    
+
+    if (mission.availableFrom && Date.now() < mission.availableFrom) return false;
+    if (mission.availableUntil && Date.now() > mission.availableUntil) return false;
+
     // Check cooldown
     if (mission.cooldownHours && gameState.missionCooldowns?.[mission.id]) {
       const cooldownEnd = gameState.missionCooldowns[mission.id] + (mission.cooldownHours * 60 * 60 * 1000);
@@ -173,7 +244,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
           <div>
             <h2 className="text-3xl font-bold text-green-400">Mission Control</h2>
             <p className="text-green-300 text-sm">
-              Level {gameState.playerLevel} • {availableMissions.length} missions available
+              Level {gameState.playerLevel} • {standardMissionCount} missions available
             </p>
           </div>
           <button
@@ -189,6 +260,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
           {[
             { id: 'available', label: 'Available', icon: <Target className="w-4 h-4" />, count: availableMissions.length },
             { id: 'active', label: 'Active', icon: <Play className="w-4 h-4" />, count: gameState.activeMission ? 1 : 0 },
+            { id: 'events', label: 'Events', icon: <CalendarClock className="w-4 h-4" />, count: activeEvents.length + upcomingEvents.length },
             { id: 'completed', label: 'Completed', icon: <Trophy className="w-4 h-4" />, count: gameState.completedMissionIds?.length || 0 },
             { id: 'special', label: 'Special', icon: <Star className="w-4 h-4" />, count: specialMissions.length }
           ].map(tab => (
@@ -441,6 +513,191 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
               </div>
             )}
 
+            {activeTab === 'events' && (
+              <div className="space-y-8">
+                <div>
+                  <h3 className="text-lg font-bold text-amber-400 mb-3 flex items-center gap-2">
+                    <Hourglass className="w-5 h-5" />
+                    Active Events
+                  </h3>
+                  {activeEvents.length === 0 ? (
+                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center">
+                      <CalendarClock className="w-12 h-12 text-gray-500 mx-auto mb-3" />
+                      <h4 className="text-xl font-semibold text-gray-400 mb-1">No Active Events</h4>
+                      <p className="text-gray-500 text-sm">Check the upcoming schedule below for the next limited-time operations.</p>
+                    </div>
+                  ) : (
+                    <div className="space-y-6">
+                      {activeEvents.map(event => {
+                        const missions = eventMissionMap.get(event.id) ?? event.missions ?? [];
+                        const timeRemaining = formatCountdown((event.endTime ?? 0) - currentTime);
+
+                        return (
+                          <div
+                            key={`${event.id}_${event.iteration}`}
+                            className="bg-amber-900/20 border border-amber-500/60 rounded-lg p-5 shadow-lg"
+                          >
+                            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                              <div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-xs uppercase tracking-widest text-amber-300/80">Limited-Time Event</span>
+                                  {event.isCompleted && (
+                                    <span className="text-xs px-2 py-0.5 bg-emerald-600 text-white rounded-full">Completed</span>
+                                  )}
+                                </div>
+                                <h4 className="text-2xl font-bold text-amber-200 mt-1">{event.title}</h4>
+                                <p className="text-amber-100/80 text-sm mt-2 max-w-2xl">{event.description}</p>
+                              </div>
+                              <div className="text-right">
+                                <div className="flex items-center gap-2 justify-end text-amber-200 font-semibold">
+                                  <Hourglass className="w-4 h-4" />
+                                  <span>{timeRemaining}</span>
+                                </div>
+                                <div className="text-amber-100/70 text-xs mt-1">{formatEventWindow(event.startTime, event.endTime)}</div>
+                              </div>
+                            </div>
+
+                            <div className="mt-5 space-y-4">
+                              {missions.length === 0 ? (
+                                <div className="bg-gray-900/60 border border-gray-700 rounded p-4 text-sm text-amber-100/80">
+                                  Event objectives already cleared.
+                                </div>
+                              ) : (
+                                missions.map(mission => {
+                                  const expiresIn = mission.availableUntil ? mission.availableUntil - currentTime : event.endTime - currentTime;
+                                  const canLaunch = canStartMission(mission);
+                                  const cooldownRemaining = getRemainingCooldown(mission);
+
+                                  return (
+                                    <div
+                                      key={mission.id}
+                                      className={`bg-gray-900/70 border rounded-lg p-4 transition-colors ${
+                                        selectedMission?.id === mission.id
+                                          ? 'border-amber-400'
+                                          : 'border-amber-500/40 hover:border-amber-400'
+                                      }`}
+                                    >
+                                      <div className="flex flex-col md:flex-row md:justify-between gap-3">
+                                        <div className="md:max-w-2xl">
+                                          <h5 className="text-amber-200 font-semibold text-lg">{mission.title}</h5>
+                                          <p className="text-gray-300 text-sm mt-1">{mission.description}</p>
+                                        </div>
+                                        <div className="text-right">
+                                          <div className="text-green-300 font-bold text-lg">{mission.creditReward}₵</div>
+                                          <div className="text-blue-300 text-sm">+{mission.experienceReward} XP</div>
+                                        </div>
+                                      </div>
+
+                                      <div className="mt-3 flex flex-wrap gap-3 text-xs text-amber-100/80">
+                                        <span>Level {mission.requiredLevel}+</span>
+                                        <span className={`px-2 py-1 rounded ${getDifficultyColor(mission.difficulty)}`}>
+                                          {mission.difficulty}
+                                        </span>
+                                        <span>Expires in {formatCountdown(expiresIn)}</span>
+                                        {mission.timeLimit && (
+                                          <span>Mission Timer {formatTime(mission.timeLimit)}</span>
+                                        )}
+                                      </div>
+
+                                      <div className="mt-4 flex flex-wrap gap-2">
+                                        <button
+                                          onClick={() => setSelectedMission(mission)}
+                                          className="px-3 py-1.5 border border-amber-500/60 text-amber-200 rounded hover:bg-amber-500/10 transition"
+                                        >
+                                          View Briefing
+                                        </button>
+                                        <button
+                                          onClick={() => onMissionStart(mission)}
+                                          disabled={!canLaunch}
+                                          className={`px-3 py-1.5 rounded font-semibold transition ${
+                                            canLaunch
+                                              ? 'bg-amber-500 text-black hover:bg-amber-400'
+                                              : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                                          }`}
+                                        >
+                                          {canLaunch ? 'Start Mission' : 'Unavailable'}
+                                        </button>
+                                        {!canLaunch && cooldownRemaining && (
+                                          <span className="text-xs text-red-300 self-center">Cooldown: {cooldownRemaining}</span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                })
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-bold text-sky-300 mb-3 flex items-center gap-2">
+                    <CalendarClock className="w-5 h-5" />
+                    Upcoming Events
+                  </h3>
+                  {upcomingEvents.length === 0 ? (
+                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 text-center text-gray-400">
+                      No upcoming events scheduled.
+                    </div>
+                  ) : (
+                    <div className="space-y-4">
+                      {upcomingEvents.map(event => (
+                        <div
+                          key={`${event.id}_${event.iteration}`}
+                          className="bg-slate-900/60 border border-sky-500/40 rounded-lg p-4"
+                        >
+                          <div className="flex flex-col md:flex-row md:justify-between gap-3">
+                            <div>
+                              <h4 className="text-sky-200 font-semibold text-lg">{event.title}</h4>
+                              <p className="text-gray-300 text-sm mt-1">{event.description}</p>
+                            </div>
+                            <div className="text-right text-sky-100/80 text-sm">
+                              <div>Starts in {formatCountdown(event.startTime - currentTime)}</div>
+                              <div className="text-xs mt-1">{formatEventWindow(event.startTime, event.endTime)}</div>
+                            </div>
+                          </div>
+                          {event.missions && event.missions.length > 0 && (
+                            <div className="mt-3 grid gap-2 sm:grid-cols-2 text-xs text-sky-100/80">
+                              {event.missions.map(mission => (
+                                <div key={mission.id} className="bg-slate-800/60 border border-sky-500/30 rounded p-3">
+                                  <div className="font-semibold text-sky-200">{mission.title}</div>
+                                  <div className="mt-1 flex items-center gap-2 text-xs">
+                                    <span className={`px-2 py-0.5 rounded ${getDifficultyColor(mission.difficulty)}`}>
+                                      {mission.difficulty}
+                                    </span>
+                                    <span>{mission.creditReward}₵ reward</span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {pastEvents.length > 0 && (
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-300 mb-3">Recent Event</h3>
+                    <div className="bg-gray-800 border border-gray-700 rounded-lg p-4 text-sm text-gray-300">
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-semibold text-white">{pastEvents[0].title}</div>
+                          <div className="text-xs text-gray-400">{formatEventWindow(pastEvents[0].startTime, pastEvents[0].endTime)}</div>
+                        </div>
+                        <div className="text-xs text-gray-400">Cycle #{pastEvents[0].iteration}</div>
+                      </div>
+                      <p className="mt-2 text-gray-400">{pastEvents[0].description}</p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {activeTab === 'completed' && (
               <div className="space-y-3">
                 {gameState.missionHistory?.map((progress, index) => (
@@ -569,6 +826,22 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
                       {selectedMission.type}
                     </div>
                   </div>
+                  {selectedMission.eventId && (
+                    <div className="col-span-2">
+                      <span className="text-gray-400">Event:</span>
+                      <div className="text-amber-300 ml-2">
+                        {eventLookup.get(selectedMission.eventId)?.title || selectedMission.eventId}
+                      </div>
+                    </div>
+                  )}
+                  {selectedMission.availableFrom && selectedMission.availableUntil && (
+                    <div className="col-span-2">
+                      <span className="text-gray-400">Availability:</span>
+                      <div className="text-white ml-2">
+                        {formatEventWindow(selectedMission.availableFrom, selectedMission.availableUntil)}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>
