@@ -25,6 +25,8 @@ import { MissionMap } from './MissionMap';
 import { Users, MapPin } from 'lucide-react';
 import { SocialNotificationCenter } from './SocialNotificationCenter';
 import { useSocialNotifications } from '../hooks/useSocialNotifications';
+import { MessageCenterOverlay } from './MessageCenterOverlay';
+import { StaffMessage } from '../types/social';
 
 interface GameInterfaceProps {
   gameState: GameState;
@@ -54,12 +56,41 @@ export function GameInterface({
   } | null>(null);
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [showMissionMap, setShowMissionMap] = useState(false);
+  const [showMessageCenter, setShowMessageCenter] = useState(false);
   const [selectedMission, setSelectedMission] = useState<any>(null);
   const [currentTeam, setCurrentTeam] = useState<any>(null);
   const [terminalSettings, setTerminalSettings] = useState({
     primaryColor: '#00ff00',
     backgroundColor: '#000000',
     textColor: '#00ff00'
+  });
+
+  const [staffMessages, setStaffMessages] = useState<StaffMessage[]>(() => {
+    if (gameState?.staffMessages?.length) {
+      return gameState.staffMessages;
+    }
+
+    const now = Date.now();
+    return [
+      {
+        id: 'staff_welcome',
+        sender: 'Shadow Network Ops',
+        subject: 'Welcome to the Shadow Network',
+        body: 'Operative, welcome aboard. Keep an eye on this channel for directives, rewards, and critical alerts from command.',
+        timestamp: now - 1000 * 60 * 30,
+        read: false,
+        priority: 'normal'
+      },
+      {
+        id: 'staff_briefing',
+        sender: 'Operations Command',
+        subject: 'Daily Briefing Update',
+        body: 'Intel Summary:\n• Covert recon teams detected increased corp security sweeps.\n• Priority missions marked in crimson require immediate attention.\n• Report unusual activity via the mission terminal.',
+        timestamp: now - 1000 * 60 * 60 * 5,
+        read: false,
+        priority: 'high'
+      }
+    ];
   });
 
   const {
@@ -112,7 +143,9 @@ export function GameInterface({
     const handleOpenPsychProfile = () => setShowPsychProfile(true);
     const handleOpenTeamInterface = () => setShowTeamPanel(true);
     const handleOpenMissionMap = () => setShowMissionMap(true);
-    
+    const handleOpenMessageCenter = () => setShowMessageCenter(true);
+    const handleCloseMessageCenter = () => setShowMessageCenter(false);
+
     window.addEventListener('openEnhancedShop', handleOpenShop);
     window.addEventListener('openSocialEngineering', handleOpenSocialEngineering);
     window.addEventListener('openNetworkMap', handleOpenNetworkMap);
@@ -121,7 +154,9 @@ export function GameInterface({
     window.addEventListener('openPsychProfile', handleOpenPsychProfile);
     window.addEventListener('openTeamInterface', handleOpenTeamInterface);
     window.addEventListener('openMissionMap', handleOpenMissionMap);
-    
+    window.addEventListener('openMessageCenter', handleOpenMessageCenter);
+    window.addEventListener('closeMessageCenter', handleCloseMessageCenter);
+
     return () => {
       window.removeEventListener('openEnhancedShop', handleOpenShop);
       window.removeEventListener('openSocialEngineering', handleOpenSocialEngineering);
@@ -131,8 +166,30 @@ export function GameInterface({
       window.removeEventListener('openPsychProfile', handleOpenPsychProfile);
       window.removeEventListener('openTeamInterface', handleOpenTeamInterface);
       window.removeEventListener('openMissionMap', handleOpenMissionMap);
+      window.removeEventListener('openMessageCenter', handleOpenMessageCenter);
+      window.removeEventListener('closeMessageCenter', handleCloseMessageCenter);
     };
   }, []);
+
+  useEffect(() => {
+    if (gameState?.staffMessages) {
+      setStaffMessages(gameState.staffMessages);
+    }
+  }, [gameState?.staffMessages]);
+
+  const handleMarkStaffMessageRead = (id: string) => {
+    setStaffMessages(prev => {
+      const updated = prev.map(message =>
+        message.id === id ? { ...message, read: true } : message
+      );
+
+      if (typeof onGameStateUpdate === 'function') {
+        onGameStateUpdate({ staffMessages: updated });
+      }
+
+      return updated;
+    });
+  };
 
   // Listen for terminal settings changes
   useEffect(() => {
@@ -540,6 +597,20 @@ export function GameInterface({
             />
           </div>
         </div>
+      )}
+
+      {showMessageCenter && (
+        <MessageCenterOverlay
+          notifications={socialNotifications}
+          staffMessages={staffMessages}
+          onDismissNotification={dismissSocialNotification}
+          onMarkNotificationRead={markSocialNotificationAsRead}
+          onMarkStaffMessageRead={handleMarkStaffMessageRead}
+          onClose={() => setShowMessageCenter(false)}
+          primaryColor={terminalSettings.primaryColor}
+          textColor={terminalSettings.textColor}
+          backgroundColor={terminalSettings.backgroundColor}
+        />
       )}
 
       <SocialNotificationCenter

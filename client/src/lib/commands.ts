@@ -3905,6 +3905,29 @@ export const commands: Record<string, Command> = {
     }
   },
 
+  messages: {
+    description: 'Open the secure message center overlay',
+    usage: 'messages',
+    category: 'system',
+    execute: () => {
+      setTimeout(() => {
+        const openMessageCenterEvent = new CustomEvent('openMessageCenter');
+        window.dispatchEvent(openMessageCenterEvent);
+      }, 100);
+
+      return {
+        success: true,
+        output: [
+          '📬 MESSAGE CENTER ACCESS',
+          '━━━━━━━━━━━━━━━━━━━━━━',
+          'Opening secure communications overlay...',
+          'All notifications and staff transmissions will be routed here.',
+          ''
+        ]
+      };
+    }
+  },
+
   chat: {
     description: 'Send messages in multiplayer chat',
     usage: 'chat <message> OR chat [global|team] <message>',
