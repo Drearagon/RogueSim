@@ -545,6 +545,186 @@ export const specialMissions: SpecialMission[] = [
   },
 
   {
+    id: 'pulsebreak_protocol',
+    title: 'Pulsebreak Protocol',
+    description: 'Synchronize with a volatile network pulse to hijack live data streams in real-time.',
+    briefing: 'A rival collective is siphoning crypto markets using a pulse-synced exploit. Slip into the live stream, desync their timing, and reroute the payload before they notice.',
+    difficulty: 'MEDIUM',
+    category: 'CYBER_WARFARE',
+    type: 'SPECIAL',
+    specialType: 'REAL_TIME_HACK',
+    requiredLevel: 7,
+    creditReward: 900,
+    experienceReward: 260,
+    reputationReward: 40,
+    skillPointReward: 1,
+    isRepeatable: true,
+    cooldownHours: 36,
+    timeLimit: 600, // 10 minutes
+    objectives: [
+      {
+        id: 'sync_with_pulse',
+        description: 'Match the hostile network\'s pulse timing',
+        type: 'TIME_BASED',
+        command: 'synchronize pulse',
+        completed: false
+      },
+      {
+        id: 'reroute_payload',
+        description: 'Hijack and reroute the live exploit payload',
+        type: 'COMMAND',
+        command: 'reroute payload',
+        completed: false
+      },
+      {
+        id: 'stabilize_stream',
+        description: 'Stabilize your foothold before the stream resets',
+        type: 'CONDITION',
+        condition: 'stability >= 80%',
+        completed: false
+      }
+    ],
+    customInterface: {
+      backgroundColor: '#061229',
+      textColor: '#8dfffb',
+      accentColor: '#ffb347',
+      effects: ['waveform_overlay', 'latency_counter']
+    },
+    customCommands: ['pulse_sync', 'payload_reroute', 'stream_lock'],
+    environmentChanges: {
+      terminalTheme: 'real_time_flux',
+      soundEffects: ['pulse_tick', 'bandwidth_surge'],
+      visualEffects: ['data_wave', 'pulse_shift']
+    },
+    realTimeElements: {
+      countdown: true,
+      progressBars: true,
+      liveUpdates: true,
+      interactiveElements: true
+    }
+  },
+
+  {
+    id: 'hollow_step_infiltration',
+    title: 'Hollow Step Infiltration',
+    description: 'Ghost through a corporate arcology undetected to plant a quantum sniffer.',
+    briefing: 'A megacorp has gone dark to everyone but themselves. Slip through their internal mesh, plant a sniffer in the executive loop, and leave without their sentries ever flagging your presence.',
+    difficulty: 'MEDIUM',
+    category: 'INFILTRATION',
+    type: 'SPECIAL',
+    specialType: 'STEALTH_INFILTRATION',
+    requiredLevel: 5,
+    creditReward: 800,
+    experienceReward: 220,
+    reputationReward: 35,
+    isRepeatable: true,
+    cooldownHours: 24,
+    timeLimit: 900, // 15 minutes
+    stealthRequired: true,
+    maxSuspicion: 25,
+    objectives: [
+      {
+        id: 'mask_signature',
+        description: 'Mask your digital signature with executive credentials',
+        type: 'STEALTH',
+        command: 'cloak signature',
+        completed: false
+      },
+      {
+        id: 'navigate_mesh',
+        description: 'Traverse the internal mesh without triggering motion heuristics',
+        type: 'STEALTH',
+        command: 'ghost step',
+        completed: false
+      },
+      {
+        id: 'plant_sniffer',
+        description: 'Install the quantum sniffer in the executive loop',
+        type: 'COMMAND',
+        command: 'plant sniffer',
+        completed: false
+      }
+    ],
+    customInterface: {
+      backgroundColor: '#020d0a',
+      textColor: '#9fffe0',
+      accentColor: '#3ddc97',
+      effects: ['heartbeat_monitor', 'ambient_particles']
+    },
+    customCommands: ['ghost_step', 'scent_mask', 'sniffer_deploy'],
+    environmentChanges: {
+      terminalTheme: 'silent_infiltration',
+      soundEffects: ['muffled_steps', 'whispered_status'],
+      visualEffects: ['low_light', 'sensor_overlay']
+    },
+    realTimeElements: {
+      countdown: true,
+      progressBars: true,
+      liveUpdates: true
+    }
+  },
+
+  {
+    id: 'velvet_conclave',
+    title: 'Velvet Conclave',
+    description: 'Conduct a social-engineering offensive to manipulate a syndicate vote.',
+    briefing: 'The Velvet Conclave meet tonight to decide who controls the docks. Posing as a trusted fixer, influence the delegates, leak falsified intel, and steer the vote without revealing your hand.',
+    difficulty: 'MEDIUM',
+    category: 'SOCIAL_ENGINEERING',
+    type: 'SPECIAL',
+    specialType: 'SOCIAL_MANIPULATION',
+    requiredLevel: 6,
+    creditReward: 1000,
+    experienceReward: 280,
+    reputationReward: 50,
+    isRepeatable: false,
+    cooldownHours: 72,
+    objectives: [
+      {
+        id: 'assume_identity',
+        description: 'Assume the fixer identity and gain access to the chamber',
+        type: 'CHOICE',
+        command: 'select persona',
+        completed: false
+      },
+      {
+        id: 'sway_delegate',
+        description: 'Convince a neutral delegate to back your client',
+        type: 'CHOICE',
+        command: 'leverage dossier',
+        completed: false
+      },
+      {
+        id: 'plant_evidence',
+        description: 'Leak falsified intel to discredit the opposition',
+        type: 'COMMAND',
+        command: 'release intel',
+        completed: false
+      }
+    ],
+    customInterface: {
+      backgroundColor: '#1a0f23',
+      textColor: '#f4d9ff',
+      accentColor: '#c084fc',
+      fontFamily: '"Playfair Display", serif',
+      effects: ['holographic_overlay', 'soft_glow']
+    },
+    customCommands: ['persona_select', 'influence', 'intel_release'],
+    environmentChanges: {
+      terminalTheme: 'gala_suite',
+      backgroundMusic: 'lounge_noir',
+      soundEffects: ['glass_clink', 'hushed_whispers'],
+      visualEffects: ['ambient_particles', 'delegate_highlights']
+    },
+    realTimeElements: {
+      countdown: false,
+      progressBars: true,
+      liveUpdates: true,
+      interactiveElements: true
+    }
+  },
+
+  {
     id: 'ai_battle',
     title: 'Neural Network Warfare',
     description: 'Engage in direct combat with an advanced AI system.',
