@@ -3,9 +3,10 @@ import { GameState } from '../types/game';
 import { loadGameState, saveGameState } from '../lib/gameStorage';
 import { initializeFactionStandings } from '../lib/factionSystem';
 import { getInitialUnlockedCommands } from '../lib/commands';
+import { applyEventSchedule } from '../lib/eventScheduler';
 
 export function useGameState() {
-  const [gameState, setGameState] = useState<GameState>({
+  const [gameState, setGameState] = useState<GameState>(() => applyEventSchedule({
     currentMission: 0,
     credits: 500,
     reputation: 'UNKNOWN',
@@ -67,8 +68,15 @@ export function useGameState() {
     specialMissionData: undefined,
     customTerminalState: undefined,
     missionCooldowns: {},
-    emergencyMissions: []
-  });
+    emergencyMissions: [],
+    eventSchedule: {
+      activeEvents: [],
+      upcomingEvents: [],
+      pastEvents: [],
+      progress: {}
+    },
+    eventMissions: []
+  }));
 
   const [isLoading, setIsLoading] = useState(true);
 
@@ -81,7 +89,7 @@ export function useGameState() {
         if (!loadedState.factionStandings || Object.keys(loadedState.factionStandings).length === 0) {
           loadedState.factionStandings = initializeFactionStandings();
         }
-        setGameState(loadedState);
+        setGameState(applyEventSchedule(loadedState));
       } catch (error) {
         console.warn('Failed to load game state, using defaults:', error);
         // Keep default state if loading fails
@@ -95,7 +103,7 @@ export function useGameState() {
 
   const updateGameState = useCallback((updates: Partial<GameState>) => {
     setGameState(prev => {
-      const newState = { ...prev, ...updates };
+      const newState = applyEventSchedule({ ...prev, ...updates });
       
       // Immediate synchronous save for critical updates like skill purchases
       try {
@@ -132,8 +140,9 @@ export function useGameState() {
       if (!defaultState.missionCooldowns) defaultState.missionCooldowns = {};
       if (!defaultState.emergencyMissions) defaultState.emergencyMissions = [];
       
-      setGameState(defaultState);
-      await saveGameState(defaultState);
+      const scheduledState = applyEventSchedule(defaultState);
+      setGameState(scheduledState);
+      await saveGameState(scheduledState);
     } catch (error) {
       console.warn('Failed to reset game:', error);
     }

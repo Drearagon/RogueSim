@@ -52,6 +52,9 @@ export interface GameState {
   // Mission Cooldowns and Availability
   missionCooldowns: Record<string, number>;
   emergencyMissions: Mission[];
+  // Limited-time Events
+  eventSchedule: EventScheduleState;
+  eventMissions: Mission[];
   // Psychological Profile System
   psychProfile?: PsychProfile;
   // Multiplayer properties
@@ -59,6 +62,33 @@ export interface GameState {
   showTeamInterface?: boolean;
   showMissionMap?: boolean;
   staffMessages?: StaffMessage[];
+}
+
+export interface EventScheduleState {
+  activeEvents: ScheduledEventState[];
+  upcomingEvents: ScheduledEventState[];
+  pastEvents: ScheduledEventState[];
+  progress: Record<string, EventProgress>;
+}
+
+export interface ScheduledEventState {
+  id: string;
+  title: string;
+  description: string;
+  startTime: number;
+  endTime: number;
+  missionIds: string[];
+  isActive: boolean;
+  isCompleted: boolean;
+  missions?: Mission[];
+  iteration: number;
+}
+
+export interface EventProgress {
+  eventId: string;
+  missionStatus: Record<string, 'LOCKED' | 'AVAILABLE' | 'COMPLETED'>;
+  isCompleted: boolean;
+  lastUpdated: number;
 }
 
 export interface UIState {
@@ -93,7 +123,8 @@ export interface Mission {
   briefing: string;
   difficulty: 'TRIVIAL' | 'EASY' | 'MEDIUM' | 'HARD' | 'BRUTAL' | 'LEGENDARY';
   category: 'INFILTRATION' | 'SABOTAGE' | 'EXTRACTION' | 'RECONNAISSANCE' | 'SOCIAL_ENGINEERING' | 'CYBER_WARFARE' | 'SPECIAL_OPS';
-  type: 'STANDARD' | 'FACTION' | 'SPECIAL' | 'DYNAMIC' | 'EMERGENCY';
+  type: 'STANDARD' | 'FACTION' | 'SPECIAL' | 'DYNAMIC' | 'EMERGENCY' | 'EVENT';
+  eventId?: string;
   
   // Requirements
   requiredLevel: number;

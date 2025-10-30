@@ -3,11 +3,12 @@ import { apiRequest } from './queryClient';
 import { initializeSkillTree } from './skillSystem';
 import { getCurrentUser } from './userStorage';
 import { getInitialUnlockedCommands } from './commands';
+import { applyEventSchedule } from './eventScheduler';
 
 const STORAGE_KEY = 'roguesim_game_state';
 const SESSION_KEY = 'roguesim_session_id';
 
-const defaultGameState: GameState = {
+const baseDefaultGameState: GameState = {
   currentMission: 0,
   credits: 500,
   reputation: 'UNKNOWN',
@@ -58,8 +59,17 @@ const defaultGameState: GameState = {
   failedMissionIds: [],
   missionHistory: [],
   missionCooldowns: {},
-  emergencyMissions: []
+  emergencyMissions: [],
+  eventSchedule: {
+    activeEvents: [],
+    upcomingEvents: [],
+    pastEvents: [],
+    progress: {}
+  },
+  eventMissions: []
 };
+
+const defaultGameState: GameState = applyEventSchedule(baseDefaultGameState);
 
 // Generate or get persistent session ID per user session
 function getSessionId(): string {
@@ -92,11 +102,11 @@ export async function loadGameState(): Promise<GameState> {
         if (savedState && savedState.gameState) {
           console.log('Game state loaded from backend successfully');
           // Ensure all required properties exist by merging with default
-          const gameState = { ...defaultGameState, ...savedState.gameState };
-          
+          const gameState = applyEventSchedule({ ...defaultGameState, ...savedState.gameState });
+
           // Also update localStorage cache
           localStorage.setItem(STORAGE_KEY, JSON.stringify(gameState));
-          
+
           return gameState;
         }
       } catch (error) {
@@ -110,14 +120,14 @@ export async function loadGameState(): Promise<GameState> {
     if (savedState) {
       const parsedState = JSON.parse(savedState);
       // Merge with default state to ensure all properties exist
-      return { ...defaultGameState, ...parsedState };
+      return applyEventSchedule({ ...defaultGameState, ...parsedState });
     }
   } catch (error) {
     console.error("Failed to load game state:", error);
   }
   
   // Return default state if all loading fails
-  return defaultGameState;
+  return applyEventSchedule({ ...baseDefaultGameState });
 }
 
 export async function saveGameState(gameState: GameState): Promise<void> {

@@ -1,4 +1,5 @@
-import { Mission, SpecialMission, MissionObjective } from '../types/game';
+import { Mission, SpecialMission, MissionObjective, GameState } from '../types/game';
+import { applyEventSchedule } from './eventScheduler';
 
 // Standard Missions - Available to all players
 export const standardMissions: Mission[] = [
@@ -845,49 +846,49 @@ export const difficultyMultipliers = {
 };
 
 // Get all available missions for a player
-export function getAvailableMissions(gameState: any): Mission[] {
+export function getAvailableMissions(gameState: GameState): Mission[] {
+  const stateWithEvents = applyEventSchedule(gameState);
   const allMissions = [
     ...standardMissions,
     ...factionMissions,
     ...specialMissions,
+    ...(stateWithEvents.eventMissions || []),
     ...emergencyMissions
   ];
 
+  const now = Date.now();
+
   return allMissions.filter(mission => {
     // Check level requirement
-    if (mission.requiredLevel > gameState.playerLevel) return false;
+    if (mission.requiredLevel > stateWithEvents.playerLevel) return false;
 
     // Check faction requirement
-    if (mission.requiredFaction && gameState.activeFaction !== mission.requiredFaction) return false;
+    if (mission.requiredFaction && stateWithEvents.activeFaction !== mission.requiredFaction) return false;
 
     // Check if already completed (for non-repeatable missions)
-    if (!mission.isRepeatable && gameState.completedMissionIds?.includes(mission.id)) return false;
+    if (!mission.isRepeatable && stateWithEvents.completedMissionIds?.includes(mission.id)) return false;
 
     // Check cooldown
-    if (mission.cooldownHours && gameState.missionCooldowns?.[mission.id]) {
-      const cooldownEnd = gameState.missionCooldowns[mission.id] + (mission.cooldownHours * 60 * 60 * 1000);
-      if (Date.now() < cooldownEnd) return false;
+    if (mission.cooldownHours && stateWithEvents.missionCooldowns?.[mission.id]) {
+      const cooldownEnd = stateWithEvents.missionCooldowns[mission.id] + (mission.cooldownHours * 60 * 60 * 1000);
+      if (now < cooldownEnd) return false;
     }
 
-    // Check availability window for emergency missions
-    if (mission.type === 'EMERGENCY') {
-      const now = Date.now();
-      if (mission.availableFrom && now < mission.availableFrom) return false;
-      if (mission.availableUntil && now > mission.availableUntil) return false;
-    }
+    if (mission.availableFrom && now < mission.availableFrom) return false;
+    if (mission.availableUntil && now > mission.availableUntil) return false;
 
     // Check required skills
     if (mission.requiredSkills) {
-      const playerSkills = gameState.skillTree?.nodes?.filter((n: any) => n.purchased).map((n: any) => n.id) || [];
+      const playerSkills = stateWithEvents.skillTree?.nodes?.filter((n: any) => n.purchased).map((n: any) => n.id) || [];
       if (!mission.requiredSkills.every(skill => playerSkills.includes(skill))) return false;
     }
 
     // Check required items
     if (mission.requiredItems) {
       const playerItems = [
-        ...(gameState.inventory?.hardware || []),
-        ...(gameState.inventory?.software || []),
-        ...(gameState.inventory?.payloads || [])
+        ...(stateWithEvents.inventory?.hardware || []),
+        ...(stateWithEvents.inventory?.software || []),
+        ...(stateWithEvents.inventory?.payloads || [])
       ];
       if (!mission.requiredItems.every(item => playerItems.includes(item))) return false;
     }
@@ -897,17 +898,17 @@ export function getAvailableMissions(gameState: any): Mission[] {
 }
 
 // Get missions by category
-export function getMissionsByCategory(category: string, gameState: any): Mission[] {
+export function getMissionsByCategory(category: string, gameState: GameState): Mission[] {
   return getAvailableMissions(gameState).filter(mission => mission.category === category);
 }
 
 // Get missions by difficulty
-export function getMissionsByDifficulty(difficulty: string, gameState: any): Mission[] {
+export function getMissionsByDifficulty(difficulty: string, gameState: GameState): Mission[] {
   return getAvailableMissions(gameState).filter(mission => mission.difficulty === difficulty);
 }
 
 // Get special missions
-export function getSpecialMissions(gameState: any): SpecialMission[] {
+export function getSpecialMissions(gameState: GameState): SpecialMission[] {
   return getAvailableMissions(gameState).filter(mission => mission.type === 'SPECIAL') as SpecialMission[];
 }
 
