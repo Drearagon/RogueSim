@@ -1,3 +1,5 @@
+import { StaffMessage } from './social';
+
 export interface GameState {
   currentMission: number;
   credits: number;
@@ -56,6 +58,7 @@ export interface GameState {
   playerId?: string;
   showTeamInterface?: boolean;
   showMissionMap?: boolean;
+  staffMessages?: StaffMessage[];
 }
 
 export interface UIState {

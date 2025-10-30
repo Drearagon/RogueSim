@@ -17,3 +17,21 @@ export interface SocialNotification {
 }
 
 export type SocialNotificationInput = Omit<SocialNotification, 'id' | 'timestamp' | 'read'>;
+
+export interface StaffMessageAttachment {
+  id: string;
+  name: string;
+  description?: string;
+  url?: string;
+}
+
+export interface StaffMessage {
+  id: string;
+  sender: string;
+  subject: string;
+  body: string;
+  timestamp: number;
+  read: boolean;
+  priority?: 'low' | 'normal' | 'high';
+  attachments?: StaffMessageAttachment[];
+}

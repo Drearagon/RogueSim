@@ -89,9 +89,28 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
     () => chatUser?.hackerName || authUser?.hackerName || authUser?.username || fallbackUsernameRef.current,
     [chatUser?.hackerName, authUser?.hackerName, authUser?.username]
   );
+  const lastAuthPayloadRef = useRef({ userId: stableUserId, username: stableUsername });
 
   userIdRef.current = stableUserId;
   usernameRef.current = stableUsername;
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    const lastPayload = lastAuthPayloadRef.current;
+
+    if (lastPayload.userId === stableUserId && lastPayload.username === stableUsername) {
+      return;
+    }
+
+    lastAuthPayloadRef.current = { userId: stableUserId, username: stableUsername };
+
+    if (socket?.connected) {
+      socket.emit('authenticate', {
+        userId: stableUserId,
+        hackerName: stableUsername,
+      });
+    }
+  }, [stableUserId, stableUsername]);
 
   useEffect(() => {
     isOpenRef.current = isOpen;
