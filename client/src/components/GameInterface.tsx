@@ -12,6 +12,7 @@ import { NetworkMapInterface } from './NetworkMapInterface';
 import { ScriptEditorInterface } from './ScriptEditorInterface';
 import { RogueNetInterface } from './RogueNetInterface';
 import PsychProfileInterface from './PsychProfileInterface';
+import { EasterEggCodex } from './EasterEggCodex';
 import { GameState } from '../types/game';
 import { getCurrentMission } from '../lib/missions';
 import { soundSystem } from '@/lib/soundSystem';
@@ -57,6 +58,7 @@ export function GameInterface({
   const [showTeamPanel, setShowTeamPanel] = useState(false);
   const [showMissionMap, setShowMissionMap] = useState(false);
   const [showMessageCenter, setShowMessageCenter] = useState(false);
+  const [showEasterEggCodex, setShowEasterEggCodex] = useState(false);
   const [selectedMission, setSelectedMission] = useState<any>(null);
   const [currentTeam, setCurrentTeam] = useState<any>(null);
   const [terminalSettings, setTerminalSettings] = useState({
@@ -378,6 +380,20 @@ export function GameInterface({
   return (
     <div className="min-h-screen w-full flex flex-col bg-black text-green-500 relative" style={{ maxWidth: '100vw', overflowX: 'hidden' }}>
       <MatrixRain />
+
+      <div className="fixed top-4 right-4 z-40 flex flex-col items-end gap-2">
+        <button
+          onClick={() => setShowEasterEggCodex(true)}
+          className="rounded border px-4 py-2 text-xs font-semibold uppercase tracking-wide transition hover:bg-emerald-500/20"
+          style={{
+            borderColor: terminalSettings.primaryColor,
+            color: terminalSettings.primaryColor,
+            backgroundColor: '#000000cc'
+          }}
+        >
+          Easter Egg Codex
+        </button>
+      </div>
       
       {/* Scanline effect */}
       <div className="absolute inset-0 pointer-events-none z-10">
@@ -597,6 +613,10 @@ export function GameInterface({
             />
           </div>
         </div>
+      )}
+
+      {showEasterEggCodex && (
+        <EasterEggCodex onClose={() => setShowEasterEggCodex(false)} />
       )}
 
       {showMessageCenter && (

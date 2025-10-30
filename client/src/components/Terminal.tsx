@@ -377,10 +377,16 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
 
   const handleEasterEggDiscovery = (easterEgg: EasterEgg) => {
     discoverEasterEgg(easterEgg.id);
-    
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('easterEggDiscovered', {
+        detail: { eggId: easterEgg.id }
+      }));
+    }
+
     const rarityColors = {
       'common': '🟢',
-      'rare': '🔵', 
+      'rare': '🔵',
       'epic': '🟣',
       'legendary': '🟡'
     };
