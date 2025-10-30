@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { GameState, Mission, SpecialMission, MissionProgress } from '../types/game';
 import { getAvailableMissions, getMissionsByCategory, getMissionsByDifficulty, getSpecialMissions, generateEmergencyMission } from '../lib/missionDatabase';
 import { 
@@ -58,6 +58,9 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
   const getFilteredMissions = () => {
     let missions = [...availableMissions, ...emergencyMissions];
 
+    // Exclude special missions from the general available list
+    missions = missions.filter(mission => mission.type !== 'SPECIAL');
+
     // Apply category filter
     if (filterCategory !== 'ALL') {
       missions = missions.filter(mission => mission.category === filterCategory);
@@ -95,6 +98,15 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
 
     return missions;
   };
+
+  const filteredAvailableMissions = useMemo(() => getFilteredMissions(), [
+    availableMissions,
+    emergencyMissions,
+    filterCategory,
+    filterDifficulty,
+    searchTerm,
+    sortBy
+  ]);
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
@@ -173,7 +185,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
           <div>
             <h2 className="text-3xl font-bold text-green-400">Mission Control</h2>
             <p className="text-green-300 text-sm">
-              Level {gameState.playerLevel} • {availableMissions.length} missions available
+              Level {gameState.playerLevel} • {filteredAvailableMissions.length} missions available
             </p>
           </div>
           <button
@@ -187,7 +199,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
         {/* Navigation Tabs */}
         <div className="flex space-x-4 mb-6 border-b border-gray-700">
           {[
-            { id: 'available', label: 'Available', icon: <Target className="w-4 h-4" />, count: availableMissions.length },
+            { id: 'available', label: 'Available', icon: <Target className="w-4 h-4" />, count: filteredAvailableMissions.length },
             { id: 'active', label: 'Active', icon: <Play className="w-4 h-4" />, count: gameState.activeMission ? 1 : 0 },
             { id: 'completed', label: 'Completed', icon: <Trophy className="w-4 h-4" />, count: gameState.completedMissionIds?.length || 0 },
             { id: 'special', label: 'Special', icon: <Star className="w-4 h-4" />, count: specialMissions.length }
@@ -341,7 +353,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
                   </div>
                 )}
 
-                {getFilteredMissions().map(mission => (
+                {filteredAvailableMissions.map(mission => (
                   <div
                     key={mission.id}
                     className={`bg-gray-800 border rounded-lg p-4 cursor-pointer transition-colors ${
@@ -395,7 +407,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
                   </div>
                 ))}
 
-                {getFilteredMissions().length === 0 && (
+                {filteredAvailableMissions.length === 0 && (
                   <div className="text-center py-12">
                     <Target className="w-16 h-16 text-gray-400 mx-auto mb-4" />
                     <h3 className="text-xl font-bold text-gray-400 mb-2">No Missions Found</h3>
