@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSound } from '../hooks/useSound';
 import { commands, isCommandAvailable, getInitialUnlockedCommands } from '../lib/commands';
-import { GameState } from '../types/game';
+import { GameState, Mission } from '../types/game';
 import { logCommand } from '../lib/gameStorage';
 import { checkEasterEgg, discoverEasterEgg, checkKonamiCode, loadDiscoveredEasterEggs, getEasterEggStats, EasterEgg } from '../lib/easterEggs';
 import { MemoryTrace } from './MemoryTrace';
@@ -13,6 +13,7 @@ import { getCurrentUser } from '@/lib/userStorage';
 import { focusSystem } from '../lib/focusSystem';
 import { Brain, ChevronDown, ChevronUp, Coffee, Heart, Zap, Pause, AlertTriangle } from 'lucide-react';
 import BackgroundController from './BackgroundController';
+import { TutorialOverlay } from './TutorialOverlay';
 
 interface TerminalProps {
   gameState: GameState;
@@ -65,6 +66,144 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [gameActivity, setGameActivity] = useState<'idle' | 'typing' | 'hacking' | 'breach' | 'defense'>('idle');
   const [lastActivityTime, setLastActivityTime] = useState(Date.now());
+  const [showTutorialPrompt, setShowTutorialPrompt] = useState(false);
+  const [showTutorialOverlay, setShowTutorialOverlay] = useState(false);
+  const gameStateUpdateRef = useRef(onGameStateUpdate);
+
+  useEffect(() => {
+    gameStateUpdateRef.current = onGameStateUpdate;
+  }, [onGameStateUpdate]);
+
+  const dispatchGameStateUpdates = useCallback((updates: Partial<GameState>) => {
+    gameStateUpdateRef.current(updates);
+  }, []);
+
+  const beginTutorial = useCallback(() => {
+    localStorage.setItem('roguesim_tutorial_status', 'in-progress');
+    setShowTutorialOverlay(true);
+    setShowTutorialPrompt(false);
+    dispatchGameStateUpdates({ tutorialStatus: 'in-progress' });
+  }, [dispatchGameStateUpdates]);
+
+  const skipTutorial = useCallback(() => {
+    localStorage.setItem('roguesim_tutorial_status', 'skipped');
+    setShowTutorialOverlay(false);
+    setShowTutorialPrompt(false);
+    dispatchGameStateUpdates({ tutorialStatus: 'skipped' });
+
+    const event = new CustomEvent('addTerminalOutput', {
+      detail: {
+        output: [
+          '⏭️  Tutorial skipped.',
+          'Use "tutorial" anytime if you want to revisit the interactive guide.',
+          ''
+        ]
+      }
+    });
+    window.dispatchEvent(event);
+  }, [dispatchGameStateUpdates]);
+
+  const completeTutorial = useCallback(() => {
+    localStorage.setItem('roguesim_tutorial_status', 'completed');
+    setShowTutorialOverlay(false);
+    setShowTutorialPrompt(false);
+    dispatchGameStateUpdates({ tutorialStatus: 'completed' });
+
+    const event = new CustomEvent('addTerminalOutput', {
+      detail: {
+        output: [
+          '✅ Tutorial complete. Shadow Network access confirmed.',
+          'You can relaunch the briefing later with the "tutorial" command.',
+          ''
+        ]
+      }
+    });
+    window.dispatchEvent(event);
+  }, [dispatchGameStateUpdates]);
+
+  const openMissionMapOverlay = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('openMissionMap'));
+  }, []);
+
+  const openShopInterface = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('openEnhancedShop'));
+  }, []);
+
+  const openSkillTreeInterface = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('openSkillTree'));
+  }, []);
+
+  const openNetworkMapInterface = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('openNetworkMap'));
+  }, []);
+
+  const openTeamInterface = useCallback(() => {
+    window.dispatchEvent(new CustomEvent('openTeamInterface'));
+  }, []);
+
+  const startDemoMission = useCallback(() => {
+    const demoMission: Mission = {
+      id: 'tutorial_demo_mission',
+      title: 'Tutorial: Breach the Training Node',
+      description: 'A guided infiltration against a hardened training environment.',
+      briefing: 'Follow the prompts to scan, infiltrate, and extract data from the simulation node without risk.',
+      difficulty: 'TRIVIAL',
+      category: 'RECONNAISSANCE',
+      type: 'STANDARD',
+      requiredLevel: 1,
+      creditReward: 250,
+      experienceReward: 150,
+      isRepeatable: true,
+      objectives: [
+        {
+          id: 'scan-node',
+          description: 'Execute `scan training-node` to identify the simulation entry point.',
+          type: 'COMMAND',
+          command: 'scan training-node',
+          completed: false
+        },
+        {
+          id: 'connect-node',
+          description: 'Establish a secure link using `connect training-node`.',
+          type: 'COMMAND',
+          command: 'connect training-node',
+          completed: false
+        },
+        {
+          id: 'exploit-node',
+          description: 'Deploy a payload with `inject payload training-node` to gain access.',
+          type: 'COMMAND',
+          command: 'inject payload training-node',
+          completed: false
+        },
+        {
+          id: 'extract-intel',
+          description: 'Use `download training-intel.dat` to retrieve the flagged intel package.',
+          type: 'COMMAND',
+          command: 'download training-intel.dat',
+          completed: false
+        }
+      ]
+    };
+
+    dispatchGameStateUpdates({
+      activeMission: demoMission,
+      networkStatus: '🟢 TRAINING SIMULATION ACTIVE',
+      tutorialStatus: 'in-progress'
+    });
+
+    const event = new CustomEvent('addTerminalOutput', {
+      detail: {
+        output: [
+          '🎯 Launching tutorial mission: "Tutorial: Breach the Training Node"',
+          'Mission objectives have been loaded into your mission panel.',
+          'Follow the on-screen guidance to complete each step.',
+          ''
+        ]
+      }
+    });
+    window.dispatchEvent(event);
+  }, [dispatchGameStateUpdates]);
 
   // Load command history from localStorage
   useEffect(() => {
@@ -75,6 +214,40 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
       } catch {}
     }
   }, []);
+
+  useEffect(() => {
+    let promptTimer: number | undefined;
+    const status = localStorage.getItem('roguesim_tutorial_status');
+
+    if (!status || status === 'pending') {
+      promptTimer = window.setTimeout(() => setShowTutorialPrompt(true), 1200);
+      dispatchGameStateUpdates({ tutorialStatus: 'pending' });
+    } else if (status === 'in-progress') {
+      setShowTutorialOverlay(true);
+      dispatchGameStateUpdates({ tutorialStatus: 'in-progress' });
+    } else if (status === 'completed') {
+      dispatchGameStateUpdates({ tutorialStatus: 'completed' });
+    } else if (status === 'skipped') {
+      dispatchGameStateUpdates({ tutorialStatus: 'skipped' });
+    }
+
+    return () => {
+      if (promptTimer) {
+        window.clearTimeout(promptTimer);
+      }
+    };
+  }, [dispatchGameStateUpdates]);
+
+  useEffect(() => {
+    const handleStartTutorial = () => {
+      beginTutorial();
+    };
+
+    window.addEventListener('startTutorial', handleStartTutorial as EventListener);
+    return () => {
+      window.removeEventListener('startTutorial', handleStartTutorial as EventListener);
+    };
+  }, [beginTutorial]);
 
   // Persist command history
   useEffect(() => {
@@ -862,6 +1035,73 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           missionTitle={missionCompleteData.missionTitle}
           reward={missionCompleteData.reward}
           onClose={() => setShowMissionComplete(false)}
+        />
+      )}
+
+      {showTutorialPrompt && (
+        <div className="absolute inset-0 z-40 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+          <div
+            className="relative w-full max-w-md border rounded-lg p-6 space-y-4 shadow-2xl"
+            style={{
+              borderColor: `${terminalSettings.primaryColor}80`,
+              backgroundColor: `${terminalSettings.backgroundColor}f0`,
+              color: terminalSettings.textColor
+            }}
+          >
+            <div className="space-y-2">
+              <h2 className="text-xl font-mono font-semibold" style={{ color: terminalSettings.primaryColor }}>
+                Initiate Training Protocol?
+              </h2>
+              <p className="text-sm font-mono opacity-80">
+                A guided tutorial is available to explain every interface and launch a practice mission.
+                Would you like to run the tutorial now?
+              </p>
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              <button
+                onClick={beginTutorial}
+                className="px-4 py-3 font-mono text-sm border rounded hover:opacity-90 transition"
+                style={{
+                  borderColor: `${terminalSettings.primaryColor}a0`,
+                  backgroundColor: terminalSettings.primaryColor,
+                  color: '#000'
+                }}
+              >
+                Start Interactive Tutorial
+              </button>
+              <button
+                onClick={skipTutorial}
+                className="px-4 py-3 font-mono text-sm border rounded hover:opacity-80 transition"
+                style={{
+                  borderColor: `${terminalSettings.primaryColor}50`,
+                  color: terminalSettings.textColor,
+                  backgroundColor: `${terminalSettings.backgroundColor}cc`
+                }}
+              >
+                Skip For Now
+              </button>
+            </div>
+            <p className="text-xs font-mono opacity-60">
+              Hint: run <span style={{ color: terminalSettings.primaryColor }}>&quot;tutorial&quot;</span> any time to reopen this guide.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {showTutorialOverlay && (
+        <TutorialOverlay
+          onComplete={completeTutorial}
+          onSkip={skipTutorial}
+          onStartDemoMission={startDemoMission}
+          onOpenMissionMap={openMissionMapOverlay}
+          onOpenShop={openShopInterface}
+          onOpenSkillTree={openSkillTreeInterface}
+          onOpenNetworkMap={openNetworkMapInterface}
+          onOpenTeamInterface={openTeamInterface}
+          primaryColor={terminalSettings.primaryColor}
+          textColor={terminalSettings.textColor}
+          backgroundColor={terminalSettings.backgroundColor}
         />
       )}
 

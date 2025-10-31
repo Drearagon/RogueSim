@@ -10,6 +10,7 @@ export interface GameState {
   networkStatus: string;
   soundEnabled: boolean;
   isBootComplete: boolean;
+  tutorialStatus?: 'pending' | 'in-progress' | 'completed' | 'skipped';
   currentNetwork?: string;
   playerLevel: number;
   experience: number;
