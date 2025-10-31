@@ -58,6 +58,12 @@ const baseDefaultGameState: GameState = {
   completedMissionIds: [],
   failedMissionIds: [],
   missionHistory: [],
+  missionProgression: {
+    unlockedTiers: ['INITIATE'],
+    recommendedTier: 'INITIATE',
+    lastUpdated: Date.now(),
+  },
+  dynamicMissionDeck: [],
   missionCooldowns: {},
   emergencyMissions: [],
   eventSchedule: {
@@ -120,7 +126,12 @@ export async function loadGameState(): Promise<GameState> {
     if (savedState) {
       const parsedState = JSON.parse(savedState);
       // Merge with default state to ensure all properties exist
-      return applyEventSchedule({ ...defaultGameState, ...parsedState });
+      return applyEventSchedule({
+        ...defaultGameState,
+        ...parsedState,
+        missionProgression: parsedState.missionProgression ?? defaultGameState.missionProgression,
+        dynamicMissionDeck: parsedState.dynamicMissionDeck ?? [],
+      });
     }
   } catch (error) {
     console.error("Failed to load game state:", error);
