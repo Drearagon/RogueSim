@@ -16,6 +16,7 @@ export function useGameState() {
     networkStatus: 'DISCONNECTED',
     soundEnabled: true,
     isBootComplete: false,
+    tutorialStatus: 'pending',
     playerLevel: 1,
     experience: 0,
     hydraProtocol: {
@@ -88,6 +89,9 @@ export function useGameState() {
         // Ensure faction standings are initialized even in loaded state
         if (!loadedState.factionStandings || Object.keys(loadedState.factionStandings).length === 0) {
           loadedState.factionStandings = initializeFactionStandings();
+        }
+        if (!loadedState.tutorialStatus) {
+          loadedState.tutorialStatus = 'pending';
         }
         setGameState(applyEventSchedule(loadedState));
       } catch (error) {

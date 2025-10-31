@@ -2303,15 +2303,15 @@ export const commands: Record<string, Command> = {
       return {
         success: true,
         output: [
-          "▶ TUTORIAL MODE ACTIVATED ▶",
-          "",
-          "✓ Interactive guidance enabled",
-          "✓ Step-by-step instructions ready",
-          "✓ Real-time assistance available",
-          "",
-          "⚡ Learn hacking fundamentals!",
-          "",
-          "Follow the tutorial panel on the right →"
+          '▶ TUTORIAL MODE ACTIVATED ▶',
+          '',
+          '✓ Launching interactive training overlay...',
+          '✓ Step-by-step instructions now available.',
+          '✓ Demo mission can be started from the tutorial.',
+          '',
+          '⚡ Learn hacking fundamentals and master every interface!',
+          '',
+          'Use the on-screen controls to advance through the briefing.'
         ]
       };
     },
@@ -3849,7 +3849,10 @@ export const commands: Record<string, Command> = {
           '🗺️  Opening Mission Network Map...',
           'Select missions, view requirements, and plan team operations.',
           ''
-        ]
+        ],
+        updateGameState: {
+          showMissionMap: true
+        }
       };
     }
   },

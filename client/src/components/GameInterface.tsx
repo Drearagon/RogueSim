@@ -136,6 +136,7 @@ export function GameInterface({
   // Listen for interface open events
   useEffect(() => {
     const handleOpenShop = () => setShowShop(true);
+    const handleOpenSkillTree = () => setShowSkillTree(true);
     const handleOpenSocialEngineering = () => setShowSocialEngineering(true);
     const handleOpenNetworkMap = () => setShowNetworkMap(true);
     const handleOpenScriptEditor = () => setShowScriptEditor(true);
@@ -147,6 +148,7 @@ export function GameInterface({
     const handleCloseMessageCenter = () => setShowMessageCenter(false);
 
     window.addEventListener('openEnhancedShop', handleOpenShop);
+    window.addEventListener('openSkillTree', handleOpenSkillTree);
     window.addEventListener('openSocialEngineering', handleOpenSocialEngineering);
     window.addEventListener('openNetworkMap', handleOpenNetworkMap);
     window.addEventListener('openScriptEditor', handleOpenScriptEditor);
@@ -159,6 +161,7 @@ export function GameInterface({
 
     return () => {
       window.removeEventListener('openEnhancedShop', handleOpenShop);
+      window.removeEventListener('openSkillTree', handleOpenSkillTree);
       window.removeEventListener('openSocialEngineering', handleOpenSocialEngineering);
       window.removeEventListener('openNetworkMap', handleOpenNetworkMap);
       window.removeEventListener('openScriptEditor', handleOpenScriptEditor);
