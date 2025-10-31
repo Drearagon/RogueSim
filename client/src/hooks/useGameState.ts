@@ -65,6 +65,12 @@ export function useGameState() {
     completedMissionIds: [],
     failedMissionIds: [],
     missionHistory: [],
+    missionProgression: {
+      unlockedTiers: ['INITIATE'],
+      recommendedTier: 'INITIATE',
+      lastUpdated: Date.now(),
+    },
+    dynamicMissionDeck: [],
     specialMissionActive: false,
     specialMissionData: undefined,
     customTerminalState: undefined,
@@ -92,6 +98,16 @@ export function useGameState() {
         }
         if (!loadedState.tutorialStatus) {
           loadedState.tutorialStatus = 'pending';
+        }
+        if (!loadedState.missionProgression) {
+          loadedState.missionProgression = {
+            unlockedTiers: ['INITIATE'],
+            recommendedTier: 'INITIATE',
+            lastUpdated: Date.now(),
+          };
+        }
+        if (!loadedState.dynamicMissionDeck) {
+          loadedState.dynamicMissionDeck = [];
         }
         setGameState(applyEventSchedule(loadedState));
       } catch (error) {
@@ -141,6 +157,14 @@ export function useGameState() {
       if (!defaultState.completedMissionIds) defaultState.completedMissionIds = [];
       if (!defaultState.failedMissionIds) defaultState.failedMissionIds = [];
       if (!defaultState.missionHistory) defaultState.missionHistory = [];
+      if (!defaultState.missionProgression) {
+        defaultState.missionProgression = {
+          unlockedTiers: ['INITIATE'],
+          recommendedTier: 'INITIATE',
+          lastUpdated: Date.now(),
+        };
+      }
+      if (!defaultState.dynamicMissionDeck) defaultState.dynamicMissionDeck = [];
       if (!defaultState.missionCooldowns) defaultState.missionCooldowns = {};
       if (!defaultState.emergencyMissions) defaultState.emergencyMissions = [];
       
