@@ -1,0 +1,4 @@
+Contact: mailto:uplink@roguesim.com
+Policy: https://roguesim.com/security
+Preferred-Languages: en
+Canonical: https://roguesim.com/.well-known/security.txt

@@ -9,15 +9,14 @@ import type { FriendOverview } from "./storage";
 import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema, insertBattlePassSchema, insertUserBattlePassSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
-import session from "express-session";
-import connectPg from "connect-pg-simple";
 import { sendVerificationEmail, sendWelcomeEmail } from "./emailService";
-import { logger, authLogger, sessionLogger, logAuthEvent, logUserAction } from "./logger";
+import { logger, authLogger, logAuthEvent, logUserAction } from "./logger";
 import { log } from "./utils";
 import crypto from "crypto";
 import { SecurityMiddleware, PasswordValidator, SecurityAuditLogger } from "./security";
 import Stripe from "stripe";
 import { env } from './config';
+import { authLimiter as standardAuthLimiter, scannerLimiter } from './middleware/security';
 const SHOULD_LOG_CODES = process.env.VERIFICATION_LOGGING === 'true';
 
 // Authentication middleware
@@ -100,34 +99,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         log('✅ Database storage initialized');
 
         // Session configuration
-        const PgSession = connectPg(session);
-        const sessionStore = new PgSession({
-            pool: pool as any,
-            tableName: 'sessions',
-            createTableIfMissing: true,
-        });
-
-        app.use(session({
-            store: sessionStore,
-            secret: process.env.SESSION_SECRET || 'your-secret-key',
-            resave: false,
-            saveUninitialized: false,
-            cookie: {
-                secure: process.env.NODE_ENV === 'production',
-                httpOnly: true,
-                maxAge: 24 * 60 * 60 * 1000, // 24 hours
-            },
-        }));
-
-        log('✅ Session middleware configured successfully');
-
         // Enhanced security middleware
         app.use(SecurityMiddleware.sanitizeInput());
         app.use(SecurityMiddleware.honeypotProtection());
         app.use(SecurityMiddleware.enhanceSessionSecurity());
 
         // Advanced rate limiting for authentication routes
-        const authLimiter = SecurityMiddleware.advancedRateLimit({
+        const advancedAuthLimiter = SecurityMiddleware.advancedRateLimit({
             windowMs: 15 * 60 * 1000,
             maxAttempts: 5,
             blockDuration: 30 * 60 * 1000,
@@ -393,7 +371,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
 
         // Auth routes
-        app.post('/api/auth/register', authLimiter, async (req: any, res) => {
+        app.post('/api/auth/register', scannerLimiter, standardAuthLimiter, advancedAuthLimiter, async (req: any, res) => {
             try {
                 const { email, hackerName, password } = req.body;
 
@@ -474,7 +452,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
-        app.post('/api/auth/verify', authLimiter, async (req: any, res) => {
+        app.post('/api/auth/verify', scannerLimiter, standardAuthLimiter, advancedAuthLimiter, async (req: any, res) => {
             try {
                 const { email, verificationCode } = req.body;
 
@@ -562,7 +540,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
-        app.post('/api/auth/login', authLimiter, async (req: any, res) => {
+        app.post('/api/auth/login', scannerLimiter, standardAuthLimiter, advancedAuthLimiter, async (req: any, res) => {
             try {
                 const { email, password } = req.body;
 

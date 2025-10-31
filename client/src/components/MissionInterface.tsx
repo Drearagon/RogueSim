@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { GameState, Mission, SpecialMission, MissionProgress } from '../types/game';
+import { GameState, Mission, MissionProgressionState, SpecialMission, MissionProgress } from '../types/game';
 import { getAvailableMissions, getMissionsByCategory, getMissionsByDifficulty, getSpecialMissions, generateEmergencyMission } from '../lib/missionDatabase';
+import { applyEventSchedule } from '../lib/eventScheduler';
+import { fetchTieredMissionBatch } from '../lib/dynamicMissionService';
 import { 
   Target, 
   Clock, 
@@ -25,9 +27,11 @@ interface MissionInterfaceProps {
   gameState: GameState;
   onMissionStart: (mission: Mission) => void;
   onClose: () => void;
+  onProgressionUpdate?: (progression: MissionProgressionState) => void;
+  onDynamicMissionPoolUpdate?: (missions: Mission[]) => void;
 }
 
-export function MissionInterface({ gameState, onMissionStart, onClose }: MissionInterfaceProps) {
+export function MissionInterface({ gameState, onMissionStart, onClose, onProgressionUpdate, onDynamicMissionPoolUpdate }: MissionInterfaceProps) {
   const [activeTab, setActiveTab] = useState<'available' | 'active' | 'completed' | 'special' | 'events'>('available');
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
@@ -36,17 +40,35 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
   const [sortBy, setSortBy] = useState<'difficulty' | 'reward' | 'level' | 'time'>('difficulty');
   const [showFilters, setShowFilters] = useState(false);
   const [emergencyMissions, setEmergencyMissions] = useState<Mission[]>([]);
+  const [tieredMissions, setTieredMissions] = useState<Mission[]>(gameState.dynamicMissionDeck ?? []);
+  const [tierProgression, setTierProgression] = useState<MissionProgressionState | undefined>(gameState.missionProgression);
+  const [isLoadingTieredMissions, setIsLoadingTieredMissions] = useState(false);
+  const [tierError, setTierError] = useState<string | null>(null);
 
   // Get available missions
   const eventSyncedState = useMemo(() => applyEventSchedule(gameState), [gameState]);
   const availableMissions = getAvailableMissions(eventSyncedState);
+  const dynamicMissionPool = useMemo(() => {
+    if (tieredMissions.length > 0) return tieredMissions;
+    return gameState.dynamicMissionDeck ?? [];
+  }, [tieredMissions, gameState.dynamicMissionDeck]);
+  const combinedAvailableMissions = useMemo(() => {
+    const map = new Map<string, Mission>();
+    dynamicMissionPool.forEach((mission) => map.set(mission.id, mission));
+    availableMissions.forEach((mission) => {
+      if (!map.has(mission.id)) {
+        map.set(mission.id, mission);
+      }
+    });
+    return Array.from(map.values());
+  }, [availableMissions, dynamicMissionPool]);
   const specialMissions = getSpecialMissions(eventSyncedState);
   const { activeEvents, upcomingEvents, pastEvents } = eventSyncedState.eventSchedule;
   const activeEventMissions = eventSyncedState.eventMissions;
 
   const standardMissionCount = useMemo(
-    () => availableMissions.filter(mission => mission.type !== 'EVENT').length,
-    [availableMissions]
+    () => combinedAvailableMissions.filter(mission => mission.type !== 'EVENT').length,
+    [combinedAvailableMissions]
   );
 
   const eventLookup = useMemo(() => {
@@ -88,9 +110,73 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
     return () => clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadTieredMissions() {
+      try {
+        setIsLoadingTieredMissions(true);
+        const { missions, progression } = await fetchTieredMissionBatch(
+          gameState.playerLevel || 1,
+          gameState.completedMissionIds || [],
+          gameState.reputation || 'NOVICE',
+        );
+        if (cancelled) return;
+
+        if (missions.length > 0) {
+          setTieredMissions(missions);
+          onDynamicMissionPoolUpdate?.(missions);
+        }
+
+        if (progression) {
+          setTierProgression(progression);
+          onProgressionUpdate?.(progression);
+        }
+
+        setTierError(null);
+      } catch (error) {
+        if (cancelled) return;
+        console.error('Failed to load tiered missions:', error);
+        setTierError((error as Error)?.message ?? 'Failed to load tiered missions');
+      } finally {
+        if (!cancelled) {
+          setIsLoadingTieredMissions(false);
+        }
+      }
+    }
+
+    loadTieredMissions();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    gameState.playerLevel,
+    gameState.reputation,
+    gameState.completedMissionIds?.length,
+    onProgressionUpdate,
+    onDynamicMissionPoolUpdate,
+  ]);
+
+  useEffect(() => {
+    if (gameState.missionProgression && gameState.missionProgression.lastUpdated !== tierProgression?.lastUpdated) {
+      setTierProgression(gameState.missionProgression);
+    }
+  }, [gameState.missionProgression?.lastUpdated]);
+
+  useEffect(() => {
+    const deck = gameState.dynamicMissionDeck ?? [];
+    if (
+      deck.length !== tieredMissions.length ||
+      deck.some((mission, index) => mission.id !== tieredMissions[index]?.id)
+    ) {
+      setTieredMissions(deck);
+    }
+  }, [gameState.dynamicMissionDeck]);
+
   // Filter and sort missions
   const getFilteredMissions = () => {
-    let missions = [...availableMissions, ...emergencyMissions];
+    let missions = [...combinedAvailableMissions, ...emergencyMissions];
 
     // Exclude special missions from the general available list
     missions = missions.filter(mission => mission.type !== 'SPECIAL');
@@ -134,7 +220,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
   };
 
   const filteredAvailableMissions = useMemo(() => getFilteredMissions(), [
-    availableMissions,
+    combinedAvailableMissions,
     emergencyMissions,
     filterCategory,
     filterDifficulty,
@@ -174,6 +260,7 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
       case 'SPECIAL': return 'text-yellow-400';
       case 'EMERGENCY': return 'text-red-400';
       case 'EVENT': return 'text-amber-400';
+      case 'DYNAMIC': return 'text-cyan-400';
       default: return 'text-gray-400';
     }
   };
@@ -288,6 +375,44 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
         {/* Filters and Search */}
         {activeTab === 'available' && (
           <div className="mb-4">
+            <div className="bg-gray-900 border border-gray-700 rounded-lg p-4 mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-xs font-semibold text-teal-400 uppercase tracking-widest">Narrative Tier Progression</h3>
+                {tierProgression ? (
+                  <>
+                    <div className="text-sm text-gray-200 mt-1">
+                      Unlocked tiers: <span className="text-green-300">{tierProgression.unlockedTiers.join(', ') || 'None'}</span>
+                    </div>
+                    {tierProgression.nextTier ? (
+                      <div className="text-xs text-gray-400 mt-1">
+                        Next tier <span className="text-gray-100 font-semibold">{tierProgression.nextTier.label}</span> • Lv.{tierProgression.nextTier.minLevel} • Rep {tierProgression.nextTier.minReputation}
+                        {tierProgression.nextTier.recommendedCompletions && (
+                          <span>
+                            {' '}
+                            • Story clears {tierProgression.nextTier.recommendedCompletions}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="text-xs text-gray-400 mt-1">All narrative tiers unlocked.</div>
+                    )}
+                  </>
+                ) : (
+                  <div className="text-sm text-gray-400 mt-1">Complete story jobs to reveal advanced tiers.</div>
+                )}
+              </div>
+              <div className="text-xs text-gray-400 sm:text-right">
+                {tierError ? (
+                  <span className="text-red-400">Tier sync failed: {tierError}</span>
+                ) : isLoadingTieredMissions ? (
+                  <span className="text-teal-300">Synchronizing mission deck…</span>
+                ) : tierProgression ? (
+                  <span>Updated {new Date(tierProgression.lastUpdated).toLocaleTimeString()}</span>
+                ) : (
+                  <span>Awaiting intel…</span>
+                )}
+              </div>
+            </div>
             <div className="flex items-center gap-4 mb-3">
               <div className="flex items-center gap-2">
                 <Search className="w-4 h-4 text-gray-400" />
@@ -438,7 +563,18 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
                           </span>
                         </div>
                         <p className="text-gray-300 text-sm mb-2">{mission.description}</p>
-                        
+                        {mission.storyArc && (
+                          <div className="text-xs text-teal-300 uppercase tracking-widest mb-2">
+                            {mission.storyArc}
+                            {mission.tierName && mission.tierName !== mission.storyArc && (
+                              <span className="ml-2 text-gray-400 normal-case">Tier: {mission.tierName}</span>
+                            )}
+                          </div>
+                        )}
+                        {!mission.storyArc && mission.tierName && (
+                          <div className="text-xs text-teal-300 uppercase tracking-widest mb-2">{mission.tierName}</div>
+                        )}
+
                         <div className="flex items-center gap-4 text-xs">
                           <span className="text-gray-400">Level {mission.requiredLevel}+</span>
                           <span className={`px-2 py-1 rounded ${getDifficultyColor(mission.difficulty)}`}>
@@ -449,6 +585,9 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
                           )}
                           {mission.requiredFaction && (
                             <span className="text-purple-400">Faction: {mission.requiredFaction}</span>
+                          )}
+                          {mission.reputationRequirement && (
+                            <span className="text-yellow-400">Rep: {mission.reputationRequirement}</span>
                           )}
                         </div>
                       </div>
@@ -801,12 +940,23 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
                 <div>
                   <h4 className="font-bold text-green-400 text-xl mb-2">{selectedMission.title}</h4>
                   <p className="text-gray-300 text-sm mb-3">{selectedMission.description}</p>
-                  
+
                   {selectedMission.briefing && (
                     <div className="bg-gray-900 border border-gray-600 rounded p-3 mb-3">
                       <h5 className="font-semibold text-blue-400 mb-2">Mission Briefing</h5>
                       <p className="text-gray-300 text-sm italic">{selectedMission.briefing}</p>
                     </div>
+                  )}
+                  {selectedMission.storyArc && (
+                    <div className="text-xs uppercase tracking-widest text-teal-300">
+                      {selectedMission.storyArc}
+                      {selectedMission.tierName && selectedMission.tierName !== selectedMission.storyArc && (
+                        <span className="ml-2 text-gray-400 normal-case">Tier: {selectedMission.tierName}</span>
+                      )}
+                    </div>
+                  )}
+                  {!selectedMission.storyArc && selectedMission.tierName && (
+                    <div className="text-xs uppercase tracking-widest text-teal-300">{selectedMission.tierName}</div>
                   )}
                 </div>
 
@@ -874,6 +1024,17 @@ export function MissionInterface({ gameState, onMissionStart, onClose }: Mission
                     )}
                   </div>
                 </div>
+
+                {selectedMission.narrativeBeats && selectedMission.narrativeBeats.length > 0 && (
+                  <div>
+                    <h5 className="font-semibold text-teal-300 mb-2">Narrative Beats</h5>
+                    <ul className="list-disc list-inside space-y-1 text-sm text-gray-300">
+                      {selectedMission.narrativeBeats.map((beat, index) => (
+                        <li key={`${selectedMission.id}-beat-${index}`}>{beat}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
 
                 <div>
                   <h5 className="font-semibold text-blue-400 mb-2">Objectives</h5>
