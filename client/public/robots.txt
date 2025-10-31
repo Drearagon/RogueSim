@@ -1,0 +1,10 @@
+User-agent: *
+Disallow: /api/
+Disallow: /admin/
+Disallow: /internal/
+Disallow: /private/
+Disallow: /health
+Noindex: /api/
+Noindex: /admin/
+Noindex: /internal/
+Noindex: /private/

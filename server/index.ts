@@ -4,15 +4,28 @@ import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
-import cors from 'cors';
+import session from 'express-session';
 import { Server as SocketIOServer } from 'socket.io';
 import { randomUUID } from 'node:crypto';
 import { registerRoutes } from './routes';
-import { initDatabase } from './db';
+import { initDatabase, getPool } from './db';
+import connectPg from 'connect-pg-simple';
+import {
+  applyHelmet,
+  applyCors,
+  globalLimiter,
+  denySensitivePaths,
+  requestId,
+  scannerGuard,
+  applyTrustProxy,
+} from './middleware/security';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const server = createServer(app);
+
+applyTrustProxy(app);
+app.disable('x-powered-by');
 
 const connectedUsers = new Map<string, { hackerName: string; sockets: Set<string> }>();
 const MAX_MESSAGE_LENGTH = 500;
@@ -38,10 +51,21 @@ const broadcastOnlineUsers = (io: SocketIOServer) => {
   io.emit('online_users', getOnlineUserList());
 };
 
-// JSON/body parsing and CORS for API endpoints
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
-app.use(cors({ origin: '*', credentials: true }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
+app.use(requestId);
+app.use(applyHelmet());
+app.use(applyCors());
+app.use(globalLimiter);
+app.use(denySensitivePaths());
+app.use(scannerGuard);
+app.use((err: Error, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err instanceof Error && err.message === 'CORS blocked') {
+    return res.status(403).json({ error: 'Origin not allowed' });
+  }
+  return next(err);
+});
 
 // Request access logging (method, path, status, size, duration)
 app.use((req, res, next) => {
@@ -58,13 +82,41 @@ app.use((req, res, next) => {
 });
 
 // Lightweight health endpoint for k8s/docker
-app.get('/health', (_req, res) => res.status(200).send('ok'));
+app.get('/health', (_req, res) => res.status(200).send('OK'));
 
 (async () => {
   // Register API routes and middlewares (sessions, security, etc.)
   try {
     await initDatabase();
     console.log('Database initialized successfully');
+    let sessionStore: session.Store | undefined;
+    try {
+      const PgSession = connectPg(session);
+      const pool = getPool();
+      sessionStore = new PgSession({
+        pool: pool as any,
+        tableName: 'sessions',
+        createTableIfMissing: true,
+      });
+    } catch (storeError) {
+      console.warn('Falling back to default session store:', storeError);
+    }
+
+    app.use(
+      session({
+        store: sessionStore,
+        secret: process.env.SESSION_SECRET || 'change_me_in_env',
+        resave: false,
+        saveUninitialized: false,
+        cookie: {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: process.env.NODE_ENV !== 'development',
+          maxAge: 24 * 60 * 60 * 1000,
+        },
+        name: 'roguesim.sid',
+      })
+    );
     await registerRoutes(app);
     console.log('API routes registered successfully');
   } catch (e) {
