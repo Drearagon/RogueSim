@@ -13,7 +13,7 @@ import { ScriptEditorInterface } from './ScriptEditorInterface';
 import { RogueNetInterface } from './RogueNetInterface';
 import PsychProfileInterface from './PsychProfileInterface';
 import { EasterEggCodex } from './EasterEggCodex';
-import { GameState } from '../types/game';
+import { GameState, OnlinePlayer } from '../types/game';
 import { getCurrentMission } from '../lib/missions';
 import { soundSystem } from '@/lib/soundSystem';
 import { socialEngineeringSystem } from '@/lib/socialEngineering';
@@ -66,6 +66,7 @@ export function GameInterface({
     backgroundColor: '#000000',
     textColor: '#00ff00'
   });
+  const onlinePlayersRef = useRef<OnlinePlayer[]>(gameState.onlinePlayers || []);
 
   const [staffMessages, setStaffMessages] = useState<StaffMessage[]>(() => {
     if (gameState?.staffMessages?.length) {
@@ -181,6 +182,45 @@ export function GameInterface({
       setStaffMessages(gameState.staffMessages);
     }
   }, [gameState?.staffMessages]);
+
+  useEffect(() => {
+    onlinePlayersRef.current = gameState.onlinePlayers || [];
+  }, [gameState.onlinePlayers]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const handleOnlinePlayersUpdated = (event: Event) => {
+      const detail = (event as CustomEvent<OnlinePlayer[] | undefined>).detail;
+      const incoming = Array.isArray(detail) ? detail : [];
+      const current = onlinePlayersRef.current;
+
+      if (
+        incoming.length === current.length &&
+        incoming.every((player, index) => {
+          const existing = current[index];
+          return (
+            existing &&
+            existing.id === player.id &&
+            existing.username === player.username &&
+            existing.status === player.status &&
+            existing.level === player.level
+          );
+        })
+      ) {
+        return;
+      }
+
+      onGameStateUpdate({ onlinePlayers: incoming });
+    };
+
+    window.addEventListener('onlinePlayersUpdated', handleOnlinePlayersUpdated as EventListener);
+    return () => {
+      window.removeEventListener('onlinePlayersUpdated', handleOnlinePlayersUpdated as EventListener);
+    };
+  }, [onGameStateUpdate]);
 
   const handleMarkStaffMessageRead = (id: string) => {
     setStaffMessages(prev => {
@@ -552,10 +592,12 @@ export function GameInterface({
       )}
 
       {/* Enhanced Multiplayer Chat */}
-      <MultiplayerChat 
-        gameState={gameState}
-        terminalSettings={terminalSettings}
-      />
+      {(gameState.tutorialStatus === 'completed' || gameState.tutorialStatus === 'skipped') && (
+        <MultiplayerChat
+          gameState={gameState}
+          terminalSettings={terminalSettings}
+        />
+      )}
 
       {/* Team Panel Overlay */}
       {showTeamPanel && (

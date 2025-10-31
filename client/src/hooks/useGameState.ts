@@ -17,6 +17,7 @@ export function useGameState() {
     soundEnabled: true,
     isBootComplete: false,
     tutorialStatus: 'pending',
+    onlinePlayers: [],
     playerLevel: 1,
     experience: 0,
     hydraProtocol: {
@@ -92,6 +93,9 @@ export function useGameState() {
         }
         if (!loadedState.tutorialStatus) {
           loadedState.tutorialStatus = 'pending';
+        }
+        if (!loadedState.onlinePlayers) {
+          loadedState.onlinePlayers = [];
         }
         setGameState(applyEventSchedule(loadedState));
       } catch (error) {

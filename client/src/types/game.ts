@@ -1,5 +1,12 @@
 import { StaffMessage } from './social';
 
+export interface OnlinePlayer {
+  id: string;
+  username: string;
+  status?: 'online' | 'in-mission' | 'away';
+  level?: number;
+}
+
 export interface GameState {
   currentMission: number;
   credits: number;
@@ -63,6 +70,7 @@ export interface GameState {
   showTeamInterface?: boolean;
   showMissionMap?: boolean;
   staffMessages?: StaffMessage[];
+  onlinePlayers?: OnlinePlayer[];
 }
 
 export interface EventScheduleState {
