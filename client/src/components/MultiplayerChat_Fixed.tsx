@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Send, MessageSquare, Users, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getCurrentUser } from '../lib/userStorage';
+import { FriendListPanel } from './FriendListPanel';
 
 interface ChatMessage {
   id: string;
@@ -39,7 +40,9 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
   const [currentInput, setCurrentInput] = useState('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [onlinePlayers, setOnlinePlayers] = useState<OnlinePlayer[]>([]);
-  const [activeChannel, setActiveChannel] = useState<'global' | 'team' | 'whisper'>('global');
+  const [activeChannel, setActiveChannel] = useState<'global' | 'team' | 'whisper' | 'friends'>('global');
+  const [friendPresence, setFriendPresence] = useState<Record<string, { username: string; online: boolean }>>({});
+  const [friendRefreshCounter, setFriendRefreshCounter] = useState(0);
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'offline'>('offline');
   const socketRef = useRef<Socket | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -118,6 +121,15 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
 
   const addMessage = useCallback((message: ChatMessage) => {
     setMessages(prev => [...prev.slice(-199), message]);
+  }, []);
+
+  useEffect(() => {
+    const handleFriendRefresh = () => {
+      setFriendRefreshCounter(prev => prev + 1);
+    };
+
+    window.addEventListener('friendDataShouldRefresh', handleFriendRefresh);
+    return () => window.removeEventListener('friendDataShouldRefresh', handleFriendRefresh);
   }, []);
 
   // Establish socket connection
@@ -246,6 +258,56 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
       );
     });
 
+    socket.on('friends_online', (friends: any[]) => {
+      setFriendPresence(prev => {
+        const updated: Record<string, { username: string; online: boolean }> = {};
+
+        friends.forEach((friend) => {
+          if (friend?.userId) {
+            updated[friend.userId] = {
+              username: friend.username || prev[friend.userId]?.username || 'Agent',
+              online: true,
+            };
+          }
+        });
+
+        Object.keys(prev).forEach((userId) => {
+          if (!updated[userId]) {
+            updated[userId] = {
+              username: prev[userId]?.username || 'Agent',
+              online: false,
+            };
+          }
+        });
+
+        return updated;
+      });
+
+      setFriendRefreshCounter(prev => prev + 1);
+    });
+
+    socket.on('friend_online', (payload: any) => {
+      if (!payload?.userId) return;
+      setFriendPresence(prev => ({
+        ...prev,
+        [payload.userId]: {
+          username: payload.username || prev[payload.userId]?.username || 'Agent',
+          online: true,
+        },
+      }));
+    });
+
+    socket.on('friend_offline', (payload: any) => {
+      if (!payload?.userId) return;
+      setFriendPresence(prev => ({
+        ...prev,
+        [payload.userId]: {
+          username: payload.username || prev[payload.userId]?.username || 'Agent',
+          online: false,
+        },
+      }));
+    });
+
     return () => {
       socket.removeAllListeners();
       socket.disconnect();
@@ -303,12 +365,17 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
   }, [emitChatMessage]);
 
   const sendMessage = () => {
+    if (activeChannel === 'friends') return;
     if (!currentInput.trim()) return;
     emitChatMessage(currentInput);
     setCurrentInput('');
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (activeChannel === 'friends') {
+      return;
+    }
+
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -396,7 +463,7 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
         <>
           {/* Channel tabs */}
           <div className="flex border-b" style={{ borderColor: `${terminalSettings.primaryColor}30` }}>
-            {(['global', 'team'] as const).map((channel) => (
+            {(['global', 'team', 'friends'] as const).map((channel) => (
               <button
                 key={channel}
                 onClick={() => setActiveChannel(channel)}
@@ -415,58 +482,67 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
             ))}
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-2 space-y-2 h-64">
-            {messages.map((msg) => (
-              <div key={msg.id} className="text-xs">
-                <div className="flex items-start space-x-2">
-                  <span
-                    className="font-medium shrink-0"
-                    style={{
-                      color: msg.type === 'system' ? '#fbbf24' : terminalSettings.primaryColor
-                    }}
-                  >
-                    [{new Date(msg.timestamp).toLocaleTimeString()}] {msg.username}:
-                  </span>
-                  <span style={{ color: terminalSettings.textColor }} className="break-words">
-                    {msg.message}
-                  </span>
-                </div>
+          {activeChannel === 'friends' ? (
+            <FriendListPanel
+              isVisible={activeChannel === 'friends'}
+              terminalSettings={terminalSettings}
+              presenceMap={friendPresence}
+              refreshSignal={friendRefreshCounter}
+            />
+          ) : (
+            <>
+              <div className="flex-1 overflow-y-auto p-2 space-y-2 h-64">
+                {messages.map((msg) => (
+                  <div key={msg.id} className="text-xs">
+                    <div className="flex items-start space-x-2">
+                      <span
+                        className="font-medium shrink-0"
+                        style={{
+                          color: msg.type === 'system' ? '#fbbf24' : terminalSettings.primaryColor
+                        }}
+                      >
+                        [{new Date(msg.timestamp).toLocaleTimeString()}] {msg.username}:
+                      </span>
+                      <span style={{ color: terminalSettings.textColor }} className="break-words">
+                        {msg.message}
+                      </span>
+                    </div>
+                  </div>
+                ))}
+                <div ref={messagesEndRef} />
               </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
 
-          {/* Input */}
-          <div className="p-2 border-t" style={{ borderColor: `${terminalSettings.primaryColor}30` }}>
-            <div className="flex space-x-2">
-              <input
-                type="text"
-                value={currentInput}
-                onChange={(e) => setCurrentInput(e.target.value)}
-                onKeyPress={handleKeyPress}
-                placeholder={`Message ${activeChannel}...`}
-                className="flex-1 bg-transparent border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1"
-                style={{
-                  color: terminalSettings.textColor,
-                  borderColor: `${terminalSettings.primaryColor}50`,
-                  backgroundColor: `${terminalSettings.backgroundColor}80`
-                }}
-              />
-              <button
-                onClick={sendMessage}
-                disabled={!currentInput.trim()}
-                className="p-1 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <Send className="w-4 h-4" style={{ color: terminalSettings.primaryColor }} />
-              </button>
-            </div>
-            {connectionStatus !== 'connected' && (
-              <p className="mt-2 text-[10px] text-gray-400">
-                Chat is offline. Messages will send automatically once the secure channel is restored.
-              </p>
-            )}
-          </div>
+              <div className="p-2 border-t" style={{ borderColor: `${terminalSettings.primaryColor}30` }}>
+                <div className="flex space-x-2">
+                  <input
+                    type="text"
+                    value={currentInput}
+                    onChange={(e) => setCurrentInput(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={`Message ${activeChannel}...`}
+                    className="flex-1 bg-transparent border rounded px-2 py-1 text-xs focus:outline-none focus:ring-1"
+                    style={{
+                      color: terminalSettings.textColor,
+                      borderColor: `${terminalSettings.primaryColor}50`,
+                      backgroundColor: `${terminalSettings.backgroundColor}80`
+                    }}
+                  />
+                  <button
+                    onClick={sendMessage}
+                    disabled={!currentInput.trim()}
+                    className="p-1 rounded hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Send className="w-4 h-4" style={{ color: terminalSettings.primaryColor }} />
+                  </button>
+                </div>
+                {connectionStatus !== 'connected' && (
+                  <p className="mt-2 text-[10px] text-gray-400">
+                    Chat is offline. Messages will send automatically once the secure channel is restored.
+                  </p>
+                )}
+              </div>
+            </>
+          )}
         </>
       )}
     </div>

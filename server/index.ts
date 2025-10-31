@@ -5,10 +5,11 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import cors from 'cors';
-import { Server as SocketIOServer } from 'socket.io';
+import { Server as SocketIOServer, type Socket } from 'socket.io';
 import { randomUUID } from 'node:crypto';
 import { registerRoutes } from './routes';
 import { initDatabase } from './db';
+import { getStorageInstance } from './storageInstance';
 
 const app = express();
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -36,6 +37,122 @@ const getOnlineUserList = () =>
 
 const broadcastOnlineUsers = (io: SocketIOServer) => {
   io.emit('online_users', getOnlineUserList());
+};
+
+type BlockLists = { blocked: string[]; blockedBy: string[] };
+
+const safeGetStorage = () => {
+  try {
+    return getStorageInstance();
+  } catch (error) {
+    return null;
+  }
+};
+
+const loadSocialContext = async (
+  userId: string,
+): Promise<{ friendIds: string[]; blockLists: BlockLists } | null> => {
+  const storage = safeGetStorage();
+  if (!storage) {
+    return null;
+  }
+
+  try {
+    const [friendIds, blockLists] = await Promise.all([
+      storage.getAcceptedFriendIds(userId),
+      storage.getBlockListsForUser(userId),
+    ]);
+    return { friendIds, blockLists };
+  } catch (error) {
+    console.error('Failed to load social context for user', userId, error);
+    return { friendIds: [], blockLists: { blocked: [], blockedBy: [] } };
+  }
+};
+
+const emitFriendPresenceToUser = async (
+  socket: Socket,
+  context?: { friendIds: string[]; blockLists: BlockLists },
+) => {
+  const userId: string | undefined = socket.data.userId;
+  if (!userId) {
+    return undefined;
+  }
+
+  const socialContext = context ?? (await loadSocialContext(userId));
+  if (!socialContext) {
+    return undefined;
+  }
+
+  const excluded = new Set<string>([
+    ...socialContext.blockLists.blocked,
+    ...socialContext.blockLists.blockedBy,
+  ]);
+
+  const onlineFriends = socialContext.friendIds
+    .filter((friendId) => connectedUsers.has(friendId) && !excluded.has(friendId))
+    .map((friendId) => {
+      const entry = connectedUsers.get(friendId)!;
+      return {
+        userId: friendId,
+        username: entry.hackerName,
+        timestamp: new Date().toISOString(),
+      };
+    });
+
+  socket.emit('friends_online', onlineFriends);
+  return socialContext;
+};
+
+const notifyFriendsPresence = async (
+  io: SocketIOServer,
+  userId: string,
+  hackerName: string,
+  isOnline: boolean,
+  context?: { friendIds: string[]; blockLists: BlockLists },
+) => {
+  const socialContext = context ?? (await loadSocialContext(userId));
+  if (!socialContext) {
+    return;
+  }
+
+  const excluded = new Set<string>([
+    ...socialContext.blockLists.blocked,
+    ...socialContext.blockLists.blockedBy,
+  ]);
+
+  for (const friendId of socialContext.friendIds) {
+    if (excluded.has(friendId)) {
+      continue;
+    }
+
+    const friendEntry = connectedUsers.get(friendId);
+    if (!friendEntry) {
+      continue;
+    }
+
+    for (const socketId of friendEntry.sockets) {
+      io.to(socketId).emit(isOnline ? 'friend_online' : 'friend_offline', {
+        userId,
+        username: hackerName,
+        timestamp: new Date().toISOString(),
+      });
+    }
+  }
+};
+
+const shouldSkipRecipient = (
+  recipientId: string | undefined,
+  senderId: string,
+  blockLists: BlockLists | null,
+) => {
+  if (!recipientId || recipientId === senderId || !blockLists) {
+    return false;
+  }
+
+  return (
+    blockLists.blocked.includes(recipientId) ||
+    blockLists.blockedBy.includes(recipientId)
+  );
 };
 
 // JSON/body parsing and CORS for API endpoints
@@ -106,7 +223,7 @@ app.get('/health', (_req, res) => res.status(200).send('ok'));
       }
     });
 
-    socket.on('authenticate', (payload: any) => {
+    socket.on('authenticate', async (payload: any) => {
       const rawUserId = payload?.userId;
       const userId = typeof rawUserId === 'string' ? rawUserId.trim() : typeof rawUserId === 'number' ? String(rawUserId) : '';
       if (!userId) {
@@ -149,6 +266,16 @@ app.get('/health', (_req, res) => res.status(200).send('ok'));
         timestamp: new Date().toISOString(),
       });
 
+      let socialContext: { friendIds: string[]; blockLists: BlockLists } | undefined;
+      try {
+        const context = await emitFriendPresenceToUser(socket);
+        if (context) {
+          socialContext = context;
+        }
+      } catch (error) {
+        console.error('Failed to emit friend presence to user', error);
+      }
+
       if (isFirstConnection) {
         socket.to('global').emit('user_joined', {
           id: randomUUID(),
@@ -156,12 +283,14 @@ app.get('/health', (_req, res) => res.status(200).send('ok'));
           username: hackerName,
           timestamp: new Date().toISOString(),
         });
+
+        await notifyFriendsPresence(io, userId, hackerName, true, socialContext);
       }
 
       broadcastOnlineUsers(io);
     });
 
-    socket.on('send_message', (payload: any) => {
+    socket.on('send_message', async (payload: any) => {
       const userId: string | undefined = socket.data.userId;
       if (!userId) {
         return;
@@ -186,14 +315,50 @@ app.get('/health', (_req, res) => res.status(200).send('ok'));
         channel,
       };
 
+      let blockLists: BlockLists | null = null;
+      const storage = safeGetStorage();
+      if (storage) {
+        try {
+          blockLists = await storage.getBlockListsForUser(userId);
+        } catch (error) {
+          console.error('Failed to load block lists for message broadcast', error);
+        }
+      }
+
       if (channel === 'team' && socket.data.teamId) {
-        io.to(`team:${socket.data.teamId}`).emit('chat_message', chatMessage);
+        if (!blockLists) {
+          io.to(`team:${socket.data.teamId}`).emit('chat_message', chatMessage);
+          return;
+        }
+
+        const socketIds = await io.in(`team:${socket.data.teamId}`).allSockets();
+        for (const socketId of socketIds) {
+          const targetSocket = io.sockets.sockets.get(socketId);
+          const recipientId: string | undefined = targetSocket?.data?.userId;
+          if (shouldSkipRecipient(recipientId, userId, blockLists)) {
+            continue;
+          }
+          io.to(socketId).emit('chat_message', chatMessage);
+        }
       } else {
-        io.to('global').emit('chat_message', chatMessage);
+        if (!blockLists) {
+          io.to('global').emit('chat_message', chatMessage);
+          return;
+        }
+
+        for (const [recipientId, entry] of connectedUsers.entries()) {
+          if (shouldSkipRecipient(recipientId, userId, blockLists)) {
+            continue;
+          }
+
+          for (const socketId of entry.sockets) {
+            io.to(socketId).emit('chat_message', chatMessage);
+          }
+        }
       }
     });
 
-    socket.on('disconnect', () => {
+    socket.on('disconnect', async () => {
       const userId: string | undefined = socket.data.userId;
       if (!userId) {
         return;
@@ -214,6 +379,8 @@ app.get('/health', (_req, res) => res.status(200).send('ok'));
           username: entry.hackerName,
           timestamp: new Date().toISOString(),
         });
+
+        await notifyFriendsPresence(io, userId, entry.hackerName, false);
       }
 
       broadcastOnlineUsers(io);

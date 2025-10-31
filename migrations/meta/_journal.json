@@ -15,6 +15,13 @@
       "when": 1761719365848,
       "tag": "0001_admin_controls",
       "breakpoints": false
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1765000000000,
+      "tag": "0002_social_connections",
+      "breakpoints": false
     }
   ]
 }
