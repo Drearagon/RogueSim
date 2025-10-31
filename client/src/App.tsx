@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { BootScreen } from './components/BootScreen';
 import { GameInterface } from './components/GameInterface';
 import { MultiplayerRoom } from './components/MultiplayerRoom';
@@ -20,7 +20,7 @@ import { SkillTreeInterface } from './components/SkillTreeInterface';
 import { MissionInterface } from './components/MissionInterface';
 import { BattlePass } from './components/BattlePass';
 import { initializeSkillTree, purchaseSkill } from './lib/skillSystem';
-import { GameState, Mission, MiniGameState } from './types/game';
+import { GameState, Mission, MiniGameState, MissionProgressionState } from './types/game';
 
 export default function App() {
   const { gameState, updateGameState, isLoading: gameLoading } = useGameState();
@@ -349,6 +349,20 @@ export default function App() {
     setShowMissionInterface(false);
   };
 
+  const handleMissionProgressionUpdate = useCallback(
+    (progression: MissionProgressionState) => {
+      updateGameState({ missionProgression: progression });
+    },
+    [updateGameState]
+  );
+
+  const handleDynamicMissionPoolUpdate = useCallback(
+    (missions: Mission[]) => {
+      updateGameState({ dynamicMissionDeck: missions });
+    },
+    [updateGameState]
+  );
+
   const handleMiniGameComplete = (success: boolean, score: number) => {
     if (activeMiniGame && activeMiniGame.currentGame) {
       const game = activeMiniGame.currentGame;
@@ -484,10 +498,12 @@ export default function App() {
 
       {/* Mission Interface */}
       {showMissionInterface && (
-        <MissionInterface       
-          gameState={gameState} 
+        <MissionInterface
+          gameState={gameState}
           onMissionStart={handleMissionStart}
           onClose={() => setShowMissionInterface(false)}
+          onProgressionUpdate={handleMissionProgressionUpdate}
+          onDynamicMissionPoolUpdate={handleDynamicMissionPoolUpdate}
         />
       )}
 

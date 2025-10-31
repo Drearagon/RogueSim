@@ -49,6 +49,8 @@ export interface GameState {
   completedMissionIds: string[];
   failedMissionIds: string[];
   missionHistory: MissionProgress[];
+  missionProgression?: MissionProgressionState;
+  dynamicMissionDeck?: Mission[];
   // Special Mission State
   specialMissionActive?: boolean;
   specialMissionData?: any;
@@ -71,6 +73,19 @@ export interface GameState {
   showMissionMap?: boolean;
   staffMessages?: StaffMessage[];
   onlinePlayers?: OnlinePlayer[];
+}
+
+export interface MissionProgressionState {
+  unlockedTiers: string[];
+  recommendedTier?: string;
+  nextTier?: {
+    id: string;
+    label: string;
+    minLevel: number;
+    minReputation: string;
+    recommendedCompletions?: number;
+  };
+  lastUpdated: number;
 }
 
 export interface EventScheduleState {
@@ -127,6 +142,7 @@ export interface HydraProtocolState {
 
 export interface Mission {
   id: string;
+  blueprintId?: string;
   title: string;
   description: string;
   briefing: string;
@@ -134,6 +150,21 @@ export interface Mission {
   category: 'INFILTRATION' | 'SABOTAGE' | 'EXTRACTION' | 'RECONNAISSANCE' | 'SOCIAL_ENGINEERING' | 'CYBER_WARFARE' | 'SPECIAL_OPS';
   type: 'STANDARD' | 'FACTION' | 'SPECIAL' | 'DYNAMIC' | 'EMERGENCY' | 'EVENT';
   eventId?: string;
+
+  // Tiered mission metadata
+  tierId?: string;
+  tierName?: string;
+  tierDescription?: string;
+  storyArc?: string;
+  narrativeBeats?: string[];
+  tags?: string[];
+  reputationRequirement?: string;
+  recommendedLevelHint?: number;
+  dynamicContext?: {
+    tierId: string;
+    tierLabel: string;
+    progression?: MissionProgressionState;
+  };
   
   // Requirements
   requiredLevel: number;
