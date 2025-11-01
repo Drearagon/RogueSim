@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
@@ -152,6 +153,33 @@ export const commandLogs = pgTable("command_logs", {
   success: boolean("success").notNull(),
   output: text("output").array().notNull(),
   executedAt: timestamp("executed_at").notNull().defaultNow(),
+});
+
+export const userActivityLogs = pgTable("user_activity_logs", {
+  id: serial("id").primaryKey(),
+  userId: varchar("user_id").references(() => users.id, { onDelete: "cascade" }),
+  username: varchar("username"),
+  action: text("action").notNull(),
+  timestamp: timestamp("timestamp").notNull().default(sql`CURRENT_TIMESTAMP`),
+  ipAddress: varchar("ip_address"),
+  userAgent: text("user_agent"),
+  metadata: text("metadata").notNull().default("{}"),
+});
+
+export const gameData = pgTable("game_data", {
+  userId: varchar("user_id")
+    .primaryKey()
+    .references(() => users.id, { onDelete: "cascade" }),
+  credits: integer("credits").notNull().default(0),
+  playerLevel: integer("player_level").notNull().default(1),
+  reputation: text("reputation").notNull().default("NOVICE"),
+  unlockedCommands: text("unlocked_commands").notNull().default("[]"),
+  completedMissions: text("completed_missions").notNull().default("[]"),
+  skillTree: text("skill_tree").notNull().default("{}"),
+  factionStandings: text("faction_standings").notNull().default("{}"),
+  psychProfile: text("psych_profile").notNull().default("{}"),
+  createdAt: timestamp("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: timestamp("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
 });
 
 // Email verification tables
@@ -348,6 +376,8 @@ export type MissionHistory = typeof missionHistory.$inferSelect;
 export type InsertMissionHistory = z.infer<typeof insertMissionHistorySchema>;
 export type CommandLog = typeof commandLogs.$inferSelect;
 export type InsertCommandLog = z.infer<typeof insertCommandLogSchema>;
+export type UserActivityLog = typeof userActivityLogs.$inferSelect;
+export type GameDataRecord = typeof gameData.$inferSelect;
 export type MultiplayerRoom = typeof multiplayerRooms.$inferSelect;
 export type InsertRoom = z.infer<typeof insertRoomSchema>;
 export type RoomMember = typeof roomMembers.$inferSelect;
