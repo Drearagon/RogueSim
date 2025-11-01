@@ -10,6 +10,7 @@ import { randomUUID } from 'node:crypto';
 import { registerRoutes } from './routes';
 import { initDatabase, getPool } from './db';
 import connectPg from 'connect-pg-simple';
+import { getStorageInstance } from './storageInstance';
 import {
   applyHelmet,
   applyCors,
