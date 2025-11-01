@@ -320,7 +320,7 @@ export interface Command {
   usage: string;
   category?: string;
   unlockLevel?: number;
-  execute: (args: string[], gameState: GameState) => CommandResult;
+  execute: (args: string[], gameState: GameState) => CommandResult | Promise<CommandResult>;
 }
 
 export interface CommandResult {

@@ -457,7 +457,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     }
   }, [currentInput]);
 
-  const executeCommand = (input: string) => {
+  const executeCommand = async (input: string) => {
     if (!input.trim()) return;
 
     // Detect activity based on command
@@ -504,7 +504,16 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     }
 
     // Execute command
-    const result = commands[commandName].execute(args, gameState);
+    let result: CommandResult;
+    try {
+      const execution = commands[commandName].execute(args, gameState);
+      result = execution instanceof Promise ? await execution : execution;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Command failed.';
+      setOutput(prev => [...prev, `ERROR: ${message}`, '']);
+      playError();
+      return;
+    }
     
     // Track mission progress if command was successful
     if (result.success && checkStepCompletion(commandName, args, result.success, gameState)) {
@@ -647,7 +656,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
 
     switch (e.key) {
       case 'Enter':
-        executeCommand(currentInput);
+        void executeCommand(currentInput);
         setCurrentInput('');
         break;
       
@@ -960,7 +969,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
             onChange={(e) => setCurrentInput(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
-                executeCommand(currentInput);
+                void executeCommand(currentInput);
                 setCurrentInput('');
                 e.preventDefault();
               }
@@ -978,7 +987,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
           />
           <button
             onClick={() => {
-              executeCommand(currentInput);
+              void executeCommand(currentInput);
               setCurrentInput('');
             }}
             className="px-3 py-2 text-sm font-bold hover:opacity-80 transition-colors flex-shrink-0"

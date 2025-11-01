@@ -4184,6 +4184,280 @@ export const commands: Record<string, Command> = {
     }
   },
 
+  friend_list: {
+    description: 'Display your active friends, pending requests, and blocked operatives.',
+    usage: 'friend_list',
+    category: 'social',
+    execute: async () => {
+      try {
+        const overview = await fetchFriendOverviewSnapshot();
+        const lines: string[] = ['== ALLIED OPERATIVES =='];
+
+        if (!overview.friends || overview.friends.length === 0) {
+          lines.push('  (none)');
+        } else {
+          overview.friends.forEach((friend: any) => {
+            lines.push(`  • ${friend.hackerName}`);
+          });
+        }
+
+        lines.push('', '== INCOMING REQUESTS ==');
+        if (!overview.incoming || overview.incoming.length === 0) {
+          lines.push('  (none)');
+        } else {
+          overview.incoming.forEach((request: any) => {
+            lines.push(`  • ${request.hackerName}`);
+          });
+        }
+
+        lines.push('', '== OUTGOING REQUESTS ==');
+        if (!overview.outgoing || overview.outgoing.length === 0) {
+          lines.push('  (none)');
+        } else {
+          overview.outgoing.forEach((request: any) => {
+            lines.push(`  • ${request.hackerName}`);
+          });
+        }
+
+        lines.push('', '== BLOCKED OPERATIVES ==');
+        if (!overview.blocked || overview.blocked.length === 0) {
+          lines.push('  (none)');
+        } else {
+          overview.blocked.forEach((blocked: any) => {
+            lines.push(`  • ${blocked.hackerName}`);
+          });
+        }
+
+        lines.push('');
+        return { success: true, output: lines };
+      } catch (error) {
+        return formatFriendError(error, 'Unable to load social graph.');
+      }
+    }
+  },
+
+  friend_request: {
+    description: 'Send a friend request to another operative.',
+    usage: 'friend_request <hackerName>',
+    category: 'social',
+    execute: async (args) => {
+      if (!args[0]) {
+        return {
+          success: false,
+          output: ['Usage: friend_request <hackerName>', '']
+        };
+      }
+
+      const target = args[0].trim();
+
+      try {
+        await requestSocialJson('/api/social/friends/invite', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ targetHackerName: target })
+        });
+
+        dispatchFriendRefresh();
+
+        return {
+          success: true,
+          output: [`Friend request dispatched to ${target}.`, '']
+        };
+      } catch (error) {
+        return formatFriendError(error, `Unable to contact ${target}.`);
+      }
+    }
+  },
+
+  friend_accept: {
+    description: 'Accept a pending friend request.',
+    usage: 'friend_accept <hackerName|userId>',
+    category: 'social',
+    execute: async (args) => {
+      if (!args[0]) {
+        return {
+          success: false,
+          output: ['Usage: friend_accept <hackerName|userId>', '']
+        };
+      }
+
+      const rawIdentifier = args[0].trim();
+      const identifier = rawIdentifier.toLowerCase();
+
+      try {
+        const overview = await fetchFriendOverviewSnapshot();
+        const match = (overview.incoming || []).find((request: any) =>
+          request.friendId === rawIdentifier || request.hackerName?.toLowerCase() === identifier
+        );
+
+        if (!match) {
+          return {
+            success: false,
+            output: ['No pending request from that operative.', '']
+          };
+        }
+
+        await requestSocialJson('/api/social/friends/accept', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ requesterId: match.friendId })
+        });
+
+        dispatchFriendRefresh();
+
+        return {
+          success: true,
+          output: [`You are now connected with ${match.hackerName}.`, '']
+        };
+      } catch (error) {
+        return formatFriendError(error, 'Unable to accept friend request.');
+      }
+    }
+  },
+
+  friend_remove: {
+    description: 'Remove a friend or cancel a pending request.',
+    usage: 'friend_remove <hackerName|userId>',
+    category: 'social',
+    execute: async (args) => {
+      if (!args[0]) {
+        return {
+          success: false,
+          output: ['Usage: friend_remove <hackerName|userId>', '']
+        };
+      }
+
+      const rawIdentifier = args[0].trim();
+      const identifier = rawIdentifier.toLowerCase();
+
+      try {
+        const overview = await fetchFriendOverviewSnapshot();
+        const findMatch = (collection: any[] = []) =>
+          collection.find((item) => item.friendId === rawIdentifier || item.hackerName?.toLowerCase() === identifier);
+
+        let match = findMatch(overview.friends);
+        let context: 'friend' | 'incoming' | 'outgoing' = 'friend';
+
+        if (!match) {
+          match = findMatch(overview.incoming);
+          context = 'incoming';
+        }
+
+        if (!match) {
+          match = findMatch(overview.outgoing);
+          context = 'outgoing';
+        }
+
+        if (!match) {
+          return {
+            success: false,
+            output: ['No matching connection or request found.', '']
+          };
+        }
+
+        await requestSocialJson(`/api/social/friends/${match.friendId}`, {
+          method: 'DELETE'
+        });
+
+        dispatchFriendRefresh();
+
+        const baseName = match.hackerName || 'that operative';
+        let message: string;
+        if (context === 'friend') {
+          message = `Removed ${baseName} from your network.`;
+        } else if (context === 'incoming') {
+          message = `Declined ${baseName}'s request.`;
+        } else {
+          message = `Cancelled your request to ${baseName}.`;
+        }
+
+        return { success: true, output: [message, ''] };
+      } catch (error) {
+        return formatFriendError(error, 'Unable to modify friendship.');
+      }
+    }
+  },
+
+  friend_block: {
+    description: 'Block an operative from contacting you.',
+    usage: 'friend_block <hackerName|userId>',
+    category: 'social',
+    execute: async (args) => {
+      if (!args[0]) {
+        return {
+          success: false,
+          output: ['Usage: friend_block <hackerName|userId>', '']
+        };
+      }
+
+      const identifier = args[0].trim();
+      const isLikelyId = identifier.includes('-') || identifier.length > 20;
+      const payload = isLikelyId
+        ? { targetUserId: identifier }
+        : { targetHackerName: identifier };
+
+      try {
+        await requestSocialJson('/api/social/blocks', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        dispatchFriendRefresh();
+
+        return {
+          success: true,
+          output: [`${identifier} has been blocked.`, '']
+        };
+      } catch (error) {
+        return formatFriendError(error, 'Unable to block operative.');
+      }
+    }
+  },
+
+  friend_unblock: {
+    description: 'Remove a block from an operative.',
+    usage: 'friend_unblock <hackerName|userId>',
+    category: 'social',
+    execute: async (args) => {
+      if (!args[0]) {
+        return {
+          success: false,
+          output: ['Usage: friend_unblock <hackerName|userId>', '']
+        };
+      }
+
+      const identifier = args[0].toLowerCase();
+
+      try {
+        const overview = await fetchFriendOverviewSnapshot();
+        const match = (overview.blocked || []).find((blocked: any) =>
+          blocked.userId === rawIdentifier || blocked.hackerName?.toLowerCase() === identifier
+        );
+
+        if (!match) {
+          return {
+            success: false,
+            output: ['No matching blocked operative found.', '']
+          };
+        }
+
+        await requestSocialJson(`/api/social/blocks/${match.userId}`, {
+          method: 'DELETE'
+        });
+
+        dispatchFriendRefresh();
+
+        return {
+          success: true,
+          output: [`${match.hackerName} has been unblocked.`, '']
+        };
+      } catch (error) {
+        return formatFriendError(error, 'Unable to unblock operative.');
+      }
+    }
+  },
+
 };
 
 export function getInitialUnlockedCommands(
@@ -4196,6 +4470,51 @@ export function getInitialUnlockedCommands(
   }
 
   return Array.from(new Set(initial));
+function dispatchFriendRefresh(): void {
+  window.dispatchEvent(new Event('friendDataShouldRefresh'));
+}
+
+function formatFriendError(error: unknown, fallback: string): CommandResult {
+  const message = error instanceof Error ? error.message : fallback;
+  return {
+    success: false,
+    output: [`ERROR: ${message}`, ''],
+  };
+}
+
+async function requestSocialJson(path: string, init: RequestInit): Promise<any> {
+  const response = await fetch(path, {
+    credentials: 'include',
+    ...init,
+  });
+
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(typeof payload?.error === 'string' ? payload.error : 'Request failed.');
+  }
+
+  return payload;
+}
+
+async function fetchFriendOverviewSnapshot(): Promise<any> {
+  return requestSocialJson('/api/social/friends', { method: 'GET' });
+}
+
+export function getInitialUnlockedCommands(): string[] {
+  return [
+    // Essential system commands (always available)
+    "help", "clear", "status", "scan", "connect", "shop", "hackide", "tutorial", "settings",
+    "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login",
+    
+    // Basic utility commands (unlockLevel 0 or undefined)
+    "man", "reboot", "ping", "ls", "cd", "pwd", "cat", "whoami", "ps", "inventory", "fortune", "lore",
+    
+    // Basic hacking commands (unlockLevel 0)
+    "inject",
+    
+    // Game features (always available)
+    "minigame", "faction", "leaderboard", "easter", "reset_shop"
+  ];
 }
 
 // Command availability checker

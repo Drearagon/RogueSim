@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, jsonb, varchar, index, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -37,6 +37,38 @@ export const users = pgTable("users", {
   isBanned: boolean("is_banned").notNull().default(false),
   isTestUser: boolean("is_test_user").notNull().default(false),
 });
+
+export const friendStatusValues = ["pending", "accepted", "declined"] as const;
+
+export const userFriends = pgTable(
+  "user_friends",
+  {
+    id: serial("id").primaryKey(),
+    requesterId: varchar("requester_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    addresseeId: varchar("addressee_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    status: text("status")
+      .$type<(typeof friendStatusValues)[number]>()
+      .notNull()
+      .default("pending"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+    respondedAt: timestamp("responded_at"),
+  },
+  (table) => [
+    uniqueIndex("user_friends_unique_pair").on(table.requesterId, table.addresseeId),
+  ],
+);
+
+export const userBlocks = pgTable(
+  "user_blocks",
+  {
+    id: serial("id").primaryKey(),
+    blockerId: varchar("blocker_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    blockedId: varchar("blocked_id").notNull().references(() => users.id, { onDelete: "cascade" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (table) => [uniqueIndex("user_blocks_unique_pair").on(table.blockerId, table.blockedId)],
+);
 
 export const gameSaves = pgTable("game_saves", {
   id: serial("id").primaryKey(),
@@ -176,6 +208,20 @@ export const insertRoomMemberSchema = createInsertSchema(roomMembers).omit({
   joinedAt: true,
 });
 
+export const insertUserFriendSchema = createInsertSchema(userFriends).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+  respondedAt: true,
+});
+
+export const insertUserBlockSchema = createInsertSchema(userBlocks).omit({
+  id: true,
+  createdAt: true,
+});
+
+export type FriendStatus = (typeof friendStatusValues)[number];
+
 export const insertPlayerStatsSchema = createInsertSchema(playerStats).omit({
   id: true,
   updatedAt: true,
@@ -306,6 +352,10 @@ export type MultiplayerRoom = typeof multiplayerRooms.$inferSelect;
 export type InsertRoom = z.infer<typeof insertRoomSchema>;
 export type RoomMember = typeof roomMembers.$inferSelect;
 export type InsertRoomMember = z.infer<typeof insertRoomMemberSchema>;
+export type UserFriend = typeof userFriends.$inferSelect;
+export type InsertUserFriend = z.infer<typeof insertUserFriendSchema>;
+export type UserBlock = typeof userBlocks.$inferSelect;
+export type InsertUserBlock = z.infer<typeof insertUserBlockSchema>;
 export type PlayerStats = typeof playerStats.$inferSelect;
 export type InsertPlayerStats = z.infer<typeof insertPlayerStatsSchema>;
 export type VerificationCode = typeof verificationCodes.$inferSelect;
