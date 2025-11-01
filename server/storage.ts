@@ -2,12 +2,52 @@
 // YOU NEED TO MAKE THESE CHANGES TO YOUR LOCAL storage.ts FILE
 
 import {
-  users, gameSaves, missionHistory, commandLogs, multiplayerRooms, roomMembers, playerStats,
-  battlePasses, userBattlePasses, cosmetics, userCosmetics, battlePassCommands, userPremiumCommands,
-  type User, type GameSave, type MissionHistory, type CommandLog, type MultiplayerRoom, type RoomMember, type PlayerStats,
-  type UpsertUser, type InsertGameSave, type InsertMissionHistory, type InsertCommandLog, type InsertRoom, type InsertRoomMember, type InsertPlayerStats,
-  type BattlePass, type UserBattlePass, type Cosmetic, type UserCosmetic, type BattlePassCommand, type UserPremiumCommand,
-  type InsertBattlePass, type InsertUserBattlePass, type InsertCosmetic, type InsertUserCosmetic, type InsertBattlePassCommand, type InsertUserPremiumCommand,
+  users,
+  gameSaves,
+  missionHistory,
+  commandLogs,
+  multiplayerRooms,
+  roomMembers,
+  playerStats,
+  userFriends,
+  userBlocks,
+  battlePasses,
+  userBattlePasses,
+  cosmetics,
+  userCosmetics,
+  battlePassCommands,
+  userPremiumCommands,
+  type User,
+  type GameSave,
+  type MissionHistory,
+  type CommandLog,
+  type MultiplayerRoom,
+  type RoomMember,
+  type PlayerStats,
+  type UpsertUser,
+  type InsertGameSave,
+  type InsertMissionHistory,
+  type InsertCommandLog,
+  type InsertRoom,
+  type InsertRoomMember,
+  type InsertPlayerStats,
+  type BattlePass,
+  type UserBattlePass,
+  type Cosmetic,
+  type UserCosmetic,
+  type BattlePassCommand,
+  type UserPremiumCommand,
+  type InsertBattlePass,
+  type InsertUserBattlePass,
+  type InsertCosmetic,
+  type InsertUserCosmetic,
+  type InsertBattlePassCommand,
+  type InsertUserPremiumCommand,
+  type FriendStatus,
+  type UserFriend,
+  type InsertUserFriend,
+  type UserBlock,
+  type InsertUserBlock,
 } from "@shared/schema";
 // REMOVE THIS LINE: import { db, pool } from "./db"; // <--- REMOVE THIS LINE from your actual file
 
@@ -17,10 +57,37 @@ import { Sql as PostgresJsClient } from "postgres"; // For postgres.js client (y
 import { PgDatabase } from "drizzle-orm/pg-core"; // For Drizzle DB instance type
 import { PgColumn } from "drizzle-orm/pg-core"; // For Column types in Drizzle
 
-import { eq, and, desc, sql } from "drizzle-orm"; // Drizzle ORM functions
+import { eq, and, or, desc, sql } from "drizzle-orm"; // Drizzle ORM functions
 import { log } from "./utils"; // Import log function for consistent logging
 import crypto from "crypto"; // For hashing verification codes
 import { v4 as uuidv4 } from 'uuid';
+
+export interface FriendRelationshipSummary {
+    id: number;
+    friendId: string;
+    hackerName: string;
+    profileImageUrl: string | null;
+    reputation: string | null;
+    status: FriendStatus;
+    requestedAt: Date;
+    respondedAt: Date | null;
+    direction: 'accepted' | 'incoming' | 'outgoing';
+}
+
+export interface BlockedUserSummary {
+    userId: string;
+    hackerName: string;
+    profileImageUrl: string | null;
+    reputation: string | null;
+    blockedAt: Date;
+}
+
+export interface FriendOverview {
+    friends: FriendRelationshipSummary[];
+    incoming: FriendRelationshipSummary[];
+    outgoing: FriendRelationshipSummary[];
+    blocked: BlockedUserSummary[];
+}
 
 export interface IStorage {
     // User operations
@@ -93,7 +160,19 @@ export interface IStorage {
     getBattlePassCommands(battlePassId: number): Promise<BattlePassCommand[]>;
     unlockPremiumCommand(userId: string, commandName: string, battlePassId: number): Promise<UserPremiumCommand>;
     hasAccessToPremiumCommand(userId: string, commandName: string): Promise<boolean>;
-    
+
+    // Social connections
+    getFriendOverview(userId: string): Promise<FriendOverview>;
+    sendFriendRequest(requesterId: string, targetUserId: string): Promise<UserFriend>;
+    acceptFriendRequest(requesterId: string, addresseeId: string): Promise<UserFriend>;
+    removeFriendOrRequest(userId: string, targetUserId: string): Promise<void>;
+    blockUser(blockerId: string, targetUserId: string): Promise<UserBlock>;
+    unblockUser(blockerId: string, targetUserId: string): Promise<void>;
+    listBlockedUsers(userId: string): Promise<BlockedUserSummary[]>;
+    getBlockListsForUser(userId: string): Promise<{ blocked: string[]; blockedBy: string[] }>;
+    getAcceptedFriendIds(userId: string): Promise<string[]>;
+    isUserBlocked(userId: string, targetUserId: string): Promise<boolean>;
+
     // Health check
     testConnection(): Promise<void>;
 }
@@ -944,8 +1023,342 @@ export class DatabaseStorage implements IStorage {
                 eq(userPremiumCommands.commandName, commandName)
             ))
             .limit(1);
-        
+
         return result.length > 0;
+    }
+
+    // Social connections
+    async getFriendOverview(userId: string): Promise<FriendOverview> {
+        const acceptedOutgoing = await this.drizzleDb
+            .select({
+                id: userFriends.id,
+                friendId: userFriends.addresseeId,
+                hackerName: users.hackerName,
+                profileImageUrl: users.profileImageUrl,
+                reputation: users.reputation,
+                status: userFriends.status,
+                createdAt: userFriends.createdAt,
+                respondedAt: userFriends.respondedAt,
+            })
+            .from(userFriends)
+            .innerJoin(users, eq(users.id, userFriends.addresseeId))
+            .where(and(
+                eq(userFriends.requesterId, userId),
+                eq(userFriends.status, 'accepted' as FriendStatus)
+            ));
+
+        const acceptedIncoming = await this.drizzleDb
+            .select({
+                id: userFriends.id,
+                friendId: userFriends.requesterId,
+                hackerName: users.hackerName,
+                profileImageUrl: users.profileImageUrl,
+                reputation: users.reputation,
+                status: userFriends.status,
+                createdAt: userFriends.createdAt,
+                respondedAt: userFriends.respondedAt,
+            })
+            .from(userFriends)
+            .innerJoin(users, eq(users.id, userFriends.requesterId))
+            .where(and(
+                eq(userFriends.addresseeId, userId),
+                eq(userFriends.status, 'accepted' as FriendStatus)
+            ));
+
+        const pendingIncoming = await this.drizzleDb
+            .select({
+                id: userFriends.id,
+                friendId: userFriends.requesterId,
+                hackerName: users.hackerName,
+                profileImageUrl: users.profileImageUrl,
+                reputation: users.reputation,
+                status: userFriends.status,
+                createdAt: userFriends.createdAt,
+                respondedAt: userFriends.respondedAt,
+            })
+            .from(userFriends)
+            .innerJoin(users, eq(users.id, userFriends.requesterId))
+            .where(and(
+                eq(userFriends.addresseeId, userId),
+                eq(userFriends.status, 'pending' as FriendStatus)
+            ));
+
+        const pendingOutgoing = await this.drizzleDb
+            .select({
+                id: userFriends.id,
+                friendId: userFriends.addresseeId,
+                hackerName: users.hackerName,
+                profileImageUrl: users.profileImageUrl,
+                reputation: users.reputation,
+                status: userFriends.status,
+                createdAt: userFriends.createdAt,
+                respondedAt: userFriends.respondedAt,
+            })
+            .from(userFriends)
+            .innerJoin(users, eq(users.id, userFriends.addresseeId))
+            .where(and(
+                eq(userFriends.requesterId, userId),
+                eq(userFriends.status, 'pending' as FriendStatus)
+            ));
+
+        const mapToSummary = (
+            rows: Array<{
+                id: number;
+                friendId: string;
+                hackerName: string | null;
+                profileImageUrl: string | null;
+                reputation: string | null;
+                status: FriendStatus;
+                createdAt: Date;
+                respondedAt: Date | null;
+            }>,
+            direction: FriendRelationshipSummary['direction']
+        ): FriendRelationshipSummary[] =>
+            rows.map((row) => ({
+                id: row.id,
+                friendId: row.friendId,
+                hackerName: row.hackerName ?? 'Unknown Operative',
+                profileImageUrl: row.profileImageUrl ?? null,
+                reputation: row.reputation ?? null,
+                status: row.status,
+                requestedAt: row.createdAt,
+                respondedAt: row.respondedAt ?? null,
+                direction,
+            }));
+
+        const blocked = await this.listBlockedUsers(userId);
+
+        return {
+            friends: [
+                ...mapToSummary(acceptedOutgoing, 'accepted'),
+                ...mapToSummary(acceptedIncoming, 'accepted'),
+            ],
+            incoming: mapToSummary(pendingIncoming, 'incoming'),
+            outgoing: mapToSummary(pendingOutgoing, 'outgoing'),
+            blocked,
+        };
+    }
+
+    async sendFriendRequest(requesterId: string, targetUserId: string): Promise<UserFriend> {
+        if (requesterId === targetUserId) {
+            throw new Error('You cannot send a friend request to yourself.');
+        }
+
+        if (await this.isUserBlocked(requesterId, targetUserId)) {
+            throw new Error('Cannot send friend request because one of the users has blocked the other.');
+        }
+
+        const existing = await this.drizzleDb
+            .select()
+            .from(userFriends)
+            .where(or(
+                and(
+                    eq(userFriends.requesterId, requesterId),
+                    eq(userFriends.addresseeId, targetUserId)
+                ),
+                and(
+                    eq(userFriends.requesterId, targetUserId),
+                    eq(userFriends.addresseeId, requesterId)
+                )
+            ))
+            .limit(1);
+
+        if (existing.length > 0) {
+            const record = existing[0];
+
+            if (record.status === 'accepted') {
+                throw new Error('You are already connected with this operative.');
+            }
+
+            if (record.status === 'pending') {
+                if (record.requesterId === targetUserId && record.addresseeId === requesterId) {
+                    return await this.acceptFriendRequest(targetUserId, requesterId);
+                }
+
+                throw new Error('A friend request is already pending.');
+            }
+
+            const [updated] = await this.drizzleDb
+                .update(userFriends)
+                .set({
+                    requesterId,
+                    addresseeId: targetUserId,
+                    status: 'pending',
+                    createdAt: new Date(),
+                    updatedAt: sql`now()`,
+                    respondedAt: null,
+                })
+                .where(eq(userFriends.id, record.id))
+                .returning();
+
+            return updated;
+        }
+
+        const [friendRequest] = await this.drizzleDb
+            .insert(userFriends)
+            .values({
+                requesterId,
+                addresseeId: targetUserId,
+                status: 'pending',
+            })
+            .returning();
+
+        return friendRequest;
+    }
+
+    async acceptFriendRequest(requesterId: string, addresseeId: string): Promise<UserFriend> {
+        const existing = await this.drizzleDb
+            .select()
+            .from(userFriends)
+            .where(and(
+                eq(userFriends.requesterId, requesterId),
+                eq(userFriends.addresseeId, addresseeId)
+            ))
+            .limit(1);
+
+        if (existing.length === 0 || existing[0].status !== 'pending') {
+            throw new Error('No pending friend request found to accept.');
+        }
+
+        const [updated] = await this.drizzleDb
+            .update(userFriends)
+            .set({
+                status: 'accepted',
+                respondedAt: sql`now()`,
+                updatedAt: sql`now()`,
+            })
+            .where(eq(userFriends.id, existing[0].id))
+            .returning();
+
+        return updated;
+    }
+
+    async removeFriendOrRequest(userId: string, targetUserId: string): Promise<void> {
+        await this.drizzleDb
+            .delete(userFriends)
+            .where(or(
+                and(
+                    eq(userFriends.requesterId, userId),
+                    eq(userFriends.addresseeId, targetUserId)
+                ),
+                and(
+                    eq(userFriends.requesterId, targetUserId),
+                    eq(userFriends.addresseeId, userId)
+                )
+            ));
+    }
+
+    async blockUser(blockerId: string, targetUserId: string): Promise<UserBlock> {
+        if (blockerId === targetUserId) {
+            throw new Error('You cannot block yourself.');
+        }
+
+        const existing = await this.drizzleDb
+            .select()
+            .from(userBlocks)
+            .where(and(
+                eq(userBlocks.blockerId, blockerId),
+                eq(userBlocks.blockedId, targetUserId)
+            ))
+            .limit(1);
+
+        if (existing.length > 0) {
+            return existing[0];
+        }
+
+        await this.removeFriendOrRequest(blockerId, targetUserId);
+
+        const [blockRecord] = await this.drizzleDb
+            .insert(userBlocks)
+            .values({ blockerId, blockedId: targetUserId })
+            .returning();
+
+        return blockRecord;
+    }
+
+    async unblockUser(blockerId: string, targetUserId: string): Promise<void> {
+        await this.drizzleDb
+            .delete(userBlocks)
+            .where(and(
+                eq(userBlocks.blockerId, blockerId),
+                eq(userBlocks.blockedId, targetUserId)
+            ));
+    }
+
+    async listBlockedUsers(userId: string): Promise<BlockedUserSummary[]> {
+        const blocked = await this.drizzleDb
+            .select({
+                blockedId: userBlocks.blockedId,
+                hackerName: users.hackerName,
+                profileImageUrl: users.profileImageUrl,
+                reputation: users.reputation,
+                createdAt: userBlocks.createdAt,
+            })
+            .from(userBlocks)
+            .innerJoin(users, eq(users.id, userBlocks.blockedId))
+            .where(eq(userBlocks.blockerId, userId));
+
+        return blocked.map((row) => ({
+            userId: row.blockedId,
+            hackerName: row.hackerName ?? 'Unknown Operative',
+            profileImageUrl: row.profileImageUrl ?? null,
+            reputation: row.reputation ?? null,
+            blockedAt: row.createdAt,
+        }));
+    }
+
+    async getBlockListsForUser(userId: string): Promise<{ blocked: string[]; blockedBy: string[] }> {
+        const blocked = await this.drizzleDb
+            .select({ blockedId: userBlocks.blockedId })
+            .from(userBlocks)
+            .where(eq(userBlocks.blockerId, userId));
+
+        const blockedBy = await this.drizzleDb
+            .select({ blockerId: userBlocks.blockerId })
+            .from(userBlocks)
+            .where(eq(userBlocks.blockedId, userId));
+
+        return {
+            blocked: blocked.map((row) => row.blockedId),
+            blockedBy: blockedBy.map((row) => row.blockerId),
+        };
+    }
+
+    async getAcceptedFriendIds(userId: string): Promise<string[]> {
+        const relationships = await this.drizzleDb
+            .select({
+                requesterId: userFriends.requesterId,
+                addresseeId: userFriends.addresseeId,
+            })
+            .from(userFriends)
+            .where(and(
+                eq(userFriends.status, 'accepted' as FriendStatus),
+                or(
+                    eq(userFriends.requesterId, userId),
+                    eq(userFriends.addresseeId, userId)
+                )
+            ));
+
+        return relationships.map((row) => (row.requesterId === userId ? row.addresseeId : row.requesterId));
+    }
+
+    async isUserBlocked(userId: string, targetUserId: string): Promise<boolean> {
+        const blockRecords = await this.drizzleDb
+            .select({ id: userBlocks.id })
+            .from(userBlocks)
+            .where(or(
+                and(
+                    eq(userBlocks.blockerId, userId),
+                    eq(userBlocks.blockedId, targetUserId)
+                ),
+                and(
+                    eq(userBlocks.blockerId, targetUserId),
+                    eq(userBlocks.blockedId, userId)
+                )
+            ))
+            .limit(1);
+
+        return blockRecords.length > 0;
     }
 
     // Health check method for Docker container health checks

@@ -4,6 +4,8 @@ import type { Express, RequestHandler } from "express";
 import { createServer, type Server } from "http";
 import { getDb, getPool, isUsingLocalFallback } from "./db";
 import { DatabaseStorage } from "./storage";
+import { setStorageInstance } from "./storageInstance";
+import type { FriendOverview } from "./storage";
 import { insertGameSaveSchema, insertMissionHistorySchema, insertCommandLogSchema, insertBattlePassSchema, insertUserBattlePassSchema } from "@shared/schema";
 import bcrypt from "bcryptjs";
 import { v4 as uuidv4 } from "uuid";
@@ -92,6 +94,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const db = getDb();
         const pool = getPool();
         storage = new DatabaseStorage(db, pool);
+        setStorageInstance(storage);
 
         log('✅ Database storage initialized');
 
@@ -632,6 +635,156 @@ export async function registerRoutes(app: Express): Promise<Server> {
             } catch (error) {
                 console.error('Get user error:', error);
                 res.status(500).json({ error: 'Internal server error', code: 'SERVER_ERROR' });
+            }
+        });
+
+        // Social graph endpoints
+        app.get('/api/social/friends', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const overview: FriendOverview = await storage.getFriendOverview(userId);
+                res.json(overview);
+            } catch (error) {
+                console.error('Failed to load friend overview:', error);
+                res.status(500).json({ error: 'Failed to load friend data' });
+            }
+        });
+
+        app.post('/api/social/friends/invite', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const { targetUserId, targetHackerName } = req.body ?? {};
+
+                let targetId: string | undefined = typeof targetUserId === 'string' ? targetUserId : undefined;
+
+                if (!targetId && typeof targetHackerName === 'string' && targetHackerName.trim().length > 0) {
+                    const targetUser = await storage.getUserByHackerName(targetHackerName.trim());
+                    if (!targetUser) {
+                        return res.status(404).json({ error: 'Target user not found' });
+                    }
+                    targetId = targetUser.id;
+                }
+
+                if (!targetId) {
+                    return res.status(400).json({ error: 'targetUserId or targetHackerName is required' });
+                }
+
+                if (targetId === userId) {
+                    return res.status(400).json({ error: 'You cannot send a friend request to yourself' });
+                }
+
+                await storage.sendFriendRequest(userId, targetId);
+                const overview = await storage.getFriendOverview(userId);
+                res.json({ message: 'Friend request sent', overview });
+            } catch (error) {
+                console.error('Friend invite error:', error);
+                if (error instanceof Error) {
+                    return res.status(400).json({ error: error.message });
+                }
+                res.status(500).json({ error: 'Failed to send friend request' });
+            }
+        });
+
+        app.post('/api/social/friends/accept', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const { requesterId } = req.body ?? {};
+
+                if (typeof requesterId !== 'string' || requesterId.length === 0) {
+                    return res.status(400).json({ error: 'requesterId is required' });
+                }
+
+                await storage.acceptFriendRequest(requesterId, userId);
+                const overview = await storage.getFriendOverview(userId);
+                res.json({ message: 'Friend request accepted', overview });
+            } catch (error) {
+                console.error('Friend accept error:', error);
+                if (error instanceof Error) {
+                    return res.status(400).json({ error: error.message });
+                }
+                res.status(500).json({ error: 'Failed to accept friend request' });
+            }
+        });
+
+        app.delete('/api/social/friends/:targetId', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const targetId = req.params.targetId;
+
+                if (!targetId) {
+                    return res.status(400).json({ error: 'targetId is required' });
+                }
+
+                await storage.removeFriendOrRequest(userId, targetId);
+                const overview = await storage.getFriendOverview(userId);
+                res.json({ message: 'Connection updated', overview });
+            } catch (error) {
+                console.error('Friend removal error:', error);
+                res.status(500).json({ error: 'Failed to update friendship' });
+            }
+        });
+
+        app.get('/api/social/blocks', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const blocked = await storage.listBlockedUsers(userId);
+                res.json({ blocked });
+            } catch (error) {
+                console.error('Failed to list blocks:', error);
+                res.status(500).json({ error: 'Failed to load block list' });
+            }
+        });
+
+        app.post('/api/social/blocks', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const { targetUserId, targetHackerName } = req.body ?? {};
+
+                let targetId: string | undefined = typeof targetUserId === 'string' ? targetUserId : undefined;
+
+                if (!targetId && typeof targetHackerName === 'string' && targetHackerName.trim().length > 0) {
+                    const targetUser = await storage.getUserByHackerName(targetHackerName.trim());
+                    if (!targetUser) {
+                        return res.status(404).json({ error: 'Target user not found' });
+                    }
+                    targetId = targetUser.id;
+                }
+
+                if (!targetId) {
+                    return res.status(400).json({ error: 'targetUserId or targetHackerName is required' });
+                }
+
+                if (targetId === userId) {
+                    return res.status(400).json({ error: 'You cannot block yourself' });
+                }
+
+                await storage.blockUser(userId, targetId);
+                const overview = await storage.getFriendOverview(userId);
+                res.json({ message: 'User blocked', overview });
+            } catch (error) {
+                console.error('Block user error:', error);
+                if (error instanceof Error) {
+                    return res.status(400).json({ error: error.message });
+                }
+                res.status(500).json({ error: 'Failed to block user' });
+            }
+        });
+
+        app.delete('/api/social/blocks/:targetId', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const targetId = req.params.targetId;
+
+                if (!targetId) {
+                    return res.status(400).json({ error: 'targetId is required' });
+                }
+
+                await storage.unblockUser(userId, targetId);
+                const overview = await storage.getFriendOverview(userId);
+                res.json({ message: 'User unblocked', overview });
+            } catch (error) {
+                console.error('Unblock user error:', error);
+                res.status(500).json({ error: 'Failed to unblock user' });
             }
         });
 
