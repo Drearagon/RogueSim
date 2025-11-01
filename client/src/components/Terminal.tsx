@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useSound } from '../hooks/useSound';
-import { commands, isCommandAvailable, getInitialUnlockedCommands } from '../lib/commands';
+import { commands, isCommandAvailable, getInitialUnlockedCommands, SOCIAL_COMMANDS } from '../lib/commands';
 import { GameState, Mission } from '../types/game';
 import { logCommand } from '../lib/gameStorage';
 import { checkEasterEgg, discoverEasterEgg, checkKonamiCode, loadDiscoveredEasterEggs, getEasterEggStats, EasterEgg } from '../lib/easterEggs';
@@ -378,16 +378,34 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
     setOutput(welcomeMessage);
     
     // Ensure all initial commands are available
-    const initialCommands = getInitialUnlockedCommands();
+    const initialCommands = getInitialUnlockedCommands(gameState.tutorialStatus);
     const currentCommands = gameState.unlockedCommands || [];
     const missingCommands = initialCommands.filter(cmd => !currentCommands.includes(cmd));
-    
+
     if (missingCommands.length > 0) {
-      onGameStateUpdate({
+      dispatchGameStateUpdates({
         unlockedCommands: [...currentCommands, ...missingCommands]
       });
     }
-  }, []);
+  }, [dispatchGameStateUpdates, gameState.tutorialStatus, gameState.unlockedCommands]);
+
+  useEffect(() => {
+    const currentCommands = gameState.unlockedCommands || [];
+    const tutorialComplete = gameState.tutorialStatus === 'completed' || gameState.tutorialStatus === 'skipped';
+    const hasSocial = SOCIAL_COMMANDS.some(command => currentCommands.includes(command));
+
+    if (tutorialComplete) {
+      const missingSocial = SOCIAL_COMMANDS.filter(command => !currentCommands.includes(command));
+      if (missingSocial.length > 0) {
+        dispatchGameStateUpdates({
+          unlockedCommands: [...currentCommands, ...missingSocial]
+        });
+      }
+    } else if (hasSocial) {
+      const filteredCommands = currentCommands.filter(command => !SOCIAL_COMMANDS.includes(command));
+      dispatchGameStateUpdates({ unlockedCommands: filteredCommands });
+    }
+  }, [dispatchGameStateUpdates, gameState.tutorialStatus, gameState.unlockedCommands]);
 
   // Activity detection and management
   const updateActivity = useCallback((activity: typeof gameActivity) => {

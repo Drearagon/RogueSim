@@ -18,6 +18,8 @@ const baseDefaultGameState: GameState = {
   networkStatus: 'DISCONNECTED',
   soundEnabled: true,
   isBootComplete: false,
+  tutorialStatus: 'pending',
+  onlinePlayers: [],
   playerLevel: 1,
   experience: 0,
   hydraProtocol: {

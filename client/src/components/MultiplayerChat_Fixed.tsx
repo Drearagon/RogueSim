@@ -3,6 +3,7 @@ import { io, Socket } from 'socket.io-client';
 import { Send, MessageSquare, Users, X, Minimize2, Maximize2 } from 'lucide-react';
 import { useAuth } from '../hooks/useAuth';
 import { getCurrentUser } from '../lib/userStorage';
+import { OnlinePlayer } from '../types/game';
 import { FriendListPanel } from './FriendListPanel';
 
 interface ChatMessage {
@@ -13,13 +14,6 @@ interface ChatMessage {
   timestamp: string;
   type: 'chat' | 'system' | 'team';
   channel?: 'global' | 'team';
-}
-
-interface OnlinePlayer {
-  id: string;
-  username: string;
-  status: 'online' | 'in-mission' | 'away';
-  level?: number;
 }
 
 interface MultiplayerChatProps {
@@ -248,14 +242,22 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
     });
 
     socket.on('online_users', (users: any[]) => {
-      setOnlinePlayers(
-        users.map((player) => ({
-          id: player.id,
-          username: player.username,
-          status: 'online',
-          level: player.level,
-        }))
-      );
+      const normalizedPlayers: OnlinePlayer[] = users.map((player) => ({
+        id: player.id,
+        username: player.username,
+        status: (player.status as OnlinePlayer['status']) || 'online',
+        level: typeof player.level === 'number' ? player.level : undefined,
+      }));
+
+      setOnlinePlayers(normalizedPlayers);
+
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent<OnlinePlayer[]>('onlinePlayersUpdated', {
+            detail: normalizedPlayers,
+          })
+        );
+      }
     });
 
     socket.on('friends_online', (friends: any[]) => {
@@ -309,6 +311,14 @@ export function MultiplayerChat({ gameState, terminalSettings }: MultiplayerChat
     });
 
     return () => {
+      if (typeof window !== 'undefined') {
+        window.dispatchEvent(
+          new CustomEvent<OnlinePlayer[]>('onlinePlayersUpdated', {
+            detail: [],
+          })
+        );
+      }
+
       socket.removeAllListeners();
       socket.disconnect();
       socketRef.current = null;

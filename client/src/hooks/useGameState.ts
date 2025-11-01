@@ -17,6 +17,7 @@ export function useGameState() {
     soundEnabled: true,
     isBootComplete: false,
     tutorialStatus: 'pending',
+    onlinePlayers: [],
     playerLevel: 1,
     experience: 0,
     hydraProtocol: {

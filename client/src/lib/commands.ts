@@ -1,4 +1,4 @@
-import { Command, CommandResult, GameState, Network, Device, MissionStep } from '../types/game';
+import { Command, CommandResult, GameState, Network, Device, MissionStep, OnlinePlayer } from '../types/game';
 import { 
   getNextNarrativeEvent, 
   formatNarrativeEvent, 
@@ -57,6 +57,140 @@ const bleDevices: Device[] = [
   { name: "IoT Sensor", mac: "XX:XX:XX:XX:XX:03", type: "Sensor" },
   { name: "Shadow Beacon", mac: "SHADOW_MAC_001", type: "Unknown" }
 ];
+
+export const SOCIAL_COMMANDS = ['multiplayer', 'mission-map', 'chat', 'team', 'players', 'who'] as const;
+
+const BASE_INITIAL_COMMANDS = [
+  // Essential system commands (always available)
+  'help', 'clear', 'status', 'scan', 'connect', 'shop', 'hackide', 'tutorial', 'settings',
+  'devmode', 'login',
+
+  // Basic utility commands (unlockLevel 0 or undefined)
+  'man', 'reboot', 'ping', 'ls', 'cd', 'pwd', 'cat', 'whoami', 'ps', 'inventory', 'fortune', 'lore',
+
+  // Basic hacking commands (unlockLevel 0)
+  'inject',
+
+  // Game features (always available)
+  'minigame', 'faction', 'leaderboard', 'easter', 'reset_shop'
+] as const;
+
+const TUTORIAL_COMPLETE_STATUSES: Array<GameState['tutorialStatus']> = ['completed', 'skipped'];
+const MAX_VISIBLE_ONLINE_PLAYERS = 12;
+
+const getPlayerStatusLabel = (status?: OnlinePlayer['status']): string => {
+  switch (status) {
+    case 'in-mission':
+      return '🟡 In Mission';
+    case 'away':
+      return '🔴 Away';
+    default:
+      return '🟢 Online';
+  }
+};
+
+const normalizeOnlinePlayers = (gameState: GameState): OnlinePlayer[] => {
+  if (!Array.isArray(gameState.onlinePlayers)) {
+    return [];
+  }
+
+  return gameState.onlinePlayers.map(player => ({
+    id: player.id,
+    username: player.username,
+    status: player.status ?? 'online',
+    level: typeof player.level === 'number' ? player.level : undefined,
+  }));
+};
+
+const buildPlayersCommandResult = (args: string[], gameState: GameState): CommandResult => {
+  const onlinePlayers = normalizeOnlinePlayers(gameState);
+  const action = args[0]?.toLowerCase();
+
+  if (action === 'search') {
+    const query = args.slice(1).join(' ').trim();
+    if (!query) {
+      return {
+        success: false,
+        output: ['Usage: players search <username>', ''],
+      };
+    }
+
+    const normalizedQuery = query.toLowerCase();
+    const match = onlinePlayers.find(player =>
+      player.username.toLowerCase() === normalizedQuery ||
+      player.username.toLowerCase().includes(normalizedQuery)
+    );
+
+    if (!match) {
+      return {
+        success: true,
+        output: [
+          `🔍 No operative found matching "${query}".`,
+          '',
+          'Use "players" to review the active roster or rally your team.',
+          ''
+        ],
+      };
+    }
+
+    const statusLabel = getPlayerStatusLabel(match.status);
+    const levelLabel = typeof match.level === 'number' ? `Level ${match.level}` : 'Level unknown';
+
+    return {
+      success: true,
+      output: [
+        `🔍 Player located: ${match.username}`,
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        `Identifier: ${match.id}`,
+        statusLabel,
+        levelLabel,
+        '',
+        `Use "team invite ${match.username}" to recruit them to your squad.`,
+        ''
+      ],
+    };
+  }
+
+  const visiblePlayers = onlinePlayers.slice(0, MAX_VISIBLE_ONLINE_PLAYERS);
+
+  if (visiblePlayers.length === 0) {
+    return {
+      success: true,
+      output: [
+        '👥 ONLINE OPERATIVES (0)',
+        '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+        'No operatives are connected right now.',
+        '',
+        'Share your link or open multiplayer once allies are ready.',
+        'Use "who" later to refresh the roster scan.',
+        ''
+      ],
+    };
+  }
+
+  const rosterLines = visiblePlayers.map(player => {
+    const levelLabel = typeof player.level === 'number' ? `Lv.${player.level}` : 'Lv.?';
+    const statusLabel = getPlayerStatusLabel(player.status);
+    return `• ${player.username} [${levelLabel}] ${statusLabel}`;
+  });
+
+  if (onlinePlayers.length > visiblePlayers.length) {
+    rosterLines.push(`…and ${onlinePlayers.length - visiblePlayers.length} more operatives linked.`);
+  }
+
+  return {
+    success: true,
+    output: [
+      `👥 ONLINE OPERATIVES (${onlinePlayers.length})`,
+      '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
+      ...rosterLines,
+      '',
+      'Use "players search <username>" to locate a specific operative.',
+      'Use "team invite <username>" to assemble your squad.',
+      ''
+    ],
+  };
+};
 
 export const commands: Record<string, Command> = {
   extract_data: {
@@ -3861,51 +3995,14 @@ export const commands: Record<string, Command> = {
     description: 'View online players and their status',
     usage: 'players [online|search <username>]',
     category: 'multiplayer',
-    execute: (args: string[], gameState: GameState) => {
-      const action = args[0]?.toLowerCase();
-      
-      if (action === 'search') {
-        const username = args[1];
-        if (!username) {
-          return {
-            success: false,
-            output: ['Usage: players search <username>', '']
-          };
-        }
-        return {
-          success: true,
-          output: [
-            `🔍 Searching for player: ${username}`,
-            '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-            'Ghost_Hacker    [Lv.12] [Online] [Available]',
-            '• Specialization: System Exploitation',
-            '• Reputation: Expert',
-            '• Current Activity: Browsing missions',
-            '',
-            'Use "team invite Ghost_Hacker" to send invitation.',
-            ''
-          ]
-        };
-      }
-      
-      return {
-        success: true,
-        output: [
-          '👥 ONLINE PLAYERS (15)',
-          '━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━',
-          'Ghost_Hacker      [Lv.12] [🟢 Online]',
-          'SocialEng_X       [Lv.8]  [🟡 In Mission]',
-          'Data_Miner        [Lv.15] [🟢 Online]',
-          'CyberNinja        [Lv.20] [🔴 Away]',
-          'Script_Kiddie     [Lv.3]  [🟢 Online]',
-          '                        ... and 10 more',
-          '',
-          'Use "players search <username>" to find specific players.',
-          'Use "team invite <username>" to invite to your team.',
-          ''
-        ]
-      };
-    }
+    execute: (args: string[], gameState: GameState) => buildPlayersCommandResult(args, gameState)
+  },
+
+  who: {
+    description: "Quickly list who's online",
+    usage: 'who [search <username>]',
+    category: 'multiplayer',
+    execute: (args: string[], gameState: GameState) => buildPlayersCommandResult(args, gameState)
   },
 
   messages: {
@@ -4363,6 +4460,16 @@ export const commands: Record<string, Command> = {
 
 };
 
+export function getInitialUnlockedCommands(
+  tutorialStatus: GameState['tutorialStatus'] = 'pending'
+): string[] {
+  const initial = [...BASE_INITIAL_COMMANDS];
+
+  if (TUTORIAL_COMPLETE_STATUSES.includes(tutorialStatus ?? 'pending')) {
+    initial.push(...SOCIAL_COMMANDS);
+  }
+
+  return Array.from(new Set(initial));
 function dispatchFriendRefresh(): void {
   window.dispatchEvent(new Event('friendDataShouldRefresh'));
 }
