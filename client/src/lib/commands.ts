@@ -4470,6 +4470,8 @@ export function getInitialUnlockedCommands(
   }
 
   return Array.from(new Set(initial));
+}
+
 function dispatchFriendRefresh(): void {
   window.dispatchEvent(new Event('friendDataShouldRefresh'));
 }
@@ -4498,23 +4500,6 @@ async function requestSocialJson(path: string, init: RequestInit): Promise<any> 
 
 async function fetchFriendOverviewSnapshot(): Promise<any> {
   return requestSocialJson('/api/social/friends', { method: 'GET' });
-}
-
-export function getInitialUnlockedCommands(): string[] {
-  return [
-    // Essential system commands (always available)
-    "help", "clear", "status", "scan", "connect", "shop", "hackide", "tutorial", "settings",
-    "devmode", "multiplayer", "mission-map", "chat", "team", "players", "login",
-    
-    // Basic utility commands (unlockLevel 0 or undefined)
-    "man", "reboot", "ping", "ls", "cd", "pwd", "cat", "whoami", "ps", "inventory", "fortune", "lore",
-    
-    // Basic hacking commands (unlockLevel 0)
-    "inject",
-    
-    // Game features (always available)
-    "minigame", "faction", "leaderboard", "easter", "reset_shop"
-  ];
 }
 
 // Command availability checker
