@@ -4,6 +4,7 @@ import { getCurrentUser } from "../lib/userStorage";
 
 export function useAuth() {
   const queryClient = useQueryClient();
+  const isDev = import.meta.env.DEV;
 
   const { data: user, isLoading, error, refetch } = useQuery({
     queryKey: ["/api/auth/user"],
@@ -24,7 +25,9 @@ export function useAuth() {
   // Listen for authentication events to refetch user data
   useEffect(() => {
     const handleAuthChange = () => {
-      console.log('🔄 Authentication state changed, refetching user data...');
+      if (isDev) {
+        console.debug('🔄 Authentication state changed, refetching user data...');
+      }
       queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
       refetch();
     };
@@ -39,7 +42,7 @@ export function useAuth() {
       window.removeEventListener('userLoggedOut', handleAuthChange);
       window.removeEventListener('userVerified', handleAuthChange);
     };
-  }, [queryClient, refetch]);
+  }, [isDev, queryClient, refetch]);
 
   // Enhanced authentication state with detailed error tracking
   const isAuthenticated = !!user && !error;

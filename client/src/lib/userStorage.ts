@@ -18,6 +18,11 @@ interface AuthResponse {
 
 // Current user cache
 let currentUserCache: UserAccount | null = null;
+let currentUserPromise: Promise<UserAccount | null> | null = null;
+let lastUserCheck: { user: UserAccount | null; checkedAt: number } | null = null;
+
+const UNAUTHENTICATED_CACHE_TTL_MS = 30_000;
+const isDev = import.meta.env.DEV;
 
 function normalizeUser(user: UserAccount): UserAccount {
   if (!user) return user;
@@ -37,6 +42,7 @@ export async function loginUser(identifier: string, password: string): Promise<U
     
     const authData: AuthResponse = await response.json();
     currentUserCache = normalizeUser(authData.user);
+    lastUserCheck = { user: currentUserCache, checkedAt: Date.now() };
     
     // Store in localStorage as backup/cache
     localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
@@ -81,6 +87,7 @@ export async function registerUser(userData: {
     } else {
       // Registration successful, user logged in immediately  
       currentUserCache = normalizeUser(result.user);
+      lastUserCheck = { user: currentUserCache, checkedAt: Date.now() };
       localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
       localStorage.setItem('authenticated', 'true');
       
@@ -128,6 +135,7 @@ export async function verifyEmail(email: string, code: string): Promise<UserAcco
     
     const authData: AuthResponse = await response.json();
     currentUserCache = normalizeUser(authData.user);
+    lastUserCheck = { user: currentUserCache, checkedAt: Date.now() };
     
     // Store in localStorage as backup/cache
     localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
@@ -152,51 +160,87 @@ export async function verifyEmail(email: string, code: string): Promise<UserAcco
 export async function getCurrentUser(): Promise<UserAccount | null> {
   // Return cached user if available
   if (currentUserCache) {
-    console.log('🔄 getCurrentUser: Returning cached user:', currentUserCache.hackerName);
+    if (isDev) {
+      console.debug('🔄 getCurrentUser: Returning cached user:', currentUserCache.hackerName);
+    }
     return currentUserCache;
   }
+
+  const now = Date.now();
+  if (lastUserCheck && now - lastUserCheck.checkedAt < UNAUTHENTICATED_CACHE_TTL_MS) {
+    return lastUserCheck.user;
+  }
+
+  if (currentUserPromise) {
+    return currentUserPromise;
+  }
   
-  try {
-    // Try to get user from backend
-    console.log('🔄 getCurrentUser: Calling /api/auth/user...');
-    const response = await apiRequest('GET', '/api/auth/user', undefined);
-    const user: UserAccount = await response.json();
-    
-    console.log('🔄 getCurrentUser: Backend response:', {
-      id: user.id,
-      hackerName: user.hackerName,
-      email: user.email
-    });
-    
-    currentUserCache = normalizeUser(user);
-    
-    // Update localStorage cache
-    localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
-    
-    return currentUserCache;
-  } catch (error) {
-    console.error('❌ getCurrentUser: Failed to get current user from backend:', error);
-    
-    // Try to get from localStorage as fallback
+  currentUserPromise = (async () => {
     try {
-      const stored = localStorage.getItem('roguesim_current_user');
-      if (stored) {
-        const user = normalizeUser(JSON.parse(stored));
-        console.log('🔄 getCurrentUser: Using localStorage fallback:', {
+      if (isDev) {
+        console.debug('🔄 getCurrentUser: Calling /api/auth/user...');
+      }
+
+      const response = await fetch('/api/auth/user', { credentials: 'include' });
+      if (response.status === 401) {
+        lastUserCheck = { user: null, checkedAt: Date.now() };
+        return null;
+      }
+      if (!response.ok) {
+        throw new Error(`${response.status}: ${response.statusText}`);
+      }
+
+      const user: UserAccount = await response.json();
+      if (isDev) {
+        console.debug('🔄 getCurrentUser: Backend response:', {
           id: user.id,
           hackerName: user.hackerName,
           email: user.email
         });
-        currentUserCache = user;
-        return user;
       }
-    } catch (storageError) {
-      console.error('❌ getCurrentUser: Failed to get user from localStorage:', storageError);
-}
 
-    console.log('❌ getCurrentUser: No user found anywhere');
-    return null;
-  }
+      currentUserCache = normalizeUser(user);
+      lastUserCheck = { user: currentUserCache, checkedAt: Date.now() };
+
+      // Update localStorage cache
+      localStorage.setItem('roguesim_current_user', JSON.stringify(currentUserCache));
+
+      return currentUserCache;
+    } catch (error) {
+      if (isDev) {
+        console.warn('❌ getCurrentUser: Failed to get current user from backend:', error);
+      }
+
+      // Try to get from localStorage as fallback when backend errors (not auth failures)
+      try {
+        const stored = localStorage.getItem('roguesim_current_user');
+        if (stored && localStorage.getItem('authenticated') === 'true') {
+          const user = normalizeUser(JSON.parse(stored));
+          if (isDev) {
+            console.debug('🔄 getCurrentUser: Using localStorage fallback:', {
+              id: user.id,
+              hackerName: user.hackerName,
+              email: user.email
+            });
+          }
+          currentUserCache = user;
+          lastUserCheck = { user, checkedAt: Date.now() };
+          return user;
+        }
+      } catch (storageError) {
+        if (isDev) {
+          console.warn('❌ getCurrentUser: Failed to get user from localStorage:', storageError);
+        }
+      }
+
+      lastUserCheck = { user: null, checkedAt: Date.now() };
+      return null;
+    } finally {
+      currentUserPromise = null;
+    }
+  })();
+
+  return currentUserPromise;
 }
 
 // Enhanced logout with proper cleanup
@@ -223,6 +267,7 @@ export async function logoutUser(): Promise<void> {
   } finally {
     // Always clear cache and localStorage regardless of API success
     currentUserCache = null;
+    lastUserCheck = { user: null, checkedAt: Date.now() };
     localStorage.removeItem('roguesim_current_user');
     localStorage.removeItem('authenticated');
     
