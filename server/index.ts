@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer } from 'node:http';
 import session from 'express-session';
 import { Server as SocketIOServer } from 'socket.io';
+import cors from 'cors';
 import { randomUUID } from 'node:crypto';
 import { registerRoutes } from './routes';
 import { initDatabase, getPool } from './db';
