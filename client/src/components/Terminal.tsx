@@ -750,7 +750,7 @@ export function Terminal({ gameState, onGameStateUpdate }: TerminalProps) {
               username: currentUser?.hackerName || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
               hackerName: currentUser?.hackerName || currentUser?.username || 'CyberOp_' + (gameState.playerLevel || 1),
               email: currentUser?.email || 'unknown@roguesim.net',
-              avatar: currentUser?.profileImageUrl || '/default-avatar.png',
+              avatar: currentUser?.profileImageUrl || '/default-avatar.svg',
               reputation: gameState.reputation || 'NOVICE',
               level: gameState.playerLevel || 1,
               credits: gameState.credits || 0,

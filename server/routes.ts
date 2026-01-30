@@ -638,6 +638,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
             }
         });
 
+        app.post('/api/user/profile', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const profileData = {
+                    ...req.body,
+                    userId,
+                    id: userId,
+                };
+                const profile = await storage.createUserProfile(profileData);
+                res.json(profile);
+            } catch (error) {
+                console.error('Error creating user profile:', error);
+                res.status(500).json({ error: 'Failed to create user profile' });
+            }
+        });
+
+        app.get('/api/user/profile', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const profile = await storage.getUserProfile(userId);
+                if (!profile) {
+                    return res.status(404).json({ error: 'Profile not found' });
+                }
+                res.json(profile);
+            } catch (error) {
+                console.error('Error loading user profile:', error);
+                res.status(500).json({ error: 'Failed to load user profile' });
+            }
+        });
+
+        app.patch('/api/user/profile', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const updates = req.body;
+                const profile = await storage.updateUserProfile(userId, updates);
+                res.json(profile);
+            } catch (error) {
+                console.error('Error updating user profile:', error);
+                res.status(500).json({ error: 'Failed to update user profile' });
+            }
+        });
+
+        app.post('/api/user/log-activity', async (req: any, res) => {
+            try {
+                const sessionUserId = req.session?.userId;
+                const body = req.body ?? {};
+                const username = typeof body.username === 'string' ? body.username : sessionUserId ?? 'anonymous';
+                const action = typeof body.action === 'string' ? body.action : 'unknown';
+                const details = {
+                    username,
+                    timestamp: typeof body.timestamp === 'string' ? body.timestamp : new Date().toISOString(),
+                    userAgent: typeof body.userAgent === 'string' ? body.userAgent : req.get('user-agent'),
+                    ipAddress: req.ip,
+                    metadata: typeof body.metadata === 'object' && body.metadata ? body.metadata : undefined,
+                };
+                logUserAction(sessionUserId ?? username, action, details);
+                res.status(204).end();
+            } catch (error) {
+                console.error('Error logging user activity:', error);
+                res.status(204).end();
+            }
+        });
+
         // Social graph endpoints
         app.get('/api/social/friends', isAuthenticated, async (req: any, res) => {
             try {
@@ -767,6 +830,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
                     return res.status(400).json({ error: error.message });
                 }
                 res.status(500).json({ error: 'Failed to block user' });
+            }
+        });
+
+        app.post('/api/commands/log', isAuthenticated, async (req: any, res) => {
+            try {
+                const userId: string = req.session.userId;
+                const { command, args = [], success = true } = req.body ?? {};
+
+                if (typeof command !== 'string' || command.trim().length === 0) {
+                    return res.status(400).json({ error: 'command is required' });
+                }
+
+                const commandLogData = {
+                    userId,
+                    sessionId: req.sessionID,
+                    command: command.trim(),
+                    args: Array.isArray(args) ? args : [],
+                    success: Boolean(success),
+                    output: [`Command '${command.trim()}' executed ${success ? 'successfully' : 'with errors'}`],
+                };
+
+                const validatedCommandLog = insertCommandLogSchema.parse(commandLogData);
+                const savedLog = await storage.logCommand(validatedCommandLog);
+                res.json(savedLog);
+            } catch (error) {
+                console.error('Error logging command:', error);
+                if (error && typeof error === 'object' && 'issues' in error) {
+                    return res.status(400).json({ error: 'Invalid command log data', details: (error as any).issues });
+                }
+                res.status(500).json({ error: 'Failed to log command' });
             }
         });
 
