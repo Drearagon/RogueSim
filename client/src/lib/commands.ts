@@ -4432,7 +4432,7 @@ export const commands: Record<string, Command> = {
       try {
         const overview = await fetchFriendOverviewSnapshot();
         const match = (overview.blocked || []).find((blocked: any) =>
-          blocked.userId === rawIdentifier || blocked.hackerName?.toLowerCase() === identifier
+          blocked.userId === identifier || blocked.hackerName?.toLowerCase() === identifier
         );
 
         if (!match) {
@@ -4455,7 +4455,7 @@ export const commands: Record<string, Command> = {
       } catch (error) {
         return formatFriendError(error, 'Unable to unblock operative.');
       }
-    }
+    },
   },
 
 };
