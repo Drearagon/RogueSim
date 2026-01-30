@@ -217,6 +217,20 @@ export default function App() {
     }
   }, []);
 
+  const handleMissionProgressionUpdate = useCallback(
+    (progression: MissionProgressionState) => {
+      updateGameState({ missionProgression: progression });
+    },
+    [updateGameState]
+  );
+
+  const handleDynamicMissionPoolUpdate = useCallback(
+    (missions: Mission[]) => {
+      updateGameState({ dynamicMissionDeck: missions });
+    },
+    [updateGameState]
+  );
+
   // Show loading while authentication is being determined
   if (authLoading || gameLoading) {
     return (
@@ -348,20 +362,6 @@ export default function App() {
 
     setShowMissionInterface(false);
   };
-
-  const handleMissionProgressionUpdate = useCallback(
-    (progression: MissionProgressionState) => {
-      updateGameState({ missionProgression: progression });
-    },
-    [updateGameState]
-  );
-
-  const handleDynamicMissionPoolUpdate = useCallback(
-    (missions: Mission[]) => {
-      updateGameState({ dynamicMissionDeck: missions });
-    },
-    [updateGameState]
-  );
 
   const handleMiniGameComplete = (success: boolean, score: number) => {
     if (activeMiniGame && activeMiniGame.currentGame) {
