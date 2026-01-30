@@ -132,11 +132,13 @@ export function useGameState() {
         
         // Log skill tree updates for debugging
         if (updates.skillTree) {
-          console.log('Skill tree state updated:', {
-            skillPoints: newState.skillTree.skillPoints,
-            totalSkills: newState.skillTree.totalSkillsUnlocked,
-            nodes: newState.skillTree.nodes.filter(n => n.purchased).length
-          });
+          if (import.meta.env.DEV) {
+            console.debug('Skill tree state updated:', {
+              skillPoints: newState.skillTree.skillPoints,
+              totalSkills: newState.skillTree.totalSkillsUnlocked,
+              nodes: newState.skillTree.nodes.filter(n => n.purchased).length
+            });
+          }
         }
       } catch (error) {
         console.error('Critical: Failed to save game state:', error);

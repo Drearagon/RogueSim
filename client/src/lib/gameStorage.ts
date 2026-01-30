@@ -7,6 +7,7 @@ import { applyEventSchedule } from './eventScheduler';
 
 const STORAGE_KEY = 'roguesim_game_state';
 const SESSION_KEY = 'roguesim_session_id';
+const isDev = import.meta.env.DEV;
 
 const baseDefaultGameState: GameState = {
   currentMission: 0,
@@ -108,7 +109,9 @@ export async function loadGameState(): Promise<GameState> {
         const savedState = await response.json();
         
         if (savedState && savedState.gameState) {
-          console.log('Game state loaded from backend successfully');
+          if (isDev) {
+            console.debug('Game state loaded from backend successfully');
+          }
           // Ensure all required properties exist by merging with default
           const gameState = applyEventSchedule({ ...defaultGameState, ...savedState.gameState });
 
@@ -118,7 +121,9 @@ export async function loadGameState(): Promise<GameState> {
           return gameState;
         }
       } catch (error) {
-        console.warn('Failed to load game state from backend:', error);
+        if (isDev) {
+          console.warn('Failed to load game state from backend:', error);
+        }
         // Fall through to localStorage
       }
     }
@@ -162,12 +167,18 @@ export async function saveGameState(gameState: GameState): Promise<void> {
           sessionId: 'current', // This will be set by the backend
           gameMode: 'single'
         });
-        console.log('Game state saved to backend successfully');
+        if (isDev) {
+          console.debug('Game state saved to backend successfully');
+        }
       } else {
-        console.log('Game state saved to localStorage only (not authenticated)');
+        if (isDev) {
+          console.debug('Game state saved to localStorage only (not authenticated)');
+        }
       }
     } catch (backendError) {
-      console.warn('Failed to save to backend, saved to localStorage only:', backendError);
+      if (isDev) {
+        console.warn('Failed to save to backend, saved to localStorage only:', backendError);
+      }
     }
   } catch (error: unknown) {
     console.error("Game save failed:", error);
