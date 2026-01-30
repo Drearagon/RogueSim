@@ -415,7 +415,7 @@ export default function App() {
         onBack={() => setCurrentView('game')}
         currentUser={{
           username: effectiveUser?.hackerName || 'Anonymous_Hacker',
-          avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
+          avatar: effectiveUser?.profileImageUrl || '/default-avatar.svg',
           id: effectiveUser?.id || 'mobile_user'
         }}
       />
@@ -428,7 +428,7 @@ export default function App() {
         onClose={() => setCurrentView('game')} 
         currentUser={{
           username: effectiveUser?.hackerName || 'Anonymous_Hacker',
-          avatar: effectiveUser?.profileImageUrl || '/default-avatar.png',
+          avatar: effectiveUser?.profileImageUrl || '/default-avatar.svg',
           id: effectiveUser?.id || 'mobile_user',
           level: gameState.playerLevel,
           credits: gameState.credits,

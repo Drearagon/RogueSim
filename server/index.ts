@@ -215,10 +215,11 @@ app.get('/health', (_req, res) => res.status(200).send('OK'));
         secret: process.env.SESSION_SECRET || 'change_me_in_env',
         resave: false,
         saveUninitialized: false,
+        proxy: true,
         cookie: {
           httpOnly: true,
           sameSite: 'lax',
-          secure: process.env.NODE_ENV !== 'development',
+          secure: 'auto',
           maxAge: 24 * 60 * 60 * 1000,
         },
         name: 'roguesim.sid',
@@ -226,6 +227,9 @@ app.get('/health', (_req, res) => res.status(200).send('OK'));
     );
     await registerRoutes(app);
     console.log('API routes registered successfully');
+    app.use('/api', (req, res) => {
+      res.status(404).json({ error: 'Not Found', path: req.originalUrl });
+    });
   } catch (e) {
     console.error('Failed to register API routes:', e);
   }

@@ -62,6 +62,21 @@ import { log } from "./utils"; // Import log function for consistent logging
 import crypto from "crypto"; // For hashing verification codes
 import { v4 as uuidv4 } from 'uuid';
 
+const missingRelationWarnings = new Set<string>();
+
+const isMissingRelationError = (error: unknown, relation: string): boolean => {
+    const message = error instanceof Error ? error.message : String(error ?? '');
+    return message.includes(`relation "${relation}" does not exist`);
+};
+
+const warnMissingRelation = (relation: string): void => {
+    if (missingRelationWarnings.has(relation)) {
+        return;
+    }
+    missingRelationWarnings.add(relation);
+    log(`⚠️ Missing database table "${relation}". Run migrations to enable social features.`, 'storage');
+};
+
 export interface FriendRelationshipSummary {
     id: number;
     friendId: string;
@@ -1308,38 +1323,54 @@ export class DatabaseStorage implements IStorage {
     }
 
     async getBlockListsForUser(userId: string): Promise<{ blocked: string[]; blockedBy: string[] }> {
-        const blocked = await this.drizzleDb
-            .select({ blockedId: userBlocks.blockedId })
-            .from(userBlocks)
-            .where(eq(userBlocks.blockerId, userId));
+        try {
+            const blocked = await this.drizzleDb
+                .select({ blockedId: userBlocks.blockedId })
+                .from(userBlocks)
+                .where(eq(userBlocks.blockerId, userId));
 
-        const blockedBy = await this.drizzleDb
-            .select({ blockerId: userBlocks.blockerId })
-            .from(userBlocks)
-            .where(eq(userBlocks.blockedId, userId));
+            const blockedBy = await this.drizzleDb
+                .select({ blockerId: userBlocks.blockerId })
+                .from(userBlocks)
+                .where(eq(userBlocks.blockedId, userId));
 
-        return {
-            blocked: blocked.map((row) => row.blockedId),
-            blockedBy: blockedBy.map((row) => row.blockerId),
-        };
+            return {
+                blocked: blocked.map((row) => row.blockedId),
+                blockedBy: blockedBy.map((row) => row.blockerId),
+            };
+        } catch (error) {
+            if (isMissingRelationError(error, 'user_blocks')) {
+                warnMissingRelation('user_blocks');
+                return { blocked: [], blockedBy: [] };
+            }
+            throw error;
+        }
     }
 
     async getAcceptedFriendIds(userId: string): Promise<string[]> {
-        const relationships = await this.drizzleDb
-            .select({
-                requesterId: userFriends.requesterId,
-                addresseeId: userFriends.addresseeId,
-            })
-            .from(userFriends)
-            .where(and(
-                eq(userFriends.status, 'accepted' as FriendStatus),
-                or(
-                    eq(userFriends.requesterId, userId),
-                    eq(userFriends.addresseeId, userId)
-                )
-            ));
+        try {
+            const relationships = await this.drizzleDb
+                .select({
+                    requesterId: userFriends.requesterId,
+                    addresseeId: userFriends.addresseeId,
+                })
+                .from(userFriends)
+                .where(and(
+                    eq(userFriends.status, 'accepted' as FriendStatus),
+                    or(
+                        eq(userFriends.requesterId, userId),
+                        eq(userFriends.addresseeId, userId)
+                    )
+                ));
 
-        return relationships.map((row) => (row.requesterId === userId ? row.addresseeId : row.requesterId));
+            return relationships.map((row) => (row.requesterId === userId ? row.addresseeId : row.requesterId));
+        } catch (error) {
+            if (isMissingRelationError(error, 'user_friends')) {
+                warnMissingRelation('user_friends');
+                return [];
+            }
+            throw error;
+        }
     }
 
     async isUserBlocked(userId: string, targetUserId: string): Promise<boolean> {
